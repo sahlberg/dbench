@@ -19,7 +19,7 @@
 
 #include "dbench.h"
 
-static void sigusr1(void)
+static void sigcont(void)
 {
 }
 
@@ -30,7 +30,7 @@ static double create_procs(int nprocs, void (*fn)(int ))
 	volatile int *child_status;
 	int synccount;
 
-	signal(SIGUSR1, sigusr1);
+	signal(SIGCONT, sigcont);
 
 	start_timer();
 
@@ -70,7 +70,7 @@ static double create_procs(int nprocs, void (*fn)(int ))
 	}
 
 	start_timer();
-	kill(0, SIGUSR1);
+	kill(0, SIGCONT);
 
 	printf("%d clients started\n", nprocs);
 
