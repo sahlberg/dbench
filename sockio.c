@@ -86,6 +86,11 @@ void nb_unlink(struct child_struct *child, char *fname)
 	do_packets(83, 39);
 }
 
+void nb_rmdir(struct child_struct *child, char *fname)
+{
+	do_packets(83, 39);
+}
+
 void nb_createx(struct child_struct *child, char *fname, 
 		unsigned create_options, unsigned create_disposition, int fnum)
 {

@@ -98,6 +98,15 @@ void nb_unlink(struct child_struct *child, char *fname)
 	if (sync_dirs) sync_parent(fname);
 }
 
+void nb_rmdir(struct child_struct *child, char *fname)
+{
+	if (rmdir(fname) != 0) {
+		printf("(%d) rmdir %s failed (%s)\n", 
+		       child->line, fname, strerror(errno));
+	}
+	if (sync_dirs) sync_parent(fname);
+}
+
 void nb_createx(struct child_struct *child, char *fname, 
 		unsigned create_options, unsigned create_disposition, int fnum)
 {
@@ -232,7 +241,4 @@ void nb_findfirst(struct child_struct *child, char *fname)
 
 void nb_cleanup(struct child_struct *child)
 {
-	char path[100];
-	sprintf(path, "/bin/rm -rf clients/client%d", child->id);
-	system(path);
 }

@@ -88,6 +88,8 @@ void child_run(struct child_struct *child)
 			nb_rename(child, params[1], params[2]);
 		} else if (!strcmp(params[0],"Unlink")) {
 			nb_unlink(child, params[1]);
+		} else if (!strcmp(params[0],"Rmdir")) {
+			nb_rmdir(child, params[1]);
 		} else if (!strcmp(params[0],"QUERY_PATH_INFORMATION")) {
 			nb_qpathinfo(child, params[1]);
 		} else if (!strcmp(params[0],"QUERY_FILE_INFORMATION")) {
@@ -106,6 +108,7 @@ void child_run(struct child_struct *child)
 			nb_flush(child, ival(params[1]));
 		} else {
 			printf("Unknown operation %s\n", params[0]);
+			fflush(stdout);
 			exit(1);
 		}
 	}

@@ -4,6 +4,7 @@ void child_run(struct child_struct *child);
 void sync_parent(char *fname);
 void nb_setup(struct child_struct *child);
 void nb_unlink(struct child_struct *child, char *fname);
+void nb_rmdir(struct child_struct *child, char *fname);
 void nb_createx(struct child_struct *child, char *fname, 
 		unsigned create_options, unsigned create_disposition, int fnum);
 void nb_writex(struct child_struct *child, int handle, int offset, 

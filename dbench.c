@@ -124,6 +124,11 @@ static double create_procs(int nprocs, void (*fn)(struct child_struct * ))
 
 	for (i=0;i<nprocs;) {
 		if (waitpid(0, &status, 0) == -1) continue;
+		if (WEXITSTATUS(status) != 0) {
+			printf("Child failed with status %d\n",
+			       WEXITSTATUS(status));
+			exit(1);
+		}
 		i++;
 	}
 
