@@ -30,6 +30,8 @@ AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(ctype.h strings.h stdlib.h string.h sys/vfs.h sys/statvfs.h stdint.h)
 
 AC_CHECK_HEADERS(sys/attributes.h attr/xattr.h sys/xattr.h sys/extattr.h sys/uio.h)
+AC_CHECK_HEADERS(sys/mount.h)
+
 AC_CHECK_FUNCS(fdatasync)
 # Check if we have libattr
 AC_SEARCH_LIBS(getxattr, [attr])
