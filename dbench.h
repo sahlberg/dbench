@@ -44,8 +44,12 @@
 #include <netinet/tcp.h>
 #include <netdb.h>
 
-#if HAVE_XATTR_SUPPORT
+#if HAVE_ATTR_XATTR_H
 #include <attr/xattr.h>
+#elif HAVE_SYS_XATTR_H
+#include <sys/xattr.h>
+#elif HAVE_SYS_ATTRIBUTES_H
+#include <sys/attributes.h>
 #endif
 
 #ifndef MSG_WAITALL
