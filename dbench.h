@@ -17,12 +17,11 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#define _XOPEN_SOURCE 500
-
+#include "config.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
-#include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 #include <dirent.h>
@@ -32,15 +31,22 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <fcntl.h>
+#include <time.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/mman.h>
+#include <sys/vfs.h>
+#include <utime.h>
 #include <errno.h>
 #include <strings.h>
 #include <stdint.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netdb.h>
+
+#if HAVE_XATTR_SUPPORT
+#include <attr/xattr.h>
+#endif
 
 #ifndef MSG_WAITALL
 #define MSG_WAITALL 0x100
@@ -62,9 +68,16 @@ struct child_struct {
 	int id;
 	int nprocs;
 	int status;
+	int failed;
 	int line;
 	int done;
+	int cleanup;
+	int warmup;
+	int timelimit;
+	const char *directory;
 	double bytes_in, bytes_out;
+	struct timeval tv_start;
+	struct timeval tv_now;
 };
 
 

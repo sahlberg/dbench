@@ -27,34 +27,82 @@
 
 int sync_open = 0, sync_dirs = 0;
 char *tcp_options = TCP_OPTIONS;
+static int timelimit = 600, warmup;
+const char *directory = ".";
+static char *loadfile = DATADIR "client_enterprise.txt";
 
-#if WITH_XATTR
+#if HAVE_XATTR_SUPPORT
 int xattr_enable=0;
 #endif
+
+static FILE *open_loadfile(void)
+{
+	FILE		*f;
+
+	if ((f = fopen(loadfile, "rt")) != NULL)
+		return f;
+
+	fprintf(stderr,
+		"dbench: error opening %s: %s\n", loadfile,
+		strerror(errno));
+
+	return NULL;
+}
+
 
 static struct child_struct *children;
 
 static void sigcont(int sig)
 {
+	(void)sig;
 }
 
 static void sig_alarm(int sig)
 {
-	double total = 0;
+	double total_bytes = 0;
 	int total_lines = 0;
 	int running = 0;
 	int i;
 	int nprocs = children[0].nprocs;
+	int in_warmup = 0, in_cleanup = 0;
+	double t;
+	struct timeval tv_start;
+
+	(void)sig;
+
+	tv_start = children[0].tv_start;
 
 	for (i=0;i<nprocs;i++) {
-		total += children[i].bytes_in + children[i].bytes_out;
+		if (children[i].warmup) in_warmup = children[i].warmup;
+		total_bytes += children[i].bytes_in + children[i].bytes_out;
 		total_lines += children[i].line;
 		if (!children[i].done) running++;
+		if (children[i].cleanup) in_cleanup = 1;
+		tv_start = timeval_min(&tv_start, &children[i].tv_start);
 	}
-	/* yeah, I'm doing stdio in a signal handler. So sue me. */
-	printf("%4d  %8d  %.2f MB/sec    \r",
-	       running,
-	       total_lines / nprocs, 1.0e-6 * total / end_timer());
+
+	t = timeval_elapsed(&tv_start);
+
+	if (t < 1) {
+		signal(SIGALRM, sig_alarm);
+		alarm(PRINT_FREQ);
+		return;
+	}
+
+        if (in_warmup) {
+                printf("%4d  %8d  %7.2f MB/sec  warmup %3.0f sec   \n", 
+                       running, total_lines/nprocs, 
+                       1.0e-6 * total_bytes / t, t);
+        } else if (in_cleanup) {
+                printf("%4d  %8d  %7.2f MB/sec  cleanup %3.0f sec   \n", 
+                       running, total_lines/nprocs, 
+                       1.0e-6 * total_bytes / t, t);
+        } else {
+                printf("%4d  %8d  %7.2f MB/sec  execute %3.0f sec   \n", 
+                       running, total_lines/nprocs, 
+                       1.0e-6 * total_bytes / t, t);
+        }
+
 	fflush(stdout);
 	signal(SIGALRM, sig_alarm);
 	alarm(PRINT_FREQ);
@@ -62,14 +110,16 @@ static void sig_alarm(int sig)
 
 /* this creates the specified number of child processes and runs fn()
    in all of them */
-static double create_procs(int nprocs, void (*fn)(struct child_struct * ))
+static void create_procs(int nprocs, void (*fn)(struct child_struct *, const char *))
 {
 	int i, status;
 	int synccount;
+	struct timeval tv;
+	FILE *load;
+
+	load = open_loadfile();
 
 	signal(SIGCONT, sigcont);
-
-	start_timer();
 
 	synccount = 0;
 
@@ -77,13 +127,13 @@ static double create_procs(int nprocs, void (*fn)(struct child_struct * ))
 		fprintf(stderr,
 			"create %d procs?  you must be kidding.\n",
 			nprocs);
-		return 1;
+		return;
 	}
 
 	children = shm_setup(sizeof(struct child_struct)*nprocs);
 	if (!children) {
 		printf("Failed to setup shared memory\n");
-		return end_timer();
+		return;
 	}
 
 	memset(children, 0, sizeof(*children)*nprocs);
@@ -91,34 +141,38 @@ static double create_procs(int nprocs, void (*fn)(struct child_struct * ))
 	for (i=0;i<nprocs;i++) {
 		children[i].id = i;
 		children[i].nprocs = nprocs;
+		children[i].timelimit = timelimit;
+		children[i].warmup = warmup;
+		children[i].cleanup = 0;
+		children[i].directory = directory;
 	}
 
 	for (i=0;i<nprocs;i++) {
 		if (fork() == 0) {
-			setbuffer(stdout, NULL, 0);
+			setlinebuf(stdout);
 			nb_setup(&children[i]);
 			children[i].status = getpid();
 			pause();
-			fn(&children[i]);
+			fn(&children[i], loadfile);
 			_exit(0);
 		}
 	}
 
+	tv = timeval_current();
 	do {
 		synccount = 0;
 		for (i=0;i<nprocs;i++) {
 			if (children[i].status) synccount++;
 		}
 		if (synccount == nprocs) break;
-		sleep(1);
-	} while (end_timer() < 30);
+		usleep(100000);
+	} while (timeval_elapsed(&tv) < 30);
 
 	if (synccount != nprocs) {
 		printf("FAILED TO START %d CLIENTS (started %d)\n", nprocs, synccount);
-		return end_timer();
+		return;
 	}
 
-	start_timer();
 	kill(0, SIGCONT);
 
 	signal(SIGALRM, sig_alarm);
@@ -140,20 +194,22 @@ static double create_procs(int nprocs, void (*fn)(struct child_struct * ))
 	sig_alarm(SIGALRM);
 
 	printf("\n");
-	return end_timer();
 }
 
 
 static void show_usage(void)
 {
 	printf("usage: dbench [OPTIONS] nprocs\n"
+	       "usage: tbench [OPTIONS] nprocs <server>\n"
 	       "options:\n"
 	       "  -v               show version\n"
+	       "  -t timelimit     run time in seconds\n"
+	       "  -D directory     base directory to run in\n"
 	       "  -c CLIENT.TXT    set location of client.txt\n"
 	       "  -s               synchronous file IO\n"
 	       "  -S               synchronous directories (mkdir, unlink...)\n"
 	       "  -x               enable xattr support\n"
-	       "  -t options       set socket options for tbench\n");
+	       "  -T options       set socket options for tbench\n");
 	exit(1);
 }
 
@@ -163,14 +219,13 @@ static int process_opts(int argc, char **argv,
 			int *nprocs)
 {
 	int c;
-	extern char *client_filename;
 	extern int sync_open;
 	extern char *server;
 
-	while ((c = getopt(argc, argv, "vc:sSt:x")) != -1) 
+	while ((c = getopt(argc, argv, "vc:sST:t:x")) != -1) 
 		switch (c) {
 		case 'c':
-			client_filename = optarg;
+			loadfile = optarg;
 			break;
 		case 's':
 			sync_open = 1;
@@ -178,19 +233,28 @@ static int process_opts(int argc, char **argv,
 		case 'S':
 			sync_dirs = 1;
 			break;
-		case 't':
+		case 'T':
 			tcp_options = optarg;
+			break;
+		case 't':
+			timelimit = atoi(optarg);
+			break;
+		case 'D':
+			directory = optarg;
 			break;
 		case 'v':
 			printf("dbench version %s\nCopyright tridge@samba.org\n",
 			       VERSION);
 			exit(0);
 			break;
-#if WITH_XATTR
 		case 'x':
+#if HAVE_XATTR_SUPPORT
 			xattr_enable = 1;
-			break;
+#else
+			printf("xattr suppport not compiled in\n");
+			exit(1);
 #endif
+			break;
 		case '?':
 			if (isprint (optopt))
 				fprintf (stderr, "Unknown option `-%c'.\n", optopt);
@@ -219,23 +283,28 @@ static int process_opts(int argc, char **argv,
  int main(int argc, char *argv[])
 {
 	int nprocs;
-	double t;
 	double total_bytes = 0;
+	double total_time = 0;
 	int i;
 
 	if (!process_opts(argc, argv, &nprocs))
 		show_usage();
 
-	t = create_procs(nprocs, child_run);
+	warmup = timelimit / 20;
+
+        printf("Running for %d seconds with load '%s' and warmup %d secs\n", 
+               timelimit, loadfile, warmup);
+
+	create_procs(nprocs, child_run);
 
 	for (i=0;i<nprocs;i++) {
 		total_bytes += children[i].bytes_in + children[i].bytes_out;
+		total_time += timeval_elapsed2(&children[i].tv_start,
+					       &children[i].tv_now);
 	}
 
-	t = end_timer();
-
 	printf("Throughput %g MB/sec%s%s %d procs\n", 
-	       1.0e-6 * total_bytes / t, 
+	       1.0e-6 * total_bytes / (total_time / nprocs),
 	       sync_open ? " (sync open)" : "",
 	       sync_dirs ? " (sync dirs)" : "", nprocs);
 	return 0;

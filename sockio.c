@@ -28,10 +28,9 @@ char *server = "localhost";
 static int sock;
 
 /* emulate a single SMB packet exchange */
-static void do_packets(unsigned long send_size, unsigned long recv_size)
+static void do_packets(int send_size, int recv_size)
 {
 	uint32 *ubuf = (uint32 *)buf;
-	static int counter;
 
 	ubuf[0] = htonl(send_size-4);
 	ubuf[1] = htonl(recv_size-4);
@@ -64,6 +63,7 @@ static void do_packets(unsigned long send_size, unsigned long recv_size)
 	}
 }
 
+
 void nb_setup(struct child_struct *child)
 {
 	extern char *tcp_options;
@@ -78,78 +78,175 @@ void nb_setup(struct child_struct *child)
 	do_packets(8, 8);
 }
 
-
-void nb_unlink(struct child_struct *child, char *fname)
+void nb_unlink(struct child_struct *child, char *fname, int attr, const char *status)
 {
-	do_packets(39+2+strlen(fname)*2+2, 39);
+	(void)child;
+	(void)attr;
+	(void)status;
+        do_packets(39+2+strlen(fname)*2+2, 39);
 }
 
-void nb_rmdir(struct child_struct *child, char *fname)
+void nb_mkdir(struct child_struct *child, char *dname, const char *status)
 {
-	do_packets(83, 39);
+	(void)child;
+	(void)status;
+        do_packets(39+2+strlen(dname)*2+2, 39);
 }
 
-void nb_createx(struct child_struct *child, char *fname, 
-		unsigned create_options, unsigned create_disposition, int fnum)
+void nb_rmdir(struct child_struct *child, char *fname, const char *status)
 {
-	do_packets(111, 69);
+	(void)child;
+	(void)status;
+        do_packets(39+2+strlen(fname)*2+2, 39);
+}
+
+void nb_createx(struct child_struct *child, const char *fname, 
+		uint32_t create_options, uint32_t create_disposition, int fnum,
+		const char *status)
+{
+	(void)child;
+	(void)create_options;
+	(void)create_disposition;
+	(void)fnum;
+	(void)status;
+        do_packets(70+2+strlen(fname)*2+2, 39+12*4);
 }
 
 void nb_writex(struct child_struct *child, int handle, int offset, 
-	       int size, int ret_size)
+	       int size, int ret_size, const char *status)
 {
-	child->bytes_out += size;
-	do_packets(39+24+size, 39+12);
+	(void)child;
+	(void)handle;
+	(void)offset;
+	(void)ret_size;
+	(void)status;
+        do_packets(39+20+size, 39+16);
+	child->bytes_out += ret_size;
 }
 
 void nb_readx(struct child_struct *child, int handle, int offset, 
-	      int size, int ret_size)
+	      int size, int ret_size, const char *status)
 {
-	child->bytes_in += size;
-	do_packets(55, size+39+24);
+	(void)child;
+	(void)handle;
+	(void)offset;
+	(void)size;
+	(void)status;
+        do_packets(39+20, 39+20+ret_size);
+	child->bytes_in += ret_size;
 }
 
-void nb_close(struct child_struct *child, int handle)
+void nb_close(struct child_struct *child, int handle, const char *status)
 {
-	do_packets(45, 39);
+	(void)child;
+	(void)handle;
+	(void)status;
+        do_packets(39+8, 39);
 }
 
-void nb_rename(struct child_struct *child, char *old, char *new)
+void nb_rename(struct child_struct *child, char *old, char *new, const char *status)
 {
-	do_packets(41+strlen(old)+strlen(new), 39);
+	(void)child;
+	(void)status;
+        do_packets(39+8+2*strlen(old)+2*strlen(new), 39);
 }
 
-void nb_qpathinfo(struct child_struct *child, const char *fname)
+void nb_flush(struct child_struct *child, int handle, const char *status)
 {
-	do_packets(41+strlen(fname), 80);
+	(void)child;
+	(void)handle;
+	(void)status;
+        do_packets(39+2, 39);
 }
 
-void nb_qfileinfo(struct child_struct *child, int handle)
+void nb_qpathinfo(struct child_struct *child, const char *fname, int level, 
+		  const char *status)
 {
-	do_packets(41, 80);
+	(void)child;
+	(void)level;
+	(void)status;
+        do_packets(39+16+2*strlen(fname), 39+32);
 }
 
-void nb_qfsinfo(struct child_struct *child, int level)
+void nb_qfileinfo(struct child_struct *child, int handle, int level, const char *status)
 {
-	do_packets(41, 80);
+	(void)child;
+	(void)level;
+	(void)handle;
+	(void)status;
+        do_packets(39+20, 39+32);
 }
 
-void nb_findfirst(struct child_struct *child, char *fname)
+void nb_qfsinfo(struct child_struct *child, int level, const char *status)
 {
-	do_packets(41+strlen(fname), 200);
+	(void)child;
+	(void)level;
+	(void)status;
+        do_packets(39+20, 39+32);
 }
 
-void nb_flush(struct child_struct *child, int handle)
+void nb_findfirst(struct child_struct *child, char *fname, int level, int maxcnt, 
+		  int count, const char *status)
 {
-	do_packets(41, 39);
+	(void)child;
+	(void)level;
+	(void)maxcnt;
+	(void)status;
+        do_packets(39+20+strlen(fname)*2, 39+90*count);
 }
 
 void nb_cleanup(struct child_struct *child)
 {
-	/* noop */
+	(void)child;
 }
 
 void nb_deltree(struct child_struct *child, char *dname)
 {
-	/* noop */
+	(void)child;
+	(void)dname;
+}
+
+void nb_warmup_done(struct child_struct *child)
+{
+	child->bytes_in = child->bytes_out = 0;
+}
+
+
+void nb_sfileinfo(struct child_struct *child, int handle, int level, const char *status)
+{
+	(void)child;
+	(void)handle;
+	(void)level;
+	(void)status;
+        do_packets(39+32, 39+8);
+}
+
+void nb_lockx(struct child_struct *child, int handle, uint32_t offset, int size, 
+	      const char *status)
+{
+	(void)child;
+	(void)handle;
+	(void)offset;
+	(void)size;
+	(void)status;
+        do_packets(39+12, 39);
+}
+
+void nb_unlockx(struct child_struct *child,
+		int handle, uint32_t offset, int size, const char *status)
+{
+	(void)child;
+	(void)handle;
+	(void)offset;
+	(void)size;
+	(void)status;
+        do_packets(39+12, 39);
+}
+
+void nb_sleep(struct child_struct *child, int usec, const char *status)
+{
+	(void)child;
+	(void)usec;
+	(void)status;
+	usleep(usec);
 }

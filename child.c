@@ -28,98 +28,144 @@
 
 #include "dbench.h"
 
-char *client_filename = DATADIR "client_oplocks.txt";
-
-
-FILE * open_client_dump(void)
-{
-	FILE		*f;
-
-	if ((f = fopen(client_filename, "rt")) != NULL)
-		return f;
-
-	fprintf(stderr,
-		"dbench: error opening %s: %s\n", client_filename,
-		strerror(errno));
-
-	return NULL;
-}
-
 #define ival(s) strtol(s, NULL, 0)
 
-void child_run(struct child_struct *child)
+
+/* run a test that simulates an approximate netbench client load */
+void child_run(struct child_struct *child, const char *loadfile)
 {
 	int i;
 	char line[1024];
-	char cname[20];
-	FILE *f;
-	char *params[20];
+	char *cname;
+	char params[20][100];
+	char *p;
+	const char *status;
+	char *fname = NULL;
+	char *fname2 = NULL;
+	FILE *f = fopen(loadfile, "r");
 
 	child->line = 0;
 
-	sprintf(cname,"client%d", child->id);
+	asprintf(&cname,"client%d", child->id);
 
-	f = open_client_dump();
+	child->tv_start = timeval_current();
+	child->tv_now = timeval_current();
 
-	if (!f) {
-		exit(1);
-	}
-
+again:
 	while (fgets(line, sizeof(line)-1, f)) {
+		if (child->warmup && 
+		    timeval_elapsed(&child->tv_start) >= child->warmup) {
+			child->warmup = 0;
+			nb_warmup_done(child);
+			child->tv_start = timeval_current();
+			child->tv_now = child->tv_start;
+		}
+
+		if (timeval_elapsed(&child->tv_start) >= child->timelimit) {
+			goto done;
+		}
+
 		child->line++;
+
+		line[strlen(line)-1] = 0;
 
 		all_string_sub(line,"client1", cname);
 		all_string_sub(line,"\\", "/");
 		all_string_sub(line," /", " ");
 		
-		/* parse the command parameters */
-		params[0] = strtok(line," \n");
-		i = 0;
-		while (params[i]) params[++i] = strtok(NULL," \n");
-		params[i] = "";
+		p = line;
+		for (i=0; 
+		     i<19 && next_token(&p, params[i], " ");
+		     i++) ;
 
-		if (i < 2) continue;
+		params[i][0] = 0;
+
+		if (i < 2 || params[0][0] == '#') continue;
 
 		if (!strncmp(params[0],"SMB", 3)) {
 			printf("ERROR: You are using a dbench 1 load file\n");
 			exit(1);
 		}
 
+		if (strncmp(params[i-1], "NT_STATUS_", 10) != 0) {
+			printf("Badly formed status at line %d\n", child->line);
+			continue;
+		}
+
+		if (fname) {
+			free(fname);
+			fname = NULL;
+		}
+		if (fname2) {
+			free(fname2);
+			fname2 = NULL;
+		}
+
+		if (i>1 && params[1][0] == '/') {
+			asprintf(&fname, "%s%s", child->directory, params[1]);
+		}
+		if (i>2 && params[2][0] == '/') {
+			asprintf(&fname2, "%s%s", child->directory, params[2]);
+		}
+
+		status = params[i-1];
+
 		if (!strcmp(params[0],"NTCreateX")) {
-			nb_createx(child, params[1], ival(params[2]), ival(params[3]), 
-				   ival(params[4]));
+			nb_createx(child, fname, ival(params[2]), ival(params[3]), 
+				   ival(params[4]), status);
 		} else if (!strcmp(params[0],"Close")) {
-			nb_close(child, ival(params[1]));
+			nb_close(child, ival(params[1]), status);
 		} else if (!strcmp(params[0],"Rename")) {
-			nb_rename(child, params[1], params[2]);
+			nb_rename(child, fname, fname2, status);
 		} else if (!strcmp(params[0],"Unlink")) {
-			nb_unlink(child, params[1]);
+			nb_unlink(child, fname, ival(params[2]), status);
 		} else if (!strcmp(params[0],"Deltree")) {
-			nb_deltree(child, params[1]);
+			nb_deltree(child, fname);
 		} else if (!strcmp(params[0],"Rmdir")) {
-			nb_rmdir(child, params[1]);
+			nb_rmdir(child, fname, status);
+		} else if (!strcmp(params[0],"Mkdir")) {
+			nb_mkdir(child, fname, status);
 		} else if (!strcmp(params[0],"QUERY_PATH_INFORMATION")) {
-			nb_qpathinfo(child, params[1]);
+			nb_qpathinfo(child, fname, ival(params[2]), status);
 		} else if (!strcmp(params[0],"QUERY_FILE_INFORMATION")) {
-			nb_qfileinfo(child, ival(params[1]));
+			nb_qfileinfo(child, ival(params[1]), ival(params[2]), status);
 		} else if (!strcmp(params[0],"QUERY_FS_INFORMATION")) {
-			nb_qfsinfo(child, ival(params[1]));
+			nb_qfsinfo(child, ival(params[1]), status);
+		} else if (!strcmp(params[0],"SET_FILE_INFORMATION")) {
+			nb_sfileinfo(child, ival(params[1]), ival(params[2]), status);
 		} else if (!strcmp(params[0],"FIND_FIRST")) {
-			nb_findfirst(child, params[1]);
+			nb_findfirst(child, fname, ival(params[2]), 
+				     ival(params[3]), ival(params[4]), status);
 		} else if (!strcmp(params[0],"WriteX")) {
 			nb_writex(child, ival(params[1]), 
-				  ival(params[2]), ival(params[3]), ival(params[4]));
+				  ival(params[2]), ival(params[3]), ival(params[4]),
+				  status);
+		} else if (!strcmp(params[0],"LockX")) {
+			nb_lockx(child, ival(params[1]), 
+				 ival(params[2]), ival(params[3]), status);
+		} else if (!strcmp(params[0],"UnlockX")) {
+			nb_unlockx(child, ival(params[1]), 
+				 ival(params[2]), ival(params[3]), status);
 		} else if (!strcmp(params[0],"ReadX")) {
 			nb_readx(child, ival(params[1]), 
-				  ival(params[2]), ival(params[3]), ival(params[4]));
+				 ival(params[2]), ival(params[3]), ival(params[4]),
+				 status);
 		} else if (!strcmp(params[0],"Flush")) {
-			nb_flush(child, ival(params[1]));
+			nb_flush(child, ival(params[1]), status);
+		} else if (!strcmp(params[0],"Sleep")) {
+			nb_sleep(child, ival(params[1]), status);
 		} else {
-			printf("Unknown operation %s\n", params[0]);
-			fflush(stdout);
-			exit(1);
+			printf("[%d] Unknown operation %s\n", child->line, params[0]);
 		}
+
+		child->tv_now = timeval_current();
 	}
+
+	rewind(f);
+	goto again;
+
+done:
+	child->cleanup = 1;
 	fclose(f);
 
 	nb_cleanup(child);

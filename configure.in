@@ -29,5 +29,13 @@ AC_HEADER_SYS_WAIT
 
 AC_CHECK_HEADERS(ctype.h strings.h stdlib.h string.h)
 
+AC_CHECK_HEADERS(sys/attributes.h attr/xattr.h sys/xattr.h)
+AC_SEARCH_LIBS(fgetxattr, [attr])
+AC_CHECK_FUNCS(fgetxattr)
+
+if test x"$ac_cv_func_fgetxattr" = x"yes"; then
+	AC_DEFINE(HAVE_XATTR_SUPPORT,1,[Whether we have xattr support])
+fi
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
