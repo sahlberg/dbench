@@ -58,12 +58,14 @@ static void do_packets(unsigned long send_size, unsigned long recv_size)
 
 void nb_setup(int client)
 {
+	extern char *tcp_options;
+
 	sock = open_socket_out(server, TCP_PORT);
 	if (sock == -1) {
 		printf("client %d failed to start\n", client);
 		exit(1);
 	}
-	set_socket_options(sock, TCP_OPTIONS);
+	set_socket_options(sock, tcp_options);
 
 	do_packets(8, 8);
 }

@@ -19,6 +19,8 @@
 
 #include "dbench.h"
 
+char *tcp_options = TCP_OPTIONS;
+
 static void server(int fd)
 {
 	char buf[70000];
@@ -27,8 +29,6 @@ static void server(int fd)
 
 	signal(SIGPIPE, SIG_IGN);
 	
-	set_socket_options(fd, TCP_OPTIONS);
-
 	printf("^"); fflush(stdout);
 
 	while (1) {
@@ -79,8 +79,35 @@ static void listener(void)
 }
 
 
-int main(int argc, char *argv[])
+static void usage(void)
 {
+	printf("usage: tbench_srv [OPTIONS]\n"
+	       "options:\n"
+	       "  -t options       set socket options\n");
+	exit(1);
+}
+
+
+static void process_opts(int argc, char **argv)
+{
+	int c;
+
+	while ((c = getopt(argc, argv, "t:")) != -1) {
+		switch (c) {
+		case 't':
+			tcp_options = optarg;
+			break;
+		default:
+			usage();
+		}
+	}
+}
+
+
+ int main(int argc, char *argv[])
+{
+	process_opts(argc, argv);
+
 	listener();
 	return 0;
 }

@@ -28,6 +28,7 @@
 #include "dbench.h"
 
 int sync_open = 0, sync_dirs = 0;
+char *tcp_options = TCP_OPTIONS;
 
 static void sigcont(void)
 {
@@ -107,21 +108,22 @@ static void show_usage(void)
 	       "options:\n"
 	       "  -c CLIENT.TXT    set location of client.txt\n"
 	       "  -s               synchronous file IO\n"
-	       "  -S               synchronous directories (mkdir, unlink...)\n");
+	       "  -S               synchronous directories (mkdir, unlink...)\n"
+	       "  -t options       set socket options for tbench\n");
 	exit(1);
 }
 
 
 
-int process_opts(int argc, char **argv,
-		 int *nprocs)
+static int process_opts(int argc, char **argv,
+			int *nprocs)
 {
 	int c;
 	extern char *client_filename;
 	extern int sync_open;
 	extern char *server;
 
-	while ((c = getopt(argc, argv, "c:sS")) != -1) 
+	while ((c = getopt(argc, argv, "c:sSt:")) != -1) 
 		switch (c) {
 		case 'c':
 			client_filename = optarg;
@@ -131,6 +133,9 @@ int process_opts(int argc, char **argv,
 			break;
 		case 'S':
 			sync_dirs = 1;
+			break;
+		case 't':
+			tcp_options = optarg;
 			break;
 		case '?':
 			if (isprint (optopt))
@@ -172,9 +177,9 @@ int process_opts(int argc, char **argv,
            sniff that was used to produce client.txt. That run used 2
            clients and ran for 660 seconds to produce a result of
            4MBit/sec. */
-	printf("Throughput %g MB/sec (NB=%g MB/sec  %g MBit/sec)%s%s\n", 
+	printf("Throughput %g MB/sec (NB=%g MB/sec  %g MBit/sec)%s%s  %d procs\n", 
 	       132*nprocs/t, 0.5*0.5*nprocs*660/t, 2*nprocs*660/t,
 	       sync_open ? " (sync open)" : "",
-	       sync_dirs ? " (sync dirs)" : "");
+	       sync_dirs ? " (sync dirs)" : "", nprocs);
 	return 0;
 }

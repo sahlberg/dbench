@@ -29,6 +29,7 @@ int open_socket_in(int type, int port, uint32 socket_addr)
 	char host_name[1000];
 	int res;
 	int one=1;
+	extern char *tcp_options;
 
 	/* get my host name */
 	if (gethostname(host_name, sizeof(host_name)) == -1) { 
@@ -62,6 +63,8 @@ int open_socket_in(int type, int port, uint32 socket_addr)
 		return(-1); 
 	}
 
+	set_socket_options(res, tcp_options);
+
 	return res;
 }
 
@@ -74,6 +77,7 @@ int open_socket_out(char *host, int port)
 	struct sockaddr_in sock_out;
 	int res;
 	struct hostent *hp;  
+	extern char *tcp_options;
 
 	res = socket(PF_INET, type, 0);
 	if (res == -1) {
@@ -89,6 +93,8 @@ int open_socket_out(char *host, int port)
 	memcpy(&sock_out.sin_addr, hp->h_addr, hp->h_length);
 	sock_out.sin_port = htons(port);
 	sock_out.sin_family = PF_INET;
+
+	set_socket_options(res, tcp_options);
 
 	if (connect(res,(struct sockaddr *)&sock_out,sizeof(sock_out))) {
 		close(res);
