@@ -48,7 +48,7 @@ static void sig_alarm(void)
 		if (!children[i].done) running++;
 	}
 	/* yeah, I'm doing stdio in a signal handler. So sue me. */
-	printf("%4d  %8d  %.2f MB/sec\r",
+	printf("%4d  %8d  %.2f MB/sec    \r",
 	       running,
 	       total_lines / nprocs, 1.0e-6 * total / end_timer());
 	fflush(stdout);
