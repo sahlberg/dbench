@@ -35,7 +35,14 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/mman.h>
+
+#ifdef HAVE_SYS_VFS_H
 #include <sys/vfs.h>
+#endif
+
+#include <sys/param.h>
+#include <sys/mount.h>
+	  
 #include <utime.h>
 #include <errno.h>
 #include <strings.h>
@@ -52,13 +59,23 @@
 #include <sys/attributes.h>
 #endif
 
+#ifdef HAVE_SYS_EXTATTR_H
+#include <sys/extattr.h>
+#endif
+
+#ifdef HAVE_SYS_UIO_H
+#include <sys/uio.h>
+#endif
+
 #ifndef MSG_WAITALL
 #define MSG_WAITALL 0x100
 #endif
 
 #define PRINT_FREQ 1
 
+#ifndef MIN
 #define MIN(x,y) ((x)<(y)?(x):(y))
+#endif
 
 #define TCP_PORT 7003
 #define TCP_OPTIONS "TCP_NODELAY SO_REUSEADDR"

@@ -28,13 +28,13 @@
 int sync_open = 0, sync_dirs = 0;
 char *tcp_options = TCP_OPTIONS;
 static int timelimit = 600, warmup;
-const char *directory = ".";
+static const char *directory = ".";
 static char *loadfile = DATADIR "/client.txt";
 static struct timeval tv_start;
 static struct timeval tv_end;
 
-#if HAVE_XATTR_SUPPORT
-int xattr_enable=0;
+#if HAVE_EA_SUPPORT
+int ea_enable=0;
 #endif
 
 static FILE *open_loadfile(void)
@@ -225,7 +225,7 @@ static void show_usage(void)
 	       "  -c loadfile      set location of the loadfile\n" \
 	       "  -s               synchronous file IO\n" \
 	       "  -S               synchronous directories (mkdir, unlink...)\n" \
-	       "  -x               enable xattr support\n" \
+	       "  -x               enable EA support\n" \
 	       "  -T options       set socket options for tbench\n");
 	exit(1);
 }
@@ -263,10 +263,10 @@ static int process_opts(int argc, char **argv,
 			exit(0);
 			break;
 		case 'x':
-#if HAVE_XATTR_SUPPORT
-			xattr_enable = 1;
+#if HAVE_EA_SUPPORT
+			ea_enable = 1;
 #else
-			printf("xattr suppport not compiled in\n");
+			printf("EA suppport not compiled in\n");
 			exit(1);
 #endif
 			break;

@@ -27,14 +27,28 @@ AC_HEADER_DIRENT
 AC_HEADER_TIME
 AC_HEADER_SYS_WAIT
 
-AC_CHECK_HEADERS(ctype.h strings.h stdlib.h string.h)
+AC_CHECK_HEADERS(ctype.h strings.h stdlib.h string.h sys/vfs.h)
 
-AC_CHECK_HEADERS(sys/attributes.h attr/xattr.h sys/xattr.h)
-AC_SEARCH_LIBS(fgetxattr, [attr])
-AC_CHECK_FUNCS(fgetxattr)
+AC_CHECK_HEADERS(sys/attributes.h attr/xattr.h sys/xattr.h sys/extattr.h sys/uio.h)
+AC_CHECK_FUNCS(fdatasync)
+# Check if we have libattr
+AC_SEARCH_LIBS(getxattr, [attr])
+AC_CHECK_FUNCS(getxattr lgetxattr fgetxattr listxattr llistxattr)
+AC_CHECK_FUNCS(flistxattr removexattr lremovexattr fremovexattr)
+AC_CHECK_FUNCS(setxattr lsetxattr fsetxattr)
+# Check if we have attr_get
+AC_CHECK_FUNCS(attr_get attr_list attr_set attr_remove)
+AC_CHECK_FUNCS(attr_getf attr_listf attr_setf attr_removef)
+# Check if we have extattr
+AC_CHECK_FUNCS(extattr_delete_fd extattr_delete_file extattr_delete_link)
+AC_CHECK_FUNCS(extattr_get_fd extattr_get_file extattr_get_link)
+AC_CHECK_FUNCS(extattr_list_fd extattr_list_file extattr_list_link)
+AC_CHECK_FUNCS(extattr_set_fd extattr_set_file extattr_set_link)
 
-if test x"$ac_cv_func_fgetxattr" = x"yes"; then
-	AC_DEFINE(HAVE_XATTR_SUPPORT,1,[Whether we have xattr support])
+if test x"$ac_cv_func_fgetxattr" = x"yes" -o \
+        x"$ac_cv_func_attr_getf" = x"yes" -o \
+        x"$ac_cv_func_extattr_get_fd" = x"yes"; then
+	    AC_DEFINE(HAVE_EA_SUPPORT, 1, [Whether we have EA support])
 fi
 
 AC_CONFIG_FILES([Makefile])

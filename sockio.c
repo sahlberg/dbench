@@ -45,7 +45,7 @@ static void do_packets(int send_size, int recv_size)
 		exit(1);
 	}
 
-	if (ntohl(ubuf[0]) != recv_size-4) {
+	if (ntohl(ubuf[0]) != (unsigned)(recv_size-4)) {
 		printf("lost sync (%d %d)\n", 
 		       (int)recv_size-4, (int)ntohl(ubuf[0]));
 		exit(1);
@@ -57,7 +57,7 @@ static void do_packets(int send_size, int recv_size)
 		exit(1);
 	}
 
-	if (ntohl(ubuf[0]) != recv_size-4) {
+	if (ntohl(ubuf[0]) != (unsigned)(recv_size-4)) {
 		printf("lost sync (%d %d)\n", 
 		       (int)recv_size-4, (int)ntohl(ubuf[0]));
 	}

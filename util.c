@@ -68,15 +68,6 @@ void *shm_setup(int size)
 	return ret;
 }
 
-void strupper(char *s)
-{
-	while (*s) {
-		*s = toupper(*s);
-		s++;
-	}
-}
-
-
 /****************************************************************************
 similar to string_sub() but allows for any character to be substituted. 
 Use with caution!
@@ -145,17 +136,6 @@ BOOL next_token(char **ptr,char *buff,char *sep)
 }
 
 /*
-  return a zero timeval
-*/
-struct timeval timeval_zero(void)
-{
-        struct timeval tv;
-        tv.tv_sec = 0;
-        tv.tv_usec = 0;
-        return tv;
-}
-
-/*
   return a timeval for the current time
 */
 struct timeval timeval_current(void)
@@ -184,49 +164,3 @@ double timeval_elapsed2(struct timeval *tv1, struct timeval *tv2)
                (tv2->tv_usec - tv1->tv_usec)*1.0e-6;
 }
 
-/*
-  return the difference between two timevals as a timeval
-  if tv2 comes after tv1, then return a zero timeval
-  (this is *tv1 - *tv2)
-*/
-struct timeval timeval_diff(struct timeval *tv1, struct timeval *tv2)
-{
-        struct timeval t;
-        if (timeval_compare(tv1, tv2) >= 0) {
-                return timeval_zero();
-        }
-        t.tv_sec = tv1->tv_sec - tv2->tv_sec;
-        if (tv2->tv_usec > tv1->tv_usec) {
-                t.tv_sec--;
-                t.tv_usec = 1000000 - (tv2->tv_usec - tv1->tv_usec);
-        } else {
-                t.tv_usec = tv1->tv_usec - tv2->tv_usec;
-        }
-        return t;
-}
-
-/*
-  compare two timeval structures. 
-  Return 1 if tv2 > tv1
-  Return 0 if tv2 == tv1
-  Return -1 if tv2 < tv1
-*/
-int timeval_compare(struct timeval *tv1, struct timeval *tv2)
-{
-        if (tv2->tv_sec  > tv1->tv_sec)  return 1;
-        if (tv2->tv_sec  < tv1->tv_sec)  return -1;
-        if (tv2->tv_usec > tv1->tv_usec) return 1;
-        if (tv2->tv_usec < tv1->tv_usec) return -1;
-        return 0;
-}
-
-/*
-  return the lesser of two timevals
-*/
-struct timeval timeval_min(struct timeval *tv1, struct timeval *tv2)
-{
-	if (tv1->tv_sec < tv2->tv_sec) return *tv1;
-	if (tv1->tv_sec > tv2->tv_sec) return *tv2;
-	if (tv1->tv_usec < tv2->tv_usec) return *tv1;
-	return *tv2;
-}

@@ -1,4 +1,4 @@
-VERSION=3.01
+VERSION=3.02
 
 srcdir=@srcdir@
 VPATH=@srcdir@
@@ -14,7 +14,7 @@ CC=@CC@
 CFLAGS=@CFLAGS@ -I. -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(datadir)\"
 EXEEXT=@EXEEXT@
 
-DB_OBJS = fileio.o util.o dbench.o child.o
+DB_OBJS = fileio.o util.o dbench.o child.o system.o
 TB_OBJS = sockio.o util.o dbench.o child.o socklib.o
 SRV_OBJS = util.o tbench_srv.o socklib.o
 
@@ -42,4 +42,4 @@ clean:
 	rm -f *.o *~ dbench tbench tbench_srv
 
 proto:
-	cat *.c | awk -f mkproto.awk > proto.h
+	./mkproto.pl *.c > proto.h

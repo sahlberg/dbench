@@ -38,10 +38,10 @@ static void server(int fd)
 			printf("overflow in server!\n");
 			exit(1);
 		}
-		if (read_sock(fd, buf+4, n) != n) break;
+		if (read_sock(fd, buf+4, n) != (int)n) break;
 		n = ntohl(ibuf[1]);
 		ibuf[0] = htonl(n);
-		if (write_sock(fd, buf, n+4) != n+4) break;
+		if (write_sock(fd, buf, n+4) != (int)(n+4)) break;
 	}
 
 	exit(0);

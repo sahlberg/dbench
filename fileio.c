@@ -67,7 +67,11 @@ static void sync_parent(char *fname)
 		       copy_name,
 		       strerror(errno));
 	} else {
+#if defined(HAVE_FDATASYNC)
 		if (fdatasync(dir_fd) == -1) {
+#else
+		if (fsync(dir_fd) == -1) {
+#endif
 			printf("datasync directory \"%s\" failed: %s\n",
 			       copy_name,
 			       strerror(errno));
@@ -82,12 +86,12 @@ static void sync_parent(char *fname)
 
 static void xattr_fd_read_hook(int fd)
 {
-#if HAVE_XATTR_SUPPORT
-	extern int xattr_enable;
+#if HAVE_EA_SUPPORT
+	extern int ea_enable;
 	char buf[44];
-	if (xattr_enable) {
+	if (ea_enable) {
 		memset(buf, 0, sizeof(buf));
-		fgetxattr(fd, "user.DosAttrib", buf, sizeof(buf));
+		sys_fgetxattr(fd, "user.DosAttrib", buf, sizeof(buf));
 	}
 #else
 	(void)fd;
@@ -96,11 +100,11 @@ static void xattr_fd_read_hook(int fd)
 
 static void xattr_fname_read_hook(const char *fname)
 {
-#if HAVE_XATTR_SUPPORT
-	extern int xattr_enable;
-	if (xattr_enable) {
+#if HAVE_EA_SUPPORT
+	extern int ea_enable;
+	if (ea_enable) {
 		char buf[44];
-		getxattr(fname, "user.DosAttrib", buf, sizeof(buf));
+		sys_getxattr(fname, "user.DosAttrib", buf, sizeof(buf));
 	}
 #else
 	(void)fname;
@@ -109,16 +113,21 @@ static void xattr_fname_read_hook(const char *fname)
 
 static void xattr_fd_write_hook(int fd)
 {
-#if HAVE_XATTR_SUPPORT
-	extern int xattr_enable;
-	if (xattr_enable) {
+#if HAVE_EA_SUPPORT
+	extern int ea_enable;
+	if (ea_enable) {
 		struct timeval tv;
 		char buf[44];
+		sys_fgetxattr(fd, "user.DosAttrib", buf, sizeof(buf));
 		memset(buf, 0, sizeof(buf));
-		fgetxattr(fd, "user.DosAttrib", buf, sizeof(buf));
-		gettimeofday(&tv, NULL);
-		memcpy(buf, &tv, sizeof(tv));
-		if (fsetxattr(fd, "user.DosAttrib", buf, sizeof(buf), 0) != 0) {
+		/* give some probability of sharing */
+		if (random() % 10 < 2) {
+			*(time_t *)buf = time(NULL);
+		} else {
+			gettimeofday(&tv, NULL);
+			memcpy(buf, &tv, sizeof(tv));
+		}
+		if (sys_fsetxattr(fd, "user.DosAttrib", buf, sizeof(buf), 0) != 0) {
 			printf("fsetxattr failed - %s\n", strerror(errno));
 			exit(1);
 		}

@@ -92,7 +92,7 @@ int open_socket_out(char *host, int port)
 
 enum SOCK_OPT_TYPES {OPT_BOOL,OPT_INT,OPT_ON};
 
-struct
+static const struct
 {
   char *name;
   int level;
