@@ -31,11 +31,11 @@ tbench_srv: $(SRV_OBJS)
 
 # Careful here: don't install client.txt over itself.
 install: all
-	${INSTALLCMD} -d $(BINDIR) $(DATADIR) $(MANDIR)
-	${INSTALLCMD} dbench tbench tbench_srv $(BINDIR)
-	${INSTALLCMD} -m644 dbench.1 $(MANDIR)
-	ln -s dbench.1 $(MANDIR)/tbench.1
-	ln -s dbench.1 $(MANDIR)/tbench_srv.1
+	${INSTALLCMD} -d $(bindir) $(datadir) $(mandir)
+	${INSTALLCMD} dbench tbench tbench_srv $(bindir)
+	${INSTALLCMD} -m644 dbench.1 $(mandir)
+	ln -sf dbench.1 $(mandir)/tbench.1
+	ln -sf dbench.1 $(mandir)/tbench_srv.1
 
 clean:
 	rm -f *.o *~ dbench tbench tbench_srv
