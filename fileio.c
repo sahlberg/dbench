@@ -217,7 +217,7 @@ void nb_qfileinfo(struct child_struct *child, int handle)
 {
 	struct stat st;
 	int i = find_handle(child, handle);
-	fstat(i, &st);
+	fstat(ftable[i].fd, &st);
 }
 
 void nb_qfsinfo(struct child_struct *child, int level)
