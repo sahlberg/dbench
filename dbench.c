@@ -63,7 +63,6 @@ static void sig_alarm(int sig)
 {
 	double total_bytes = 0;
 	int total_lines = 0;
-	int running = 0;
 	int i;
 	int nprocs = children[0].nprocs;
 	int in_warmup = 0, in_cleanup = 0;
@@ -108,11 +107,11 @@ static void sig_alarm(int sig)
                        1.0e-6 * total_bytes / t, t);
         } else if (in_cleanup) {
                 printf("%4d  %8d  %7.2f MB/sec  cleanup %3.0f sec   \n", 
-                       running, total_lines/nprocs, 
+                       nprocs, total_lines/nprocs, 
                        1.0e-6 * total_bytes / t, t);
         } else {
                 printf("%4d  %8d  %7.2f MB/sec  execute %3.0f sec   \n", 
-                       running, total_lines/nprocs, 
+                       nprocs, total_lines/nprocs, 
                        1.0e-6 * total_bytes / t, t);
         }
 
