@@ -29,7 +29,7 @@
 
 int line_count=0;
 
-char *client_filename = "client.txt";
+char *client_filename = DATADIR "client.txt";
 
 
 static int sigsegv(int sig)
