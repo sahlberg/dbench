@@ -19,12 +19,18 @@
 
 #include "dbench.h"
 
+static void sigusr1(void)
+{
+}
+
 /* this creates the specified number of child processes and runs fn() in all of them */
 static double create_procs(int nprocs, void (*fn)(int ))
 {
 	int i, status;
 	volatile int *child_status;
 	int synccount;
+
+	signal(SIGUSR1, sigusr1);
 
 	start_timer();
 
@@ -40,14 +46,10 @@ static double create_procs(int nprocs, void (*fn)(int ))
 
 	for (i=0;i<nprocs;i++) {
 		if (fork() == 0) {
-			nb_setup(i);
-
-			child_status[i] = getpid();
-
-			while (child_status[i]) sleep(1);
-
 			setbuffer(stdout, NULL, 0);
-
+			nb_setup(i);
+			child_status[i] = getpid();
+			pause();
 			fn(i);
 			_exit(0);
 		}
@@ -67,12 +69,8 @@ static double create_procs(int nprocs, void (*fn)(int ))
 		return end_timer();
 	}
 
-	/* start the client load */
 	start_timer();
-
-	for (i=0;i<nprocs;i++) {
-		child_status[i] = 0;
-	}
+	kill(0, SIGUSR1);
 
 	printf("%d clients started\n", nprocs);
 
