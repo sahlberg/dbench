@@ -1,6 +1,7 @@
 /* 
-   dbench version 1
-   Copyright (C) Andrew Tridgell 1999
+   dbench version 1.2
+   Copyright (C) 1999 by Andrew Tridgell <tridge@samba.org>
+   Copyright (C) 2001 by Martin Pool <mbp@samba.org>
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -25,12 +26,51 @@ static char buf[70000];
 extern int line_count;
 
 char *server = NULL;
-extern int sync_ops;
+extern int sync_open, sync_dirs;
 
 static struct {
 	int fd;
 	int handle;
 } ftable[MAX_FILES];
+
+
+/* Find the directory holding a file, and flush it to disk.  We do
+   this in -S mode after a directory-modifying mode, to simulate the
+   way knfsd tries to flush directories.  MKDIR and similar operations
+   are meant to be synchronous on NFSv2. */
+void sync_parent(char *fname)
+{
+	char *copy_name;
+	int dir_fd;
+	char *slash;
+
+	if (strchr(fname, '/')) {
+		copy_name = strdup(fname);
+		slash = strrchr(copy_name, '/');
+		*slash = '\0';
+	} else {
+		copy_name = strdup(".");
+	} 
+	
+	dir_fd = open(copy_name, O_RDONLY);
+	if (dir_fd == -1) {
+		printf("open directory \"%s\" for sync failed: %s\n",
+		       copy_name,
+		       strerror(errno));
+	} else {
+		if (fdatasync(dir_fd) == -1) {
+			printf("datasync directory \"%s\" failed: %s\n",
+			       copy_name,
+			       strerror(errno));
+		}
+		if (close(dir_fd) == -1) {
+			printf("close directory failed: %s\n",
+			       strerror(errno));
+		}
+	}
+	free(copy_name);
+}
+
 
 void nb_setup(int client)
 {
@@ -45,6 +85,8 @@ void nb_unlink(char *fname)
 		printf("(%d) unlink %s failed (%s)\n", 
 		       line_count, fname, strerror(errno));
 	}
+	if (sync_dirs)
+		sync_parent(fname);
 }
 
 void expand_file(int fd, int size)
@@ -68,7 +110,7 @@ void nb_open(char *fname, int handle, int size)
 
 	if (size == 0) flags |= O_TRUNC;
 
-	if (sync_ops)
+	if (sync_open)
 		flags |= O_SYNC;
 	
 	fd = open(fname, flags, 0600);
@@ -165,6 +207,8 @@ void nb_mkdir(char *fname)
 		       fname, strerror(errno));
 #endif
 	}
+	if (sync_dirs)
+		sync_parent(fname);
 }
 
 void nb_rmdir(char *fname)
@@ -175,6 +219,8 @@ void nb_rmdir(char *fname)
 		printf("rmdir %s failed (%s)\n", 
 		       fname, strerror(errno));
 	}
+	if (sync_dirs)
+		sync_parent(fname);
 }
 
 void nb_rename(char *old, char *new)
@@ -186,6 +232,8 @@ void nb_rename(char *old, char *new)
 		printf("rename %s %s failed (%s)\n", 
 		       old, new, strerror(errno));
 	}
+	if (sync_dirs)
+		sync_parent(new);
 }
 
 

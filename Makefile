@@ -1,5 +1,8 @@
+VERSION = 1.2.01
+
 CC = gcc
-CFLAGS = -O2 -Wall
+CFLAGS = -O2 -Wall 
+CPPFLAGS = "-DVERSION=\"$(VERSION)\""
 
 DB_OBJS = fileio.o util.o dbench.o child.o
 TB_OBJS = sockio.o util.o dbench.o child.o socklib.o

@@ -27,7 +27,7 @@
 
 #include "dbench.h"
 
-int sync_ops = 0;
+int sync_open = 0, sync_dirs = 0;
 
 static void sigcont(void)
 {
@@ -106,7 +106,8 @@ static void show_usage(void)
 	printf("usage: dbench [OPTIONS] nprocs\n"
 	       "options:\n"
 	       "  -c CLIENT.TXT    set location of client.txt\n"
-	       "  -s               synchronous mode (like NFS2)\n");
+	       "  -s               synchronous file IO\n"
+	       "  -S               synchronous directories (mkdir, unlink...)\n");
 	exit(1);
 }
 
@@ -117,16 +118,19 @@ int process_opts(int argc, char **argv,
 {
 	int c;
 	extern char *client_filename;
-	extern int sync_ops;
+	extern int sync_open;
 	extern char *server;
 
-	while ((c = getopt(argc, argv, "c:s")) != -1) 
+	while ((c = getopt(argc, argv, "c:sS")) != -1) 
 		switch (c) {
 		case 'c':
 			client_filename = optarg;
 			break;
 		case 's':
-			sync_ops = 1;
+			sync_open = 1;
+			break;
+		case 'S':
+			sync_dirs = 1;
 			break;
 		case '?':
 			if (isprint (optopt))
@@ -168,8 +172,9 @@ int process_opts(int argc, char **argv,
            sniff that was used to produce client.txt. That run used 2
            clients and ran for 660 seconds to produce a result of
            4MBit/sec. */
-	printf("Throughput %g MB/sec (NB=%g MB/sec  %g MBit/sec)%s\n", 
+	printf("Throughput %g MB/sec (NB=%g MB/sec  %g MBit/sec)%s%s\n", 
 	       132*nprocs/t, 0.5*0.5*nprocs*660/t, 2*nprocs*660/t,
-	       sync_ops ? " (sync mode)" : "");
+	       sync_open ? " (sync open)" : "",
+	       sync_dirs ? " (sync dirs)" : "");
 	return 0;
 }
