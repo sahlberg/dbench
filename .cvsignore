@@ -1,3 +1,8 @@
+*.cache
+*.log
+config.h
+config.status
+prefix
 ID
 NBSIMULD
 dbench
