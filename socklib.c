@@ -196,7 +196,10 @@ int read_sock(int s, char *buf, int size)
 
 	while (size) {
 		int r = recv(s, buf, size, MSG_WAITALL);
-		if (r <= 0) break;
+		if (r <= 0) {
+			if (r == -1) perror("recv");
+			break;
+		}
 		buf += r;
 		size -= r;
 		total += r;
@@ -210,7 +213,10 @@ int write_sock(int s, char *buf, int size)
 
 	while (size) {
 		int r = send(s, buf, size, 0);
-		if (r <= 0) break;
+		if (r <= 0) {
+			if (r == -1) perror("send");
+			break;
+		}
 		buf += r;
 		size -= r;
 		total += r;
