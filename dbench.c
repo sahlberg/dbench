@@ -28,6 +28,10 @@
 int sync_open = 0, sync_dirs = 0;
 char *tcp_options = TCP_OPTIONS;
 
+#if WITH_XATTR
+int xattr_enable=0;
+#endif
+
 static struct child_struct *children;
 
 static void sigcont(void)
@@ -148,6 +152,7 @@ static void show_usage(void)
 	       "  -c CLIENT.TXT    set location of client.txt\n"
 	       "  -s               synchronous file IO\n"
 	       "  -S               synchronous directories (mkdir, unlink...)\n"
+	       "  -x               enable xattr support\n"
 	       "  -t options       set socket options for tbench\n");
 	exit(1);
 }
@@ -162,7 +167,7 @@ static int process_opts(int argc, char **argv,
 	extern int sync_open;
 	extern char *server;
 
-	while ((c = getopt(argc, argv, "vc:sSt:")) != -1) 
+	while ((c = getopt(argc, argv, "vc:sSt:x")) != -1) 
 		switch (c) {
 		case 'c':
 			client_filename = optarg;
@@ -181,6 +186,11 @@ static int process_opts(int argc, char **argv,
 			       VERSION);
 			exit(0);
 			break;
+#if WITH_XATTR
+		case 'x':
+			xattr_enable = 1;
+			break;
+#endif
 		case '?':
 			if (isprint (optopt))
 				fprintf (stderr, "Unknown option `-%c'.\n", optopt);

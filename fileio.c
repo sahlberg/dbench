@@ -19,6 +19,9 @@
 */
 
 #include "dbench.h"
+#if WITH_XATTR
+#include <attr/xattr.h>
+#endif
 
 #define MAX_FILES 200
 
@@ -104,6 +107,22 @@ void nb_rmdir(struct child_struct *child, char *fname)
 	if (sync_dirs) sync_parent(fname);
 }
 
+#if WITH_XATTR
+static void xattr_open_hook(int fd)
+{
+	extern int xattr_enable;
+	char buf[44];
+	int ret;
+	if (xattr_enable) {
+		memset(buf, 0, sizeof(buf));
+		fgetxattr(fd, "user.DosAttrib", buf, sizeof(buf));
+		*(time_t *)buf = time(NULL);
+		fsetxattr(fd, "user.DosAttrib", buf, sizeof(buf), 0);
+	}
+}
+#endif
+
+
 void nb_createx(struct child_struct *child, char *fname, 
 		unsigned create_options, unsigned create_disposition, int fnum)
 {
@@ -127,7 +146,7 @@ void nb_createx(struct child_struct *child, char *fname,
 	}
 
 	if (create_options & FILE_DIRECTORY_FILE) flags = O_RDONLY|O_DIRECTORY;
-	
+
 	fd = open(fname, flags, 0600);
 	if (fd == -1) {
 		if (fnum != -1) {
@@ -142,7 +161,10 @@ void nb_createx(struct child_struct *child, char *fname,
 		close(fd);
 		return;
 	}
-
+#if WITH_XATTR
+	xattr_open_hook(fd);
+#endif
+	
 	for (i=0;i<MAX_FILES;i++) {
 		if (ftable[i].handle == 0) break;
 	}
