@@ -116,7 +116,10 @@ static void xattr_fd_write_hook(int fd)
 		memset(buf, 0, sizeof(buf));
 		fgetxattr(fd, "user.DosAttrib", buf, sizeof(buf));
 		*(time_t *)buf = time(NULL);
-		fsetxattr(fd, "user.DosAttrib", buf, sizeof(buf), 0);
+		if (fsetxattr(fd, "user.DosAttrib", buf, sizeof(buf), 0) != 0) {
+			printf("fsetxattr failed - %s\n", strerror(errno));
+			exit(1);
+		}
 	}
 #else
 	(void)fd;
@@ -215,6 +218,7 @@ void nb_createx(struct child_struct *child, const char *fname,
 {
 	int fd, i;
 	int flags = O_RDWR;
+	struct stat st;
 
 	resolve_name(fname);
 
@@ -262,7 +266,11 @@ void nb_createx(struct child_struct *child, const char *fname,
 	ftable[i].handle = fnum;
 	ftable[i].fd = fd;
 
-	xattr_fd_write_hook(fd);
+	fstat(fd, &st);
+
+	if (!S_ISDIR(st.st_mode)) {
+		xattr_fd_write_hook(fd);
+	}
 }
 
 void nb_writex(struct child_struct *child, int handle, int offset, 
@@ -431,7 +439,9 @@ void nb_sfileinfo(struct child_struct *child, int handle, int level, const char 
 
 	utime(ftable[i].name, &tm);
 
-	xattr_fd_write_hook(ftable[i].fd);
+	if (!S_ISDIR(st.st_mode)) {
+		xattr_fd_write_hook(ftable[i].fd);
+	}
 }
 
 void nb_lockx(struct child_struct *child, int handle, uint32_t offset, int size, 
