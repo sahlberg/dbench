@@ -29,7 +29,7 @@ int sync_open = 0, sync_dirs = 0;
 char *tcp_options = TCP_OPTIONS;
 static int timelimit = 600, warmup;
 const char *directory = ".";
-static char *loadfile = DATADIR "/client_enterprise.txt";
+static char *loadfile = DATADIR "/client.txt";
 
 #if HAVE_XATTR_SUPPORT
 int xattr_enable=0;
@@ -206,7 +206,7 @@ static void show_usage(void)
 	       "usage: tbench [OPTIONS] nprocs <server>\n" \
 	       "options:\n" \
 	       "  -v               show version\n" \
-	       "  -t timelimit     run time in seconds\n" \
+	       "  -t timelimit     run time in seconds (default 600)\n" \
 	       "  -D directory     base directory to run in\n" \
 	       "  -c loadfile      set location of the loadfile\n" \
 	       "  -s               synchronous file IO\n" \

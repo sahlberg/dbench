@@ -47,10 +47,10 @@ on switched fast ethernet and a really grunty server, and a to open up
 netbench to the masses.
 .br
 Both \fBdbench\fP and \fBtbench\fP read a load description file called
-client_enterprise.txt that was derived from a capture of a real
-netbench run. client_enterprise.txt is about 25MB and describes the
+client.txt that was derived from a capture of a real
+netbench run. client.txt is about 25MB and describes the
 500 thousand operations that a netbench client does in a typical
-netbench run. They parse client_enterprise.txt and use it to produce
+netbench run. They parse client.txt and use it to produce
 the same load without having to buy a huge lab.
 .br
 dbench produces only the filesystem load. It does all the same IO
@@ -66,13 +66,13 @@ The \fBdbench\fP program takes a number, which indicates the number of clients t
 .TP
 .B \-c client.txt
 Use this as the full path name of the client.txt file (the default is
-/usr/share/dbench/client_enterprise.txt).
+/usr/share/dbench/client.txt).
 .TP
 .B \-s
 Use synchronous file IO on all file operations.
 .TP
 .B \-t TIME
-set the runtime of the benchmark in seconds
+set the runtime of the benchmark in seconds (default 600)
 .TP
 .B \-D DIR
 set the base directory to run the filesystem operations in
@@ -92,7 +92,7 @@ should be invoked on that server before invoking \fBtbench\fP.
 .TP
 .B \-c loadfile
 Use this as the full path name of the client.txt file (the default is
-/usr/share/dbench/client_enterprise.txt).
+/usr/share/dbench/client.txt).
 .TP
 .B \-T option[,...]
 This sets the socket options for the connection to the server.  The
