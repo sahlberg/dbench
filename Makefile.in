@@ -9,6 +9,7 @@ bindir=@bindir@
 mandir=@mandir@
 datadir=@datadir@
 INSTALLCMD=@INSTALL@
+LIBS=@LIBS@
 
 CC=@CC@
 CFLAGS=@CFLAGS@ -I. -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(datadir)\"
@@ -21,13 +22,13 @@ SRV_OBJS = util.o tbench_srv.o socklib.o
 all: dbench tbench tbench_srv
 
 dbench: $(DB_OBJS)
-	$(CC) -o $@ $(DB_OBJS)
+	$(CC) -o $@ $(DB_OBJS) $(LIBS)
 
 tbench: $(TB_OBJS)
-	$(CC) -o $@ $(TB_OBJS)
+	$(CC) -o $@ $(TB_OBJS) $(LIBS)
 
 tbench_srv: $(SRV_OBJS)
-	$(CC) -o $@ $(SRV_OBJS)
+	$(CC) -o $@ $(SRV_OBJS) $(LIBS)
 
 # Careful here: don't install client.txt over itself.
 install: all

@@ -33,6 +33,9 @@ AC_CHECK_HEADERS(sys/attributes.h attr/xattr.h sys/xattr.h sys/extattr.h sys/uio
 AC_CHECK_FUNCS(fdatasync)
 # Check if we have libattr
 AC_SEARCH_LIBS(getxattr, [attr])
+AC_SEARCH_LIBS(socket, [socket])
+AC_SEARCH_LIBS(gethostbyname, [nsl])
+
 AC_CHECK_FUNCS(getxattr lgetxattr fgetxattr listxattr llistxattr)
 AC_CHECK_FUNCS(flistxattr removexattr lremovexattr fremovexattr)
 AC_CHECK_FUNCS(setxattr lsetxattr fsetxattr)
