@@ -73,6 +73,7 @@ static void listener(void)
 
 		if (fd != -1) {
 			if (fork() == 0) server(fd);
+			close(fd);
 		}
 	}
 }
