@@ -30,6 +30,9 @@ that a netbench client does in a typical netbench run. They parse
 client.txt and use it to produce the same load without having to buy a
 huge lab. They can simulate any number of simultaneous clients.
 
+client.txt must either be in the working directory, or specified on
+the command line with the -c option.
+
 dbench
 ------
 

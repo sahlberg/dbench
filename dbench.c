@@ -1,6 +1,8 @@
 /* 
-   dbench version 1
-   Copyright (C) Andrew Tridgell 1999
+   dbench version 1.01
+   
+   Copyright (C) by Andrew Tridgell <tridge@samba.org> 1999, 2001
+   Copyright (C) 2001 by Martin Pool <mbp@samba.org>
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -17,13 +19,22 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+/* TODO: We could try allowing for different flavours of synchronous
+   operation: data sync and so on.  Linux apparently doesn't make any
+   distinction, however, and for practical purposes it probably
+   doesn't matter.  On NFSv4 it might be interesting, since the client
+   can choose what kind it wants for each OPEN operation. */
+
 #include "dbench.h"
+
+int sync_ops = 0;
 
 static void sigcont(void)
 {
 }
 
-/* this creates the specified number of child processes and runs fn() in all of them */
+/* this creates the specified number of child processes and runs fn()
+   in all of them */
 static double create_procs(int nprocs, void (*fn)(int ))
 {
 	int i, status;
@@ -35,6 +46,13 @@ static double create_procs(int nprocs, void (*fn)(int ))
 	start_timer();
 
 	synccount = 0;
+
+	if (nprocs < 1) {
+		fprintf(stderr,
+			"create %d procs?  you must be kidding.\n",
+			nprocs);
+		return 1;
+	}
 
 	child_status = (volatile int *)shm_setup(sizeof(int)*nprocs);
 	if (!child_status) {
@@ -83,24 +101,65 @@ static double create_procs(int nprocs, void (*fn)(int ))
 }
 
 
+static void show_usage(void)
+{
+	printf("usage: dbench [OPTIONS] nprocs\n"
+	       "options:\n"
+	       "  -c CLIENT.TXT    set location of client.txt\n"
+	       "  -s               synchronous mode (like NFS2)\n");
+	exit(1);
+}
+
+
+
+int process_opts(int argc, char **argv,
+		 int *nprocs)
+{
+	int c;
+	extern char *client_filename;
+	extern int sync_ops;
+	extern char *server;
+
+	while ((c = getopt(argc, argv, "c:s")) != -1) 
+		switch (c) {
+		case 'c':
+			client_filename = optarg;
+			break;
+		case 's':
+			sync_ops = 1;
+			break;
+		case '?':
+			if (isprint (optopt))
+				fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+			else
+				fprintf (stderr,
+					 "Unknown option character `\\x%x'.\n",
+					 optopt);
+			return 0;
+		default:
+			abort ();
+		}
+	
+	if (!argv[optind])
+		return 0;
+	
+	*nprocs = atoi(argv[optind++]);
+
+	if (argv[optind])
+		server = argv[optind++];
+
+	return 1;
+}
+
 
 
  int main(int argc, char *argv[])
 {
-	extern char *server;
 	int nprocs;
 	double t;
 
-	if (argc < 2) {
-		printf("usage: dbench nprocs\n");
-		exit(1);
-	}
-
-	nprocs = atoi(argv[1]);
-
-	if (argc > 2) {
-		server = argv[2];
-	}
+	if (!process_opts(argc, argv, &nprocs))
+		show_usage();
 
 	t = create_procs(nprocs, child_run);
 
@@ -109,7 +168,8 @@ static double create_procs(int nprocs, void (*fn)(int ))
            sniff that was used to produce client.txt. That run used 2
            clients and ran for 660 seconds to produce a result of
            4MBit/sec. */
-	printf("Throughput %g MB/sec (NB=%g MB/sec  %g MBit/sec)\n", 
-	       132*nprocs/t, 0.5*0.5*nprocs*660/t, 2*nprocs*660/t);
+	printf("Throughput %g MB/sec (NB=%g MB/sec  %g MBit/sec)%s\n", 
+	       132*nprocs/t, 0.5*0.5*nprocs*660/t, 2*nprocs*660/t,
+	       sync_ops ? " (sync mode)" : "");
 	return 0;
 }

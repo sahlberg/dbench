@@ -17,9 +17,20 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+/* This file links against either fileio.c to do operations against a
+   local filesystem (making dbench), or sockio.c to issue SMB-like
+   command packets over a socket (making tbench).
+
+   So, the pattern of operations and the control structure is the same
+   for both benchmarks, but the operations performed are different.
+*/
+
 #include "dbench.h"
 
 int line_count=0;
+
+char *client_filename = "client.txt";
+
 
 static int sigsegv(int sig)
 {
@@ -29,6 +40,21 @@ static int sigsegv(int sig)
 		getpid(), getpid());
 	system(line);
 	exit(1);
+}
+
+
+FILE * open_client_dump(void)
+{
+	FILE		*f;
+
+	if ((f = fopen(client_filename, "rt")) != NULL)
+		return f;
+
+	fprintf(stderr,
+		"dbench: error opening %s: %s", client_filename,
+		strerror(errno));
+
+	return NULL;
 }
 
 void child_run(int client)
@@ -44,7 +70,7 @@ void child_run(int client)
 
 	sprintf(cname,"CLIENT%d", client);
 
-	f = fopen("client.txt", "r");
+	f = open_client_dump();
 
 	if (!f) {
 		perror("client.txt");

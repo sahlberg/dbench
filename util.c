@@ -51,7 +51,9 @@ void *shm_setup(int size)
 
 	shmid = shmget(IPC_PRIVATE, size, SHM_R | SHM_W);
 	if (shmid == -1) {
-		printf("can't get shared memory\n");
+		printf("can't get private shared memory of %d bytes: %s\n",
+		       size, 
+		       strerror(errno));
 		exit(1);
 	}
 	ret = (void *)shmat(shmid, 0, 0);

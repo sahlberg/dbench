@@ -25,6 +25,7 @@ static char buf[70000];
 extern int line_count;
 
 char *server = NULL;
+extern int sync_ops;
 
 static struct {
 	int fd;
@@ -67,6 +68,9 @@ void nb_open(char *fname, int handle, int size)
 
 	if (size == 0) flags |= O_TRUNC;
 
+	if (sync_ops)
+		flags |= O_SYNC;
+	
 	fd = open(fname, flags, 0600);
 	if (fd == -1) {
 		printf("(%d) open %s failed for handle %d (%s)\n", 
