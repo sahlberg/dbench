@@ -43,8 +43,20 @@ static void do_packets(unsigned long send_size, unsigned long recv_size)
 		exit(1);
 	}
 
-	if (read_sock(sock, buf, recv_size) != recv_size) {
-		printf("error reading %d bytes\n", (int)recv_size);
+	if (read_sock(sock, buf, 4) != 4) {
+		printf("error reading header\n");
+		exit(1);
+	}
+
+	if (ntohl(ubuf[0]) != recv_size-4) {
+		printf("(%d) lost sync (%d %d)\n", 
+		       line_count, (int)recv_size-4, (int)ntohl(ubuf[0]));
+		exit(1);
+	}
+
+	if (recv(sock, buf, recv_size-4, MSG_WAITALL|MSG_TRUNC) != 
+	    recv_size-4) {
+		printf("error reading %d bytes\n", (int)recv_size-4);
 		exit(1);
 	}
 
