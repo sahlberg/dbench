@@ -1,5 +1,5 @@
 /* 
-   dbench version 1.2
+   dbench version 2
    Copyright (C) 1999 by Andrew Tridgell <tridge@samba.org>
    Copyright (C) 2001 by Martin Pool <mbp@samba.org>
    

@@ -1,4 +1,4 @@
-VERSION=2.0
+VERSION=2.1
 
 DESTDIR=/usr/local
 BINDIR=$(DESTDIR)/bin/
@@ -6,8 +6,7 @@ MANDIR=$(DESTDIR)/man/man1/
 DATADIR=./
 
 CC = gcc
-CFLAGS = -O2 -Wall 
-CPPFLAGS = -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(DATADIR)\"
+CFLAGS = -O2 -Wall -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(DATADIR)\"
 
 DB_OBJS = fileio.o util.o dbench.o child.o
 TB_OBJS = sockio.o util.o dbench.o child.o socklib.o

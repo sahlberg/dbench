@@ -1,5 +1,5 @@
 /* 
-   dbench version 1
+   dbench version 2
    Copyright (C) Andrew Tridgell 1999
    
    This program is free software; you can redistribute it and/or modify
@@ -32,7 +32,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <fcntl.h>
-#include <sys/fcntl.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/mman.h>

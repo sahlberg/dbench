@@ -1,5 +1,5 @@
 /* 
-   dbench version 1
+   dbench version 2
    Copyright (C) Andrew Tridgell 1999
    
    This program is free software; you can redistribute it and/or modify
@@ -19,6 +19,14 @@
 
 #include "dbench.h"
 
+
+#ifndef SHM_W
+#define SHM_W 0000200
+#endif
+
+#ifndef SHM_R
+#define SHM_R 0000400
+#endif
 
 static struct timeval tp1,tp2;
 
