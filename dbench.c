@@ -246,8 +246,6 @@ static int process_opts(int argc, char **argv,
 			directory = optarg;
 			break;
 		case 'v':
-			printf("dbench version %s\nCopyright tridge@samba.org\n",
-			       VERSION);
 			exit(0);
 			break;
 		case 'x':
@@ -289,6 +287,8 @@ static int process_opts(int argc, char **argv,
 	double total_bytes = 0;
 	double total_time = 0;
 	int i;
+
+	printf("dbench version %s - Copyright Andrew Tridgell 1999-2004\n\n", VERSION);
 
 	if (!process_opts(argc, argv, &nprocs))
 		show_usage();
