@@ -375,12 +375,12 @@ void nb_qfileinfo(struct child_struct *child, int handle, int level, const char 
 
 void nb_qfsinfo(struct child_struct *child, int level, const char *status)
 {
-	struct statfs st;
+	struct statvfs st;
 
 	(void)level;
 	(void)status;
 
-	statfs(child->directory, &st);
+	statvfs(child->directory, &st);
 }
 
 void nb_findfirst(struct child_struct *child, char *fname, int level, int maxcnt, 

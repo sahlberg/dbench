@@ -40,13 +40,19 @@
 #include <sys/vfs.h>
 #endif
 
+#ifdef HAVE_SYS_STATVFS_H
+#include <sys/statvfs.h>
+#endif
+
 #include <sys/param.h>
 #include <sys/mount.h>
 	  
 #include <utime.h>
 #include <errno.h>
 #include <strings.h>
+#ifdef HAVE_STDINT_H
 #include <stdint.h>
+#endif
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netdb.h>

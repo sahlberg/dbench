@@ -14,8 +14,8 @@ CC=@CC@
 CFLAGS=@CFLAGS@ -I. -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(datadir)\"
 EXEEXT=@EXEEXT@
 
-DB_OBJS = fileio.o util.o dbench.o child.o system.o
-TB_OBJS = sockio.o util.o dbench.o child.o socklib.o
+DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o
+TB_OBJS = sockio.o util.o dbench.o child.o socklib.o snprintf.o
 SRV_OBJS = util.o tbench_srv.o socklib.o
 
 all: dbench tbench tbench_srv
