@@ -36,6 +36,8 @@
 #include <sys/shm.h>
 #include <sys/mman.h>
 #include <errno.h>
+#include <strings.h>
+#include <stdint.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netdb.h>

@@ -34,11 +34,11 @@ int xattr_enable=0;
 
 static struct child_struct *children;
 
-static void sigcont(void)
+static void sigcont(int sig)
 {
 }
 
-static void sig_alarm(void)
+static void sig_alarm(int sig)
 {
 	double total = 0;
 	int total_lines = 0;
@@ -137,7 +137,7 @@ static double create_procs(int nprocs, void (*fn)(struct child_struct * ))
 	}
 
 	alarm(0);
-	sig_alarm();
+	sig_alarm(SIGALRM);
 
 	printf("\n");
 	return end_timer();

@@ -25,7 +25,7 @@ static void server(int fd)
 {
 	char buf[70000];
 	unsigned *ibuf = (unsigned *)buf;
-	int n;
+	uint32_t n;
 
 	signal(SIGPIPE, SIG_IGN);
 	

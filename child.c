@@ -1,6 +1,7 @@
 /* 
-   dbench version 2
-   Copyright (C) Andrew Tridgell 1999
+   dbench version 3
+
+   Copyright (C) Andrew Tridgell 1999-2004
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
