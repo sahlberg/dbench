@@ -307,9 +307,9 @@ static int process_opts(int argc, char **argv,
 	if (!process_opts(argc, argv, &nprocs))
 		show_usage();
 
-	warmup = timelimit / 20;
+	warmup = timelimit / 5;
 
-        printf("Running for %d seconds with load '%s' and warmup %d secs\n", 
+        printf("Running for %d seconds with load '%s' and minimum warmup %d secs\n", 
                timelimit, loadfile, warmup);
 
 	create_procs(nprocs, child_run);
