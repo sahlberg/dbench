@@ -38,7 +38,7 @@ static int find_handle(struct child_struct *child, int handle)
 	for (i=0;i<MAX_FILES;i++) {
 		if (ftable[i].handle == handle) return i;
 	}
-	printf("(%d) nb_write: handle %d was not found\n", 
+	printf("(%d) ERROR: handle %d was not found\n", 
 	       child->line, handle);
 	exit(1);
 }
