@@ -45,7 +45,7 @@
 #define MIN(x,y) ((x)<(y)?(x):(y))
 
 #define TCP_PORT 7003
-#define TCP_OPTIONS "TCP_NODELAY"
+#define TCP_OPTIONS "TCP_NODELAY SO_REUSEADDR"
 
 #define BOOL int
 #define True 1
