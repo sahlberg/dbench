@@ -29,7 +29,7 @@ int sync_open = 0, sync_dirs = 0;
 char *tcp_options = TCP_OPTIONS;
 static int timelimit = 600, warmup;
 const char *directory = ".";
-static char *loadfile = DATADIR "client_enterprise.txt";
+static char *loadfile = DATADIR "/client_enterprise.txt";
 
 #if HAVE_XATTR_SUPPORT
 int xattr_enable=0;
@@ -43,7 +43,7 @@ static FILE *open_loadfile(void)
 		return f;
 
 	fprintf(stderr,
-		"dbench: error opening %s: %s\n", loadfile,
+		"dbench: error opening '%s': %s\n", loadfile,
 		strerror(errno));
 
 	return NULL;
@@ -118,6 +118,9 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 	FILE *load;
 
 	load = open_loadfile();
+	if (load == NULL) {
+		exit(1);
+	}
 
 	signal(SIGCONT, sigcont);
 
@@ -199,16 +202,16 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 
 static void show_usage(void)
 {
-	printf("usage: dbench [OPTIONS] nprocs\n"
-	       "usage: tbench [OPTIONS] nprocs <server>\n"
-	       "options:\n"
-	       "  -v               show version\n"
-	       "  -t timelimit     run time in seconds\n"
-	       "  -D directory     base directory to run in\n"
-	       "  -c CLIENT.TXT    set location of client.txt\n"
-	       "  -s               synchronous file IO\n"
-	       "  -S               synchronous directories (mkdir, unlink...)\n"
-	       "  -x               enable xattr support\n"
+	printf("usage: dbench [OPTIONS] nprocs\n" \
+	       "usage: tbench [OPTIONS] nprocs <server>\n" \
+	       "options:\n" \
+	       "  -v               show version\n" \
+	       "  -t timelimit     run time in seconds\n" \
+	       "  -D directory     base directory to run in\n" \
+	       "  -c loadfile      set location of the loadfile\n" \
+	       "  -s               synchronous file IO\n" \
+	       "  -S               synchronous directories (mkdir, unlink...)\n" \
+	       "  -x               enable xattr support\n" \
 	       "  -T options       set socket options for tbench\n");
 	exit(1);
 }
