@@ -112,10 +112,12 @@ static void xattr_fd_write_hook(int fd)
 #if HAVE_XATTR_SUPPORT
 	extern int xattr_enable;
 	if (xattr_enable) {
+		struct timeval tv;
 		char buf[44];
 		memset(buf, 0, sizeof(buf));
 		fgetxattr(fd, "user.DosAttrib", buf, sizeof(buf));
-		*(time_t *)buf = time(NULL);
+		gettimeofday(&tv, NULL);
+		memcpy(buf, &tv, sizeof(tv));
 		if (fsetxattr(fd, "user.DosAttrib", buf, sizeof(buf), 0) != 0) {
 			printf("fsetxattr failed - %s\n", strerror(errno));
 			exit(1);
