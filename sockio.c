@@ -81,7 +81,7 @@ void nb_setup(struct child_struct *child)
 
 void nb_unlink(struct child_struct *child, char *fname)
 {
-	do_packets(83, 39);
+	do_packets(39+2+strlen(fname)*2+2, 39);
 }
 
 void nb_rmdir(struct child_struct *child, char *fname)
@@ -99,14 +99,14 @@ void nb_writex(struct child_struct *child, int handle, int offset,
 	       int size, int ret_size)
 {
 	child->bytes_out += size;
-	do_packets(51+size, 41);
+	do_packets(39+24+size, 39+12);
 }
 
 void nb_readx(struct child_struct *child, int handle, int offset, 
 	      int size, int ret_size)
 {
 	child->bytes_in += size;
-	do_packets(55, size+4);
+	do_packets(55, size+39+24);
 }
 
 void nb_close(struct child_struct *child, int handle)
