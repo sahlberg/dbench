@@ -30,6 +30,8 @@ char *tcp_options = TCP_OPTIONS;
 static int timelimit = 600, warmup;
 const char *directory = ".";
 static char *loadfile = DATADIR "/client.txt";
+static struct timeval tv_start;
+static struct timeval tv_end;
 
 #if HAVE_XATTR_SUPPORT
 int xattr_enable=0;
@@ -66,32 +68,43 @@ static void sig_alarm(int sig)
 	int nprocs = children[0].nprocs;
 	int in_warmup = 0, in_cleanup = 0;
 	double t;
-	struct timeval tv_start;
 
 	(void)sig;
 
-	tv_start = children[0].tv_start;
-
 	for (i=0;i<nprocs;i++) {
-		if (children[i].warmup) in_warmup = children[i].warmup;
-		total_bytes += children[i].bytes_in + children[i].bytes_out;
+		total_bytes += children[i].bytes - children[i].bytes_done_warmup;
+		if (children[i].bytes == 0) {
+			in_warmup = 1;
+		}
 		total_lines += children[i].line;
-		if (!children[i].done) running++;
 		if (children[i].cleanup) in_cleanup = 1;
-		tv_start = timeval_min(&tv_start, &children[i].tv_start);
 	}
 
 	t = timeval_elapsed(&tv_start);
 
+	if (!in_warmup && warmup>0 && t > warmup) {
+		tv_start = timeval_current();
+		warmup = 0;
+		for (i=0;i<nprocs;i++) {
+			children[i].bytes_done_warmup = children[i].bytes;
+		}
+		goto next;
+	}
+	if (t < warmup) {
+		in_warmup = 1;
+	} else if (!in_warmup && t > timelimit) {
+		for (i=0;i<nprocs;i++) {
+			children[i].done = 1;
+		}
+		tv_end = timeval_current();
+	}
 	if (t < 1) {
-		signal(SIGALRM, sig_alarm);
-		alarm(PRINT_FREQ);
-		return;
+		goto next;
 	}
 
         if (in_warmup) {
                 printf("%4d  %8d  %7.2f MB/sec  warmup %3.0f sec   \n", 
-                       running, total_lines/nprocs, 
+                       nprocs, total_lines/nprocs, 
                        1.0e-6 * total_bytes / t, t);
         } else if (in_cleanup) {
                 printf("%4d  %8d  %7.2f MB/sec  cleanup %3.0f sec   \n", 
@@ -104,6 +117,7 @@ static void sig_alarm(int sig)
         }
 
 	fflush(stdout);
+next:
 	signal(SIGALRM, sig_alarm);
 	alarm(PRINT_FREQ);
 }
@@ -144,8 +158,6 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 	for (i=0;i<nprocs;i++) {
 		children[i].id = i;
 		children[i].nprocs = nprocs;
-		children[i].timelimit = timelimit;
-		children[i].warmup = warmup;
 		children[i].cleanup = 0;
 		children[i].directory = directory;
 	}
@@ -176,12 +188,14 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 		return;
 	}
 
+	printf("%d clients started\n", nprocs);
+
 	kill(0, SIGCONT);
+
+	tv_start = timeval_current();
 
 	signal(SIGALRM, sig_alarm);
 	alarm(PRINT_FREQ);
-
-	printf("%d clients started\n", nprocs);
 
 	for (i=0;i<nprocs;) {
 		if (waitpid(0, &status, 0) == -1) continue;
@@ -285,7 +299,7 @@ static int process_opts(int argc, char **argv,
 {
 	int nprocs;
 	double total_bytes = 0;
-	double total_time = 0;
+	double t;
 	int i;
 
 	printf("dbench version %s - Copyright Andrew Tridgell 1999-2004\n\n", VERSION);
@@ -301,13 +315,13 @@ static int process_opts(int argc, char **argv,
 	create_procs(nprocs, child_run);
 
 	for (i=0;i<nprocs;i++) {
-		total_bytes += children[i].bytes_in + children[i].bytes_out;
-		total_time += timeval_elapsed2(&children[i].tv_start,
-					       &children[i].tv_now);
+		total_bytes += children[i].bytes - children[i].bytes_done_warmup;
 	}
 
+	t = timeval_elapsed2(&tv_start, &tv_end);
+
 	printf("Throughput %g MB/sec%s%s %d procs\n", 
-	       1.0e-6 * total_bytes / (total_time / nprocs),
+	       1.0e-6 * total_bytes / t,
 	       sync_open ? " (sync open)" : "",
 	       sync_dirs ? " (sync dirs)" : "", nprocs);
 	return 0;

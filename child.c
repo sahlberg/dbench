@@ -48,20 +48,9 @@ void child_run(struct child_struct *child, const char *loadfile)
 
 	asprintf(&cname,"client%d", child->id);
 
-	child->tv_start = timeval_current();
-	child->tv_now = timeval_current();
-
 again:
 	while (fgets(line, sizeof(line)-1, f)) {
-		if (child->warmup && 
-		    timeval_elapsed(&child->tv_start) >= child->warmup) {
-			child->warmup = 0;
-			nb_warmup_done(child);
-			child->tv_start = timeval_current();
-			child->tv_now = child->tv_start;
-		}
-
-		if (timeval_elapsed(&child->tv_start) >= child->timelimit) {
+		if (child->done) {
 			goto done;
 		}
 
@@ -157,8 +146,6 @@ again:
 		} else {
 			printf("[%d] Unknown operation %s\n", child->line, params[0]);
 		}
-
-		child->tv_now = timeval_current();
 	}
 
 	rewind(f);
@@ -167,8 +154,5 @@ again:
 done:
 	child->cleanup = 1;
 	fclose(f);
-
 	nb_cleanup(child);
-
-	child->done = 1;
 }

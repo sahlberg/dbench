@@ -72,12 +72,9 @@ struct child_struct {
 	int line;
 	int done;
 	int cleanup;
-	int warmup;
-	int timelimit;
 	const char *directory;
-	double bytes_in, bytes_out;
-	struct timeval tv_start;
-	struct timeval tv_now;
+	double bytes;
+	double bytes_done_warmup;
 };
 
 

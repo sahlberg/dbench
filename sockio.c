@@ -121,7 +121,7 @@ void nb_writex(struct child_struct *child, int handle, int offset,
 	(void)ret_size;
 	(void)status;
         do_packets(39+20+size, 39+16);
-	child->bytes_out += ret_size;
+	child->bytes += size;
 }
 
 void nb_readx(struct child_struct *child, int handle, int offset, 
@@ -133,7 +133,7 @@ void nb_readx(struct child_struct *child, int handle, int offset,
 	(void)size;
 	(void)status;
         do_packets(39+20, 39+20+ret_size);
-	child->bytes_in += ret_size;
+	child->bytes += ret_size;
 }
 
 void nb_close(struct child_struct *child, int handle, const char *status)
@@ -205,12 +205,6 @@ void nb_deltree(struct child_struct *child, char *dname)
 	(void)child;
 	(void)dname;
 }
-
-void nb_warmup_done(struct child_struct *child)
-{
-	child->bytes_in = child->bytes_out = 0;
-}
-
 
 void nb_sfileinfo(struct child_struct *child, int handle, int level, const char *status)
 {

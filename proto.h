@@ -23,7 +23,6 @@ void nb_findfirst(struct child_struct *child, char *fname, int level, int maxcnt
 		  int count, const char *status);
 void nb_cleanup(struct child_struct *child);
 void nb_deltree(struct child_struct *child, char *dname);
-void nb_warmup_done(struct child_struct *child);
 void nb_sfileinfo(struct child_struct *child, int handle, int level, const char *status);
 void nb_lockx(struct child_struct *child, int handle, uint32_t offset, int size, 
 	      const char *status);
