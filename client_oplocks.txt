@@ -1,6 +1,7 @@
+Deltree \clients\client1
 QUERY_PATH_INFORMATION \clients\client1
 QUERY_PATH_INFORMATION \clients
-NTCreateX \clients 0x1 0x2 13780
+NTCreateX \clients 0x1 0x3 13780
 Close 13780
 NTCreateX \clients\client1 0x1 0x2 13781
 Close 13781

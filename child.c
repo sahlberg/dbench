@@ -79,6 +79,11 @@ void child_run(struct child_struct *child)
 
 		if (i < 2) continue;
 
+		if (!strncmp(params[0],"SMB", 3)) {
+			printf("ERROR: You are using a dbench 1 load file\n");
+			exit(1);
+		}
+
 		if (!strcmp(params[0],"NTCreateX")) {
 			nb_createx(child, params[1], ival(params[2]), ival(params[3]), 
 				   ival(params[4]));
@@ -88,6 +93,8 @@ void child_run(struct child_struct *child)
 			nb_rename(child, params[1], params[2]);
 		} else if (!strcmp(params[0],"Unlink")) {
 			nb_unlink(child, params[1]);
+		} else if (!strcmp(params[0],"Deltree")) {
+			nb_deltree(child, params[1]);
 		} else if (!strcmp(params[0],"Rmdir")) {
 			nb_rmdir(child, params[1]);
 		} else if (!strcmp(params[0],"QUERY_PATH_INFORMATION")) {

@@ -151,3 +151,7 @@ void nb_cleanup(struct child_struct *child)
 	/* noop */
 }
 
+void nb_deltree(struct child_struct *child, char *dname)
+{
+	/* noop */
+}

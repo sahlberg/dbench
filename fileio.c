@@ -84,9 +84,6 @@ void sync_parent(char *fname)
 
 void nb_setup(struct child_struct *child)
 {
-	char path[100];
-	sprintf(path, "/bin/rm -rf clients/client%d", child->id);
-	system(path);
 }
 
 void nb_unlink(struct child_struct *child, char *fname)
@@ -241,4 +238,12 @@ void nb_findfirst(struct child_struct *child, char *fname)
 
 void nb_cleanup(struct child_struct *child)
 {
+	rmdir("clients");
+}
+
+void nb_deltree(struct child_struct *child, char *dname)
+{
+	char path[100];
+	sprintf(path, "/bin/rm -rf %s", dname);
+	system(path);
 }
