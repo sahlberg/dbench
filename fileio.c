@@ -20,10 +20,9 @@
 
 #include "dbench.h"
 
-#define MAX_FILES 1000
+#define MAX_FILES 200
 
 static char buf[70000];
-extern int line_count;
 
 char *server = NULL;
 extern int sync_open, sync_dirs;
@@ -32,6 +31,17 @@ static struct {
 	int fd;
 	int handle;
 } ftable[MAX_FILES];
+
+static int find_handle(struct child_struct *child, int handle)
+{
+	int i;
+	for (i=0;i<MAX_FILES;i++) {
+		if (ftable[i].handle == handle) return i;
+	}
+	printf("(%d) nb_write: handle %d was not found\n", 
+	       child->line, handle);
+	exit(1);
+}
 
 
 /* Find the directory holding a file, and flush it to disk.  We do
@@ -72,65 +82,61 @@ void sync_parent(char *fname)
 }
 
 
-void nb_setup(int client)
+void nb_setup(struct child_struct *child)
 {
-	/* nothing to do */
+	char path[100];
+	sprintf(path, "/bin/rm -rf clients/client%d", child->id);
+	system(path);
 }
 
-void nb_unlink(char *fname)
+void nb_unlink(struct child_struct *child, char *fname)
 {
-	strupper(fname);
-
 	if (unlink(fname) != 0) {
 		printf("(%d) unlink %s failed (%s)\n", 
-		       line_count, fname, strerror(errno));
+		       child->line, fname, strerror(errno));
 	}
-	if (sync_dirs)
-		sync_parent(fname);
+	if (sync_dirs) sync_parent(fname);
 }
 
-void expand_file(int fd, int size)
-{
-	int s;
-	while (size) {
-		s = MIN(sizeof(buf), size);
-		write(fd, buf, s);
-		size -= s;
-	}
-}
-
-void nb_open(char *fname, int handle, int size)
+void nb_createx(struct child_struct *child, char *fname, 
+		unsigned create_options, unsigned create_disposition, int fnum)
 {
 	int fd, i;
-	int flags = O_RDWR|O_CREAT;
-	struct stat st;
-	static int count;
+	int flags = O_RDWR;
 
-	strupper(fname);
+	if (sync_open) flags |= O_SYNC;
 
-	if (size == 0) flags |= O_TRUNC;
+	if (create_disposition == FILE_CREATE) {
+		flags |= O_CREAT;
+	}
 
-	if (sync_open)
-		flags |= O_SYNC;
+	if (create_disposition == FILE_OVERWRITE ||
+	    create_disposition == FILE_OVERWRITE_IF) {
+		flags |= O_CREAT | O_TRUNC;
+	}
+
+	if (create_options & FILE_DIRECTORY_FILE) {
+		/* not strictly correct, but close enough */
+		mkdir(fname, 0700);
+	}
+
+	if (create_options & FILE_DIRECTORY_FILE) flags = O_RDONLY|O_DIRECTORY;
 	
 	fd = open(fname, flags, 0600);
 	if (fd == -1) {
-		printf("(%d) open %s failed for handle %d (%s)\n", 
-		       line_count, fname, handle, strerror(errno));
+		if (fnum != -1) {
+			printf("(%d) open %s failed for handle %d (%s)\n", 
+			       child->line, fname, fnum, strerror(errno));
+		}
 		return;
 	}
-	fstat(fd, &st);
-	if (size > st.st_size) {
-#if DEBUG
-		printf("(%d) expanding %s to %d from %d\n", 
-		       line_count, fname, size, (int)st.st_size);
-#endif
-		expand_file(fd, size - st.st_size);
-	} else if (size < st.st_size) {
-		printf("truncating %s to %d from %d\n", 
-		       fname, size, (int)st.st_size);
-		ftruncate(fd, size);
+	if (fnum == -1) {
+		printf("(%d) open %s succeeded for handle %d\n", 
+		       child->line, fname, fnum);
+		close(fd);
+		return;
 	}
+
 	for (i=0;i<MAX_FILES;i++) {
 		if (ftable[i].handle == 0) break;
 	}
@@ -138,126 +144,95 @@ void nb_open(char *fname, int handle, int size)
 		printf("file table full for %s\n", fname);
 		exit(1);
 	}
-	ftable[i].handle = handle;
+	ftable[i].handle = fnum;
 	ftable[i].fd = fd;
-	if (count++ % 100 == 0) {
-		printf(".");
-	}
 }
 
-void nb_write(int handle, int size, int offset)
+void nb_writex(struct child_struct *child, int handle, int offset, 
+	       int size, int ret_size)
 {
-	int i;
+	int i = find_handle(child, handle);
 
 	if (buf[0] == 0) memset(buf, 1, sizeof(buf));
 
-	for (i=0;i<MAX_FILES;i++) {
-		if (ftable[i].handle == handle) break;
-	}
-	if (i == MAX_FILES) {
-#if 1
-		printf("(%d) nb_write: handle %d was not open size=%d ofs=%d\n", 
-		       line_count, handle, size, offset);
-#endif
-		return;
-	}
-	lseek(ftable[i].fd, offset, SEEK_SET);
-	if (write(ftable[i].fd, buf, size) != size) {
+	if (pwrite(ftable[i].fd, buf, size, offset) != ret_size) {
 		printf("write failed on handle %d\n", handle);
+		exit(1);
 	}
+
+	child->bytes_out += size;
 }
 
-void nb_read(int handle, int size, int offset)
+void nb_readx(struct child_struct *child, int handle, int offset, 
+	      int size, int ret_size)
 {
-	int i;
-	for (i=0;i<MAX_FILES;i++) {
-		if (ftable[i].handle == handle) break;
+	int i = find_handle(child, handle);
+
+	if (pread(ftable[i].fd, buf, size, offset) != ret_size) {
+		printf("read failed on handle %d\n", handle);
 	}
-	if (i == MAX_FILES) {
-		printf("(%d) nb_read: handle %d was not open size=%d ofs=%d\n", 
-		       line_count, handle, size, offset);
-		return;
-	}
-	lseek(ftable[i].fd, offset, SEEK_SET);
-	read(ftable[i].fd, buf, size);
+
+	child->bytes_in += size;
 }
 
-void nb_close(int handle)
+void nb_close(struct child_struct *child, int handle)
 {
-	int i;
-	for (i=0;i<MAX_FILES;i++) {
-		if (ftable[i].handle == handle) break;
-	}
-	if (i == MAX_FILES) {
-		printf("(%d) nb_close: handle %d was not open\n", 
-		       line_count, handle);
-		return;
-	}
+	int i = find_handle(child, handle);
 	close(ftable[i].fd);
 	ftable[i].handle = 0;
 }
 
-void nb_mkdir(char *fname)
+void nb_rename(struct child_struct *child, char *old, char *new)
 {
-	strupper(fname);
-
-	if (mkdir(fname, 0700) != 0) {
-#if DEBUG
-		printf("mkdir %s failed (%s)\n", 
-		       fname, strerror(errno));
-#endif
-	}
-	if (sync_dirs)
-		sync_parent(fname);
-}
-
-void nb_rmdir(char *fname)
-{
-	strupper(fname);
-
-	if (rmdir(fname) != 0) {
-		printf("rmdir %s failed (%s)\n", 
-		       fname, strerror(errno));
-	}
-	if (sync_dirs)
-		sync_parent(fname);
-}
-
-void nb_rename(char *old, char *new)
-{
-	strupper(old);
-	strupper(new);
-
 	if (rename(old, new) != 0) {
 		printf("rename %s %s failed (%s)\n", 
 		       old, new, strerror(errno));
+		exit(1);
 	}
-	if (sync_dirs)
-		sync_parent(new);
+	if (sync_dirs) sync_parent(new);
 }
 
+void nb_flush(struct child_struct *child, int handle)
+{
+	find_handle(child, handle);
+	/* noop */
+}
 
-void nb_stat(char *fname, int size)
+void nb_qpathinfo(struct child_struct *child, const char *fname)
 {
 	struct stat st;
-
-	strupper(fname);
-
-	if (stat(fname, &st) != 0) {
-		printf("(%d) nb_stat: %s size=%d %s\n", 
-		       line_count, fname, size, strerror(errno));
-		return;
-	}
-	if (S_ISDIR(st.st_mode)) return;
-
-	if (st.st_size != size) {
-		printf("(%d) nb_stat: %s wrong size %d %d\n", 
-		       line_count, fname, (int)st.st_size, size);
-	}
+	stat(fname, &st);
 }
 
-void nb_create(char *fname, int size)
+void nb_qfileinfo(struct child_struct *child, int handle)
 {
-	nb_open(fname, 5000, size);
-	nb_close(5000);
+	struct stat st;
+	int i = find_handle(child, handle);
+	fstat(i, &st);
+}
+
+void nb_qfsinfo(struct child_struct *child, int level)
+{
+	/* hmm, should do this one */
+}
+
+void nb_findfirst(struct child_struct *child, char *fname)
+{
+	DIR *dir;
+	struct dirent *d;
+	char *p;
+	p = strrchr(fname, '/');
+	if (!p) return;
+	*p = 0;
+	dir = opendir(fname);
+	if (!dir) return;
+	while ((d = readdir(dir))) ;
+	closedir(dir);
+}
+
+void nb_cleanup(struct child_struct *child)
+{
+	char path[100];
+	sprintf(path, "/bin/rm -rf clients/client%d", child->id);
+	system(path);
 }

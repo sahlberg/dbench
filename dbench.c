@@ -1,6 +1,4 @@
 /* 
-   dbench version 1.01
-   
    Copyright (C) by Andrew Tridgell <tridge@samba.org> 1999, 2001
    Copyright (C) 2001 by Martin Pool <mbp@samba.org>
    
@@ -30,16 +28,39 @@
 int sync_open = 0, sync_dirs = 0;
 char *tcp_options = TCP_OPTIONS;
 
+static struct child_struct *children;
+
 static void sigcont(void)
 {
 }
 
+static void sig_alarm(void)
+{
+	double total = 0;
+	int total_lines = 0;
+	int running = 0;
+	int i;
+	int nprocs = children[0].nprocs;
+
+	for (i=0;i<nprocs;i++) {
+		total += children[i].bytes_in + children[i].bytes_out;
+		total_lines += children[i].line;
+		if (!children[i].done) running++;
+	}
+	/* yeah, I'm doing stdio in a signal handler. So sue me. */
+	printf("%4d  %8d  %.2f MB/sec\r",
+	       running,
+	       total_lines / nprocs, 1.0e-6 * total / end_timer());
+	fflush(stdout);
+	signal(SIGALRM, sig_alarm);
+	alarm(PRINT_FREQ);
+}
+
 /* this creates the specified number of child processes and runs fn()
    in all of them */
-static double create_procs(int nprocs, void (*fn)(int ))
+static double create_procs(int nprocs, void (*fn)(struct child_struct * ))
 {
 	int i, status;
-	volatile int *child_status;
 	int synccount;
 
 	signal(SIGCONT, sigcont);
@@ -55,21 +76,26 @@ static double create_procs(int nprocs, void (*fn)(int ))
 		return 1;
 	}
 
-	child_status = (volatile int *)shm_setup(sizeof(int)*nprocs);
-	if (!child_status) {
+	children = shm_setup(sizeof(struct child_struct)*nprocs);
+	if (!children) {
 		printf("Failed to setup shared memory\n");
 		return end_timer();
 	}
 
-	memset((void *)child_status, 0, sizeof(int)*nprocs);
+	memset(children, 0, sizeof(*children)*nprocs);
+
+	for (i=0;i<nprocs;i++) {
+		children[i].id = i;
+		children[i].nprocs = nprocs;
+	}
 
 	for (i=0;i<nprocs;i++) {
 		if (fork() == 0) {
 			setbuffer(stdout, NULL, 0);
-			nb_setup(i);
-			child_status[i] = getpid();
+			nb_setup(&children[i]);
+			children[i].status = getpid();
 			pause();
-			fn(i);
+			fn(&children[i]);
 			_exit(0);
 		}
 	}
@@ -77,7 +103,7 @@ static double create_procs(int nprocs, void (*fn)(int ))
 	do {
 		synccount = 0;
 		for (i=0;i<nprocs;i++) {
-			if (child_status[i]) synccount++;
+			if (children[i].status) synccount++;
 		}
 		if (synccount == nprocs) break;
 		sleep(1);
@@ -91,12 +117,19 @@ static double create_procs(int nprocs, void (*fn)(int ))
 	start_timer();
 	kill(0, SIGCONT);
 
+	signal(SIGALRM, sig_alarm);
+	alarm(PRINT_FREQ);
+
 	printf("%d clients started\n", nprocs);
 
-	for (i=0;i<nprocs;i++) {
-		waitpid(0, &status, 0);
-		printf("*");
+	for (i=0;i<nprocs;) {
+		if (waitpid(0, &status, 0) == -1) continue;
+		i++;
 	}
+
+	alarm(0);
+	sig_alarm();
+
 	printf("\n");
 	return end_timer();
 }
@@ -106,6 +139,7 @@ static void show_usage(void)
 {
 	printf("usage: dbench [OPTIONS] nprocs\n"
 	       "options:\n"
+	       "  -v               show version\n"
 	       "  -c CLIENT.TXT    set location of client.txt\n"
 	       "  -s               synchronous file IO\n"
 	       "  -S               synchronous directories (mkdir, unlink...)\n"
@@ -123,7 +157,7 @@ static int process_opts(int argc, char **argv,
 	extern int sync_open;
 	extern char *server;
 
-	while ((c = getopt(argc, argv, "c:sSt:")) != -1) 
+	while ((c = getopt(argc, argv, "vc:sSt:")) != -1) 
 		switch (c) {
 		case 'c':
 			client_filename = optarg;
@@ -136,6 +170,11 @@ static int process_opts(int argc, char **argv,
 			break;
 		case 't':
 			tcp_options = optarg;
+			break;
+		case 'v':
+			printf("dbench version %s\nCopyright tridge@samba.org\n",
+			       VERSION);
+			exit(0);
 			break;
 		case '?':
 			if (isprint (optopt))
@@ -166,19 +205,22 @@ static int process_opts(int argc, char **argv,
 {
 	int nprocs;
 	double t;
+	double total_bytes = 0;
+	int i;
 
 	if (!process_opts(argc, argv, &nprocs))
 		show_usage();
 
 	t = create_procs(nprocs, child_run);
 
-	/* to produce a netbench result we scale accoding to the
-           netbench measured throughput for the run that produced the
-           sniff that was used to produce client.txt. That run used 2
-           clients and ran for 660 seconds to produce a result of
-           4MBit/sec. */
-	printf("Throughput %g MB/sec (NB=%g MB/sec  %g MBit/sec)%s%s  %d procs\n", 
-	       132*nprocs/t, 0.5*0.5*nprocs*660/t, 2*nprocs*660/t,
+	for (i=0;i<nprocs;i++) {
+		total_bytes += children[i].bytes_in + children[i].bytes_out;
+	}
+
+	t = end_timer();
+
+	printf("Throughput %g MB/sec%s%s %d procs\n", 
+	       1.0e-6 * total_bytes / t, 
 	       sync_open ? " (sync open)" : "",
 	       sync_dirs ? " (sync dirs)" : "", nprocs);
 	return 0;

@@ -27,20 +27,7 @@
 
 #include "dbench.h"
 
-int line_count=0;
-
-char *client_filename = DATADIR "client.txt";
-
-
-static int sigsegv(int sig)
-{
-	char line[200];
-	printf("segv at line %d\n", line_count);
-	sprintf(line, "/usr/X11R6/bin/xterm -e gdb /proc/%d/exe %d", 
-		getpid(), getpid());
-	system(line);
-	exit(1);
-}
+char *client_filename = DATADIR "client_oplocks.txt";
 
 
 FILE * open_client_dump(void)
@@ -51,100 +38,80 @@ FILE * open_client_dump(void)
 		return f;
 
 	fprintf(stderr,
-		"dbench: error opening %s: %s", client_filename,
+		"dbench: error opening %s: %s\n", client_filename,
 		strerror(errno));
 
 	return NULL;
 }
 
-void child_run(int client)
+#define ival(s) strtol(s, NULL, 0)
+
+void child_run(struct child_struct *child)
 {
 	int i;
-	char fname[128];
 	char line[1024];
 	char cname[20];
 	FILE *f;
 	char *params[20];
 
-	signal(SIGSEGV, sigsegv);
+	child->line = 0;
 
-	sprintf(cname,"CLIENT%d", client);
+	sprintf(cname,"client%d", child->id);
 
 	f = open_client_dump();
 
 	if (!f) {
-		perror("client.txt");
-		return;
+		exit(1);
 	}
 
 	while (fgets(line, sizeof(line)-1, f)) {
-		line_count++;
+		child->line++;
 
-		line[strlen(line)-1] = 0;
-
-		all_string_sub(line,"CLIENT1", cname);
+		all_string_sub(line,"client1", cname);
 		all_string_sub(line,"\\", "/");
 		all_string_sub(line," /", " ");
 		
-		for (i=0;i<20;i++) params[i] = "";
-
 		/* parse the command parameters */
-		params[0] = strtok(line," ");
+		params[0] = strtok(line," \n");
 		i = 0;
-		while (params[i]) params[++i] = strtok(NULL," ");
-
+		while (params[i]) params[++i] = strtok(NULL," \n");
 		params[i] = "";
 
 		if (i < 2) continue;
 
-		if (strcmp(params[1],"REQUEST") == 0) {
-			if (!strcmp(params[0],"SMBopenX")) {
-				strcpy(fname, params[5]);
-			} else if (!strcmp(params[0],"SMBclose")) {
-				nb_close(atoi(params[3]));
-			} else if (!strcmp(params[0],"SMBmkdir")) {
-				nb_mkdir(params[3]);
-			} else if (!strcmp(params[0],"CREATE")) {
-				nb_create(params[3], atoi(params[5]));
-			} else if (!strcmp(params[0],"SMBrmdir")) {
-				nb_rmdir(params[3]);
-			} else if (!strcmp(params[0],"SMBunlink")) {
-				strcpy(fname, params[3]);
-			} else if (!strcmp(params[0],"SMBmv")) {
-				nb_rename(params[3], params[5]);
-			} else if (!strcmp(params[0],"SMBgetatr")) {
-				strcpy(fname, params[3]);
-			} else if (!strcmp(params[0],"SMBwrite")) {
-				nb_write(atoi(params[3]), 
-					 atoi(params[5]), atoi(params[7]));
-			} else if (!strcmp(params[0],"SMBwritebraw")) {
-				nb_write(atoi(params[3]), 
-					 atoi(params[7]), atoi(params[5]));
-			} else if (!strcmp(params[0],"SMBreadbraw")) {
-				nb_read(atoi(params[3]), 
-					 atoi(params[7]), atoi(params[5]));
-			} else if (!strcmp(params[0],"SMBread")) {
-				nb_read(atoi(params[3]), 
-					 atoi(params[5]), atoi(params[7]));
-			}
+		if (!strcmp(params[0],"NTCreateX")) {
+			nb_createx(child, params[1], ival(params[2]), ival(params[3]), 
+				   ival(params[4]));
+		} else if (!strcmp(params[0],"Close")) {
+			nb_close(child, ival(params[1]));
+		} else if (!strcmp(params[0],"Rename")) {
+			nb_rename(child, params[1], params[2]);
+		} else if (!strcmp(params[0],"Unlink")) {
+			nb_unlink(child, params[1]);
+		} else if (!strcmp(params[0],"QUERY_PATH_INFORMATION")) {
+			nb_qpathinfo(child, params[1]);
+		} else if (!strcmp(params[0],"QUERY_FILE_INFORMATION")) {
+			nb_qfileinfo(child, ival(params[1]));
+		} else if (!strcmp(params[0],"QUERY_FS_INFORMATION")) {
+			nb_qfsinfo(child, ival(params[1]));
+		} else if (!strcmp(params[0],"FIND_FIRST")) {
+			nb_findfirst(child, params[1]);
+		} else if (!strcmp(params[0],"WriteX")) {
+			nb_writex(child, ival(params[1]), 
+				  ival(params[2]), ival(params[3]), ival(params[4]));
+		} else if (!strcmp(params[0],"ReadX")) {
+			nb_readx(child, ival(params[1]), 
+				  ival(params[2]), ival(params[3]), ival(params[4]));
+		} else if (!strcmp(params[0],"Flush")) {
+			nb_flush(child, ival(params[1]));
 		} else {
-			if (!strcmp(params[0],"SMBopenX")) {
-				if (!strncmp(params[2], "ERR", 3)) continue;
-				nb_open(fname, atoi(params[3]), atoi(params[5]));
-			} else if (!strcmp(params[0],"SMBgetatr")) {
-				if (!strncmp(params[2], "ERR", 3)) continue;
-				nb_stat(fname, atoi(params[3]));
-			} else if (!strcmp(params[0],"SMBunlink")) {
-				if (!strncmp(params[2], "ERR", 3)) continue;
-				nb_unlink(fname);
-			}
+			printf("Unknown operation %s\n", params[0]);
+			exit(1);
 		}
 	}
 	fclose(f);
 
-	sprintf(fname,"CLIENTS/CLIENT%d", client);
-	rmdir(fname);
-	rmdir("CLIENTS");
+	nb_cleanup(child);
 
-	printf("+");
+	child->done = 1;
 }

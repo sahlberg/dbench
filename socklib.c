@@ -22,36 +22,18 @@
 /****************************************************************************
 open a socket of the specified type, port and address for incoming data
 ****************************************************************************/
-int open_socket_in(int type, int port, uint32 socket_addr)
+int open_socket_in(int type, int port)
 {
-	struct hostent *hp;
 	struct sockaddr_in sock;
-	char host_name[1000];
 	int res;
 	int one=1;
 	extern char *tcp_options;
 
-	/* get my host name */
-	if (gethostname(host_name, sizeof(host_name)) == -1) { 
-		fprintf(stderr,"gethostname failed\n"); return -1; 
-	} 
-
-	/* get host info */
-	if ((hp = gethostbyname(host_name)) == 0) {
-		fprintf(stderr,"Get_Hostbyname: Unknown host %s\n",host_name);
-		return -1;
-	}
-  
-	bzero((char *)&sock,sizeof(sock));
-	memcpy((char *)&sock.sin_addr,(char *)hp->h_addr, hp->h_length);
-
-#ifdef HAVE_SOCK_SIN_LEN
-	sock.sin_len = sizeof(sock);
-#endif
-	sock.sin_port = htons( port );
-	sock.sin_family = hp->h_addrtype;
-	sock.sin_addr.s_addr = socket_addr;
-	res = socket(hp->h_addrtype, type, 0);
+	memset((char *)&sock,0, sizeof(sock));
+	sock.sin_port = htons(port);
+	sock.sin_family = AF_INET;
+	sock.sin_addr.s_addr = 0;
+	res = socket(AF_INET, type, 0);
 	if (res == -1) { 
 		fprintf(stderr, "socket failed\n"); return -1; 
 	}

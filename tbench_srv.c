@@ -51,7 +51,7 @@ static void listener(void)
 {
 	int sock;
 
-	sock = open_socket_in(SOCK_STREAM, TCP_PORT, INADDR_ANY);
+	sock = open_socket_in(SOCK_STREAM, TCP_PORT);
 
 	if (listen(sock, 20) == -1) {
 		fprintf(stderr,"listen failed\n");

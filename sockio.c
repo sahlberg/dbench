@@ -23,8 +23,6 @@
 
 static char buf[70000];
 
-extern int line_count;
-
 char *server = "localhost";
 
 static int sock;
@@ -49,8 +47,8 @@ static void do_packets(unsigned long send_size, unsigned long recv_size)
 	}
 
 	if (ntohl(ubuf[0]) != recv_size-4) {
-		printf("(%d) lost sync (%d %d)\n", 
-		       line_count, (int)recv_size-4, (int)ntohl(ubuf[0]));
+		printf("lost sync (%d %d)\n", 
+		       (int)recv_size-4, (int)ntohl(ubuf[0]));
 		exit(1);
 	}
 
@@ -61,20 +59,20 @@ static void do_packets(unsigned long send_size, unsigned long recv_size)
 	}
 
 	if (ntohl(ubuf[0]) != recv_size-4) {
-		printf("(%d) lost sync (%d %d)\n", 
-		       line_count, (int)recv_size-4, (int)ntohl(ubuf[0]));
+		printf("lost sync (%d %d)\n", 
+		       (int)recv_size-4, (int)ntohl(ubuf[0]));
 	}
 
 	if (counter++ % 3000 == 0) printf(".");
 }
 
-void nb_setup(int client)
+void nb_setup(struct child_struct *child)
 {
 	extern char *tcp_options;
 
 	sock = open_socket_out(server, TCP_PORT);
 	if (sock == -1) {
-		printf("client %d failed to start\n", client);
+		printf("client %d failed to start\n", child->id);
 		exit(1);
 	}
 	set_socket_options(sock, tcp_options);
@@ -83,54 +81,68 @@ void nb_setup(int client)
 }
 
 
-void nb_unlink(char *fname)
+void nb_unlink(struct child_struct *child, char *fname)
 {
 	do_packets(83, 39);
 }
 
-void nb_open(char *fname, int handle, int size)
+void nb_createx(struct child_struct *child, char *fname, 
+		unsigned create_options, unsigned create_disposition, int fnum)
 {
 	do_packets(111, 69);
 }
 
-void nb_write(int handle, int size, int offset)
+void nb_writex(struct child_struct *child, int handle, int offset, 
+	       int size, int ret_size)
 {
+	child->bytes_out += size;
 	do_packets(51+size, 41);
 }
 
-void nb_read(int handle, int size, int offset)
+void nb_readx(struct child_struct *child, int handle, int offset, 
+	      int size, int ret_size)
 {
+	child->bytes_in += size;
 	do_packets(55, size+4);
 }
 
-void nb_close(int handle)
+void nb_close(struct child_struct *child, int handle)
 {
 	do_packets(45, 39);
 }
 
-void nb_mkdir(char *fname)
-{
-	do_packets(39+strlen(fname), 39);
-}
-
-void nb_rmdir(char *fname)
-{
-	do_packets(39+strlen(fname), 39);
-}
-
-void nb_rename(char *old, char *new)
+void nb_rename(struct child_struct *child, char *old, char *new)
 {
 	do_packets(41+strlen(old)+strlen(new), 39);
 }
 
-
-void nb_stat(char *fname, int size)
+void nb_qpathinfo(struct child_struct *child, const char *fname)
 {
-	do_packets(39+strlen(fname), 59);
+	do_packets(41+strlen(fname), 80);
 }
 
-void nb_create(char *fname, int size)
+void nb_qfileinfo(struct child_struct *child, int handle)
 {
-	nb_open(fname, 5000, size);
-	nb_close(5000);
+	do_packets(41, 80);
 }
+
+void nb_qfsinfo(struct child_struct *child, int level)
+{
+	do_packets(41, 80);
+}
+
+void nb_findfirst(struct child_struct *child, char *fname)
+{
+	do_packets(41+strlen(fname), 200);
+}
+
+void nb_flush(struct child_struct *child, int handle)
+{
+	do_packets(41, 39);
+}
+
+void nb_cleanup(struct child_struct *child)
+{
+	/* noop */
+}
+
