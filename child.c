@@ -43,6 +43,7 @@ void child_run(struct child_struct *child, const char *loadfile)
 	char *fname = NULL;
 	char *fname2 = NULL;
 	FILE *f = fopen(loadfile, "r");
+	pid_t parent = getppid();
 
 	child->line = 0;
 
@@ -50,7 +51,7 @@ void child_run(struct child_struct *child, const char *loadfile)
 
 again:
 	while (fgets(line, sizeof(line)-1, f)) {
-		if (child->done) {
+		if (child->done || kill(parent, 0) == -1) {
 			goto done;
 		}
 
