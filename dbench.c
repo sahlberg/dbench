@@ -65,8 +65,9 @@ static void sig_alarm(int sig)
 	int total_lines = 0;
 	int i;
 	int nprocs = children[0].nprocs;
-	int in_warmup = 0, in_cleanup = 0;
+	int in_warmup = 0;
 	double t;
+	static int in_cleanup;
 
 	(void)sig;
 
@@ -76,7 +77,6 @@ static void sig_alarm(int sig)
 			in_warmup = 1;
 		}
 		total_lines += children[i].line;
-		if (children[i].cleanup) in_cleanup = 1;
 	}
 
 	t = timeval_elapsed(&tv_start);
@@ -91,11 +91,12 @@ static void sig_alarm(int sig)
 	}
 	if (t < warmup) {
 		in_warmup = 1;
-	} else if (!in_warmup && t > timelimit) {
+	} else if (!in_warmup && !in_cleanup && t > timelimit) {
 		for (i=0;i<nprocs;i++) {
 			children[i].done = 1;
 		}
 		tv_end = timeval_current();
+		in_cleanup = 1;
 	}
 	if (t < 1) {
 		goto next;
