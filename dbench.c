@@ -225,7 +225,7 @@ static int process_opts(int argc, char **argv,
 	extern int sync_open;
 	extern char *server;
 
-	while ((c = getopt(argc, argv, "vc:sST:t:x")) != -1) 
+	while ((c = getopt(argc, argv, "vc:sST:t:xD:")) != -1) 
 		switch (c) {
 		case 'c':
 			loadfile = optarg;
