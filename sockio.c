@@ -62,8 +62,6 @@ static void do_packets(unsigned long send_size, unsigned long recv_size)
 		printf("lost sync (%d %d)\n", 
 		       (int)recv_size-4, (int)ntohl(ubuf[0]));
 	}
-
-	if (counter++ % 3000 == 0) printf(".");
 }
 
 void nb_setup(struct child_struct *child)
