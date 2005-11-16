@@ -114,7 +114,7 @@ void do_write(int handle, int size, int offset)
 	}
 	lseek(ftable[i].fd, offset, SEEK_SET);
 	if (write(ftable[i].fd, buf, size) != size) {
-		printf("write failed on handle %d\n", handle);
+		printf("write failed on handle %d (%s)\n", handle, strerror(errno));
 	}
 }
 

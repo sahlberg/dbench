@@ -295,7 +295,7 @@ void nb_writex(struct child_struct *child, int handle, int offset,
 	buf = calloc(size, 1);
 
 	if (pwrite(ftable[i].fd, buf, size, offset) != ret_size) {
-		printf("write failed on handle %d\n", handle);
+		printf("write failed on handle %d (%s)\n", handle, strerror(errno));
 		exit(1);
 	}
 
@@ -315,7 +315,7 @@ void nb_readx(struct child_struct *child, int handle, int offset,
 	buf = malloc(size);
 
 	if (pread(ftable[i].fd, buf, size, offset) != ret_size) {
-		printf("read failed on handle %d\n", handle);
+		printf("read failed on handle %d (%s)\n", handle, strerror(errno));
 	}
 
 	free(buf);
