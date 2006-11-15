@@ -95,7 +95,6 @@
 struct child_struct {
 	int id;
 	int nprocs;
-	int status;
 	int failed;
 	int line;
 	int done;

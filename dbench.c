@@ -24,6 +24,7 @@
    can choose what kind it wants for each OPEN operation. */
 
 #include "dbench.h"
+#include <sys/sem.h>
 
 int sync_open = 0, sync_dirs = 0;
 char *tcp_options = TCP_OPTIONS;
@@ -32,6 +33,7 @@ static const char *directory = ".";
 static char *loadfile = DATADIR "/client.txt";
 static struct timeval tv_start;
 static struct timeval tv_end;
+static int barrier=-1;
 
 #if HAVE_EA_SUPPORT
 int ea_enable=0;
@@ -54,9 +56,9 @@ static FILE *open_loadfile(void)
 
 static struct child_struct *children;
 
-static void sigcont(int sig)
-{
-	(void)sig;
+static void sem_cleanup() {
+	if (!(barrier==-1)) 
+		semctl(barrier,0,IPC_RMID);
 }
 
 static void sig_alarm(int sig)
@@ -130,15 +132,13 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 	int synccount;
 	struct timeval tv;
 	FILE *load;
+	struct sembuf sbuf;
+	double t;
 
 	load = open_loadfile();
 	if (load == NULL) {
 		exit(1);
 	}
-
-	signal(SIGCONT, sigcont);
-
-	synccount = 0;
 
 	if (nprocs < 1) {
 		fprintf(stderr,
@@ -162,25 +162,48 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 		children[i].directory = directory;
 	}
 
+	if (atexit(sem_cleanup) != 0) {
+		printf("can't register cleanup function on exit\n");
+		exit(1);
+	}
+	sbuf.sem_num =  0;
+	if ( !(barrier = semget(IPC_PRIVATE,1,IPC_CREAT | S_IRUSR | S_IWUSR)) ) {
+		printf("failed to create barrier semaphore \n");
+	}
+	sbuf.sem_flg =  SEM_UNDO;
+	sbuf.sem_op  =  1;
+	if (semop(barrier, &sbuf, 1) == -1) {
+		printf("failed to initialize the barrier semaphore\n");
+		exit(1);
+	}
+	sbuf.sem_flg =  0;
+
 	for (i=0;i<nprocs;i++) {
 		if (fork() == 0) {
 			setlinebuf(stdout);
 			nb_setup(&children[i]);
-			children[i].status = getpid();
-			pause();
+
+			sbuf.sem_op  =  0;
+			if (semop(barrier, &sbuf, 1) == -1) {
+				printf("failed to use the barrier semaphore in child %d\n",getpid());
+				exit(1);
+			}
+
+			semctl(barrier,0,IPC_RMID);
+
 			fn(&children[i], loadfile);
 			_exit(0);
 		}
 	}
 
+	synccount = 0;
 	tv = timeval_current();
 	do {
-		synccount = 0;
-		for (i=0;i<nprocs;i++) {
-			if (children[i].status) synccount++;
-		}
+		synccount = semctl(barrier,0,GETZCNT);
+		t = timeval_elapsed(&tv);
+		printf("%d of %d clients prepared for launch %3.0f sec\n", synccount, nprocs, t);
 		if (synccount == nprocs) break;
-		usleep(100000);
+		usleep(100*1000);
 	} while (timeval_elapsed(&tv) < 30);
 
 	if (synccount != nprocs) {
@@ -188,11 +211,15 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 		return;
 	}
 
-	printf("%d clients started\n", nprocs);
-
-	kill(0, SIGCONT);
-
+	printf("releasing clients\n");
 	tv_start = timeval_current();
+	sbuf.sem_op  =  -1;
+	if (semop(barrier, &sbuf, 1) == -1) {
+		printf("failed to release barrier\n");
+		exit(1);
+	}
+
+	semctl(barrier,0,IPC_RMID);
 
 	signal(SIGALRM, sig_alarm);
 	alarm(PRINT_FREQ);
