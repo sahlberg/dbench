@@ -13,6 +13,9 @@ void child_run(struct child_struct *child, const char *loadfile);
 
 /* The following definitions come from fileio.c  */
 
+void nb_target_rate(struct child_struct *child, double rate);
+void nb_time_reset(struct child_struct *child);
+void nb_time_delay(struct child_struct *child, double targett);
 void nb_setup(struct child_struct *child);
 void nb_unlink(struct child_struct *child, char *fname, int attr, const char *status);
 void nb_mkdir(struct child_struct *child, char *dname, const char *status);
@@ -55,6 +58,9 @@ void do_rmdir(char *fname);
 void do_rename(char *old, char *new);
 void do_stat(char *fname, int size);
 void do_create(char *fname, int size);
+
+/* The following definitions come from snprintf.c  */
+
 
 /* The following definitions come from sockio.c  */
 
@@ -112,5 +118,6 @@ BOOL next_token(char **ptr,char *buff,char *sep);
 struct timeval timeval_current(void);
 double timeval_elapsed(struct timeval *tv);
 double timeval_elapsed2(struct timeval *tv1, struct timeval *tv2);
+void msleep(unsigned int t);
 
 #endif /*  _PROTO_H_  */

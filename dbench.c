@@ -34,6 +34,7 @@ static char *loadfile = DATADIR "/client.txt";
 static struct timeval tv_start;
 static struct timeval tv_end;
 static int barrier=-1;
+double targetrate;
 
 #if HAVE_EA_SUPPORT
 int ea_enable=0;
@@ -250,6 +251,7 @@ static void show_usage(void)
 	       "  -t timelimit     run time in seconds (default 600)\n" \
 	       "  -D directory     base directory to run in\n" \
 	       "  -c loadfile      set location of the loadfile\n" \
+	       "  -R               target rate (MByte/sec)\n" \
 	       "  -s               synchronous file IO\n" \
 	       "  -S               synchronous directories (mkdir, unlink...)\n" \
 	       "  -x               enable EA support\n" \
@@ -265,8 +267,10 @@ static int process_opts(int argc, char **argv,
 	int c;
 	extern int sync_open;
 	extern char *server;
+	
+	targetrate = 0;
 
-	while ((c = getopt(argc, argv, "vc:sST:t:xD:")) != -1) 
+	while ((c = getopt(argc, argv, "vc:sST:t:xD:R:")) != -1) 
 		switch (c) {
 		case 'c':
 			loadfile = optarg;
@@ -289,7 +293,11 @@ static int process_opts(int argc, char **argv,
 		case 'v':
 			exit(0);
 			break;
+		case 'R':
+			targetrate = strtod(optarg, NULL);
+			break;
 		case 'x':
+
 #if HAVE_EA_SUPPORT
 			ea_enable = 1;
 #else

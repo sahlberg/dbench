@@ -31,6 +31,44 @@ static struct {
 	int handle;
 } ftable[MAX_FILES];
 
+void nb_target_rate(struct child_struct *child, double rate)
+{
+	static double last_bytes;
+	static struct timeval last_time;
+	double tdelay;
+
+	if (last_bytes == 0) {
+		last_bytes = child->bytes;
+		last_time = timeval_current();
+		return;
+	}
+
+	tdelay = (child->bytes - last_bytes)/(1.0e6*rate) - timeval_elapsed(&last_time);
+	if (tdelay > 0) {
+		msleep(tdelay*1000);
+	} else {
+		child->max_latency = MAX(child->max_latency, -tdelay);
+	}
+
+	last_time = timeval_current();
+	last_bytes = child->bytes;
+}
+
+void nb_time_reset(struct child_struct *child)
+{
+	child->starttime = timeval_current();	
+}
+
+void nb_time_delay(struct child_struct *child, double targett)
+{
+	double elapsed = timeval_elapsed(&child->starttime);
+	if (targett > elapsed) {
+		msleep(1000*(targett - elapsed));
+	} else if (elapsed - targett > child->max_latency) {
+		child->max_latency = MAX(elapsed - targett, child->max_latency);
+	}
+}
+
 static int find_handle(struct child_struct *child, int handle)
 {
 	int i;
@@ -139,7 +177,8 @@ static void xattr_fd_write_hook(int fd)
 
 static int expected_status(const char *status)
 {
-	if (strcmp(status, "NT_STATUS_OK") == 0) return 0;
+	if (strcmp(status, "NT_STATUS_OK") == 0 ||
+	    strtoul(status, NULL, 16) == 0) return 0;
 	return -1;
 }
 
@@ -153,6 +192,8 @@ static void resolve_name(const char *name)
 	DIR *dir;
 	char *p;
 	struct dirent *d;
+
+	if (name == NULL) return;
 
 	if (stat(name, &st) == 0) {
 		xattr_fname_read_hook(name);
@@ -252,14 +293,18 @@ void nb_createx(struct child_struct *child, const char *fname,
 	if (create_options & FILE_DIRECTORY_FILE) flags = O_RDONLY|O_DIRECTORY;
 
 	fd = open(fname, flags, 0600);
+	if (fd == -1 && errno == EISDIR) {
+		flags = O_RDONLY|O_DIRECTORY;
+		fd = open(fname, flags, 0600);
+	}
 	if (fd == -1) {
-		if (strcmp(status, "NT_STATUS_OK") == 0) {
+		if (expected_status(status) == 0) {
 			printf("(%d) open %s failed for handle %d (%s)\n", 
 			       child->line, fname, fnum, strerror(errno));
 		}
 		return;
 	}
-	if (strcmp(status, "NT_STATUS_OK") != 0) {
+	if (expected_status(status) != 0) {
 		printf("(%d) open %s succeeded for handle %d\n", 
 		       child->line, fname, fnum);
 		close(fd);
@@ -289,10 +334,28 @@ void nb_writex(struct child_struct *child, int handle, int offset,
 {
 	int i = find_handle(child, handle);
 	void *buf;
+	struct stat st;
 
 	(void)status;
 
 	buf = calloc(size, 1);
+
+	if (size == 1 && fstat(ftable[i].fd, &st) == 0) {
+		if (st.st_size > offset) {
+			unsigned char c;
+			pread(ftable[i].fd, &c, 1, offset);
+			if (c == ((unsigned char *)buf)[0]) {
+				free(buf);
+				child->bytes += size;
+				return;
+			}
+		} else if (((unsigned char *)buf)[0] == 0) {
+			ftruncate(ftable[i].fd, offset+1);
+			free(buf);
+			child->bytes += size;
+			return;
+		} 
+	}
 
 	if (pwrite(ftable[i].fd, buf, size, offset) != ret_size) {
 		printf("write failed on handle %d (%s)\n", handle, strerror(errno));

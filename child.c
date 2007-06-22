@@ -37,20 +37,30 @@ void child_run(struct child_struct *child, const char *loadfile)
 	int i;
 	char line[1024];
 	char *cname;
-	char params[20][100];
+	char **sparams, **params;
 	char *p;
 	const char *status;
 	char *fname = NULL;
 	char *fname2 = NULL;
 	FILE *f = fopen(loadfile, "r");
 	pid_t parent = getppid();
+	extern double targetrate;
 
 	child->line = 0;
 
 	asprintf(&cname,"client%d", child->id);
 
+	sparams = calloc(20, sizeof(char *));
+	for (i=0;i<20;i++) {
+		sparams[i] = malloc(100);
+	}
+
 again:
+	nb_time_reset(child);
+
 	while (fgets(line, sizeof(line)-1, f)) {
+		params = sparams;
+
 		if (child->done || kill(parent, 0) == -1) {
 			goto done;
 		}
@@ -77,7 +87,19 @@ again:
 			exit(1);
 		}
 
-		if (strncmp(params[i-1], "NT_STATUS_", 10) != 0) {
+		if (i > 0 && isdigit(params[0][0])) {
+			double targett = strtod(params[0], NULL);
+			if (targetrate != 0) {
+				nb_target_rate(child, targetrate);
+			} else {
+				nb_time_delay(child, targett);
+			}
+			params++;
+			i--;
+		}
+
+		if (strncmp(params[i-1], "NT_STATUS_", 10) != 0 &&
+		    strncmp(params[i-1], "0x", 2) != 0) {
 			printf("Badly formed status at line %d\n", child->line);
 			continue;
 		}

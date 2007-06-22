@@ -102,6 +102,8 @@ struct child_struct {
 	const char *directory;
 	double bytes;
 	double bytes_done_warmup;
+	double max_latency;
+	struct timeval starttime;
 };
 
 

@@ -164,3 +164,18 @@ double timeval_elapsed2(struct timeval *tv1, struct timeval *tv2)
                (tv2->tv_usec - tv1->tv_usec)*1.0e-6;
 }
 
+
+
+/**
+ Sleep for a specified number of milliseconds.
+**/
+void msleep(unsigned int t)
+{
+	struct timeval tval;  
+
+	tval.tv_sec = t/1000;
+	tval.tv_usec = 1000*(t%1000);
+	/* this should be the real select - do NOT replace
+	   with sys_select() */
+	select(0,NULL,NULL,NULL,&tval);
+}
