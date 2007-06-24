@@ -79,44 +79,6 @@ void nb_setup(struct child_struct *child)
 }
 
 
-void nb_target_rate(struct child_struct *child, double rate)
-{
-	static double last_bytes;
-	static struct timeval last_time;
-	double tdelay;
-
-	if (last_bytes == 0) {
-		last_bytes = child->bytes;
-		last_time = timeval_current();
-		return;
-	}
-
-	tdelay = (child->bytes - last_bytes)/(1.0e6*rate) - timeval_elapsed(&last_time);
-	if (tdelay > 0) {
-		msleep(tdelay*1000);
-	} else {
-		child->max_latency = MAX(child->max_latency, -tdelay);
-	}
-
-	last_time = timeval_current();
-	last_bytes = child->bytes;
-}
-
-void nb_time_reset(struct child_struct *child)
-{
-	child->starttime = timeval_current();	
-}
-
-void nb_time_delay(struct child_struct *child, double targett)
-{
-	double elapsed = timeval_elapsed(&child->starttime);
-	if (targett > elapsed) {
-		msleep(1000*(targett - elapsed));
-	} else if (elapsed - targett > child->max_latency) {
-		child->max_latency = MAX(elapsed - targett, child->max_latency);
-	}
-}
-
 void nb_unlink(struct child_struct *child, char *fname, int attr, const char *status)
 {
 	(void)child;

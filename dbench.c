@@ -26,7 +26,7 @@
 #include "dbench.h"
 #include <sys/sem.h>
 
-int sync_open = 0, sync_dirs = 0;
+int sync_open = 0, do_fsync = 0, sync_dirs = 0;
 char *tcp_options = TCP_OPTIONS;
 static int timelimit = 600, warmup;
 static const char *directory = ".";
@@ -71,8 +71,12 @@ static void sig_alarm(int sig)
 	int in_warmup = 0;
 	double t;
 	static int in_cleanup;
+	double latency;
+	struct timeval tnow;
 
 	(void)sig;
+
+	tnow = timeval_current();
 
 	for (i=0;i<nprocs;i++) {
 		total_bytes += children[i].bytes - children[i].bytes_done_warmup;
@@ -85,7 +89,7 @@ static void sig_alarm(int sig)
 	t = timeval_elapsed(&tv_start);
 
 	if (!in_warmup && warmup>0 && t > warmup) {
-		tv_start = timeval_current();
+		tv_start = tnow;
 		warmup = 0;
 		for (i=0;i<nprocs;i++) {
 			children[i].bytes_done_warmup = children[i].bytes;
@@ -98,25 +102,32 @@ static void sig_alarm(int sig)
 		for (i=0;i<nprocs;i++) {
 			children[i].done = 1;
 		}
-		tv_end = timeval_current();
+		tv_end = tnow;
 		in_cleanup = 1;
 	}
 	if (t < 1) {
 		goto next;
 	}
 
+	latency = 0;
+	for (i=0;i<nprocs;i++) {
+		latency = MAX(children[i].max_latency, latency);
+		latency = MAX(latency, timeval_elapsed2(&children[i].lasttime, &tnow));
+		children[i].max_latency = 0;
+	}
+
         if (in_warmup) {
-                printf("%4d  %8d  %7.2f MB/sec  warmup %3.0f sec   \n", 
+                printf("%4d  %8d  %7.2f MB/sec  warmup %3.0f sec  latency %.03f ms \n", 
                        nprocs, total_lines/nprocs, 
-                       1.0e-6 * total_bytes / t, t);
+                       1.0e-6 * total_bytes / t, t, latency*1000);
         } else if (in_cleanup) {
-                printf("%4d  %8d  %7.2f MB/sec  cleanup %3.0f sec   \n", 
+                printf("%4d  %8d  %7.2f MB/sec  cleanup %3.0f sec  latency %.03f ms\n", 
                        nprocs, total_lines/nprocs, 
-                       1.0e-6 * total_bytes / t, t);
+                       1.0e-6 * total_bytes / t, t, latency*1000);
         } else {
-                printf("%4d  %8d  %7.2f MB/sec  execute %3.0f sec   \n", 
+                printf("%4d  %8d  %7.2f MB/sec  execute %3.0f sec  latency %.03f ms\n", 
                        nprocs, total_lines/nprocs, 
-                       1.0e-6 * total_bytes / t, t);
+                       1.0e-6 * total_bytes / t, t, latency*1000);
         }
 
 	fflush(stdout);
@@ -161,6 +172,7 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 		children[i].nprocs = nprocs;
 		children[i].cleanup = 0;
 		children[i].directory = directory;
+		children[i].starttime = timeval_current();
 	}
 
 	if (atexit(sem_cleanup) != 0) {
@@ -253,6 +265,7 @@ static void show_usage(void)
 	       "  -c loadfile      set location of the loadfile\n" \
 	       "  -R               target rate (MByte/sec)\n" \
 	       "  -s               synchronous file IO\n" \
+	       "  -F               fsync on write\n" \
 	       "  -S               synchronous directories (mkdir, unlink...)\n" \
 	       "  -x               enable EA support\n" \
 	       "  -T options       set socket options for tbench\n");
@@ -270,13 +283,16 @@ static int process_opts(int argc, char **argv,
 	
 	targetrate = 0;
 
-	while ((c = getopt(argc, argv, "vc:sST:t:xD:R:")) != -1) 
+	while ((c = getopt(argc, argv, "vc:sST:t:xD:R:F")) != -1) 
 		switch (c) {
 		case 'c':
 			loadfile = optarg;
 			break;
 		case 's':
 			sync_open = 1;
+			break;
+		case 'F':
+			do_fsync = 1;
 			break;
 		case 'S':
 			sync_dirs = 1;

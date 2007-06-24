@@ -13,9 +13,6 @@ void child_run(struct child_struct *child, const char *loadfile);
 
 /* The following definitions come from fileio.c  */
 
-void nb_target_rate(struct child_struct *child, double rate);
-void nb_time_reset(struct child_struct *child);
-void nb_time_delay(struct child_struct *child, double targett);
 void nb_setup(struct child_struct *child);
 void nb_unlink(struct child_struct *child, char *fname, int attr, const char *status);
 void nb_mkdir(struct child_struct *child, char *dname, const char *status);

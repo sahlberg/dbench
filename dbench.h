@@ -104,6 +104,7 @@ struct child_struct {
 	double bytes_done_warmup;
 	double max_latency;
 	struct timeval starttime;
+	struct timeval lasttime;
 };
 
 

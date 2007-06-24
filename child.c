@@ -30,6 +30,49 @@
 
 #define ival(s) strtol(s, NULL, 0)
 
+static void nb_target_rate(struct child_struct *child, double rate)
+{
+	static double last_bytes;
+	static struct timeval last_time;
+	double tdelay;
+
+	if (last_bytes == 0) {
+		last_bytes = child->bytes;
+		last_time = timeval_current();
+		return;
+	}
+
+	if (rate != 0) {
+		tdelay = (child->bytes - last_bytes)/(1.0e6*rate) - timeval_elapsed(&last_time);
+	} else {
+		tdelay = - timeval_elapsed(&last_time);
+	}
+	if (tdelay > 0 && rate != 0) {
+		msleep(tdelay*1000);
+	} else {
+		child->max_latency = MAX(child->max_latency, -tdelay);
+	}
+
+	last_time = timeval_current();
+	last_bytes = child->bytes;
+}
+
+static void nb_time_reset(struct child_struct *child)
+{
+	child->starttime = timeval_current();	
+}
+
+static void nb_time_delay(struct child_struct *child, double targett)
+{
+	double elapsed = timeval_elapsed(&child->starttime);
+	if (targett > elapsed) {
+		msleep(1000*(targett - elapsed));
+	} else if (elapsed - targett > child->max_latency) {
+		child->max_latency = MAX(elapsed - targett, child->max_latency);
+	}
+}
+
+
 
 /* run a test that simulates an approximate netbench client load */
 void child_run(struct child_struct *child, const char *loadfile)
@@ -45,6 +88,7 @@ void child_run(struct child_struct *child, const char *loadfile)
 	FILE *f = fopen(loadfile, "r");
 	pid_t parent = getppid();
 	extern double targetrate;
+	double targett;
 
 	child->line = 0;
 
@@ -88,15 +132,19 @@ again:
 		}
 
 		if (i > 0 && isdigit(params[0][0])) {
-			double targett = strtod(params[0], NULL);
-			if (targetrate != 0) {
-				nb_target_rate(child, targetrate);
-			} else {
-				nb_time_delay(child, targett);
-			}
+			targett = strtod(params[0], NULL);
 			params++;
 			i--;
+		} else {
+			targett = 0.0;
 		}
+
+		if (targetrate != 0 || targett == 0.0) {
+			nb_target_rate(child, targetrate);
+		} else {
+			nb_time_delay(child, targett);
+		}
+		child->lasttime = timeval_current();
 
 		if (strncmp(params[i-1], "NT_STATUS_", 10) != 0 &&
 		    strncmp(params[i-1], "0x", 2) != 0) {
