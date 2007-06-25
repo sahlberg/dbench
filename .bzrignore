@@ -1,0 +1,10 @@
+Makefile
+autom4te.cache
+config.cache
+config.h
+config.log
+config.status
+dbench
+tbench
+tbench_srv
+configure
