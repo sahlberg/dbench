@@ -380,9 +380,9 @@ void nb_rename(struct child_struct *child, char *old, char *new, const char *sta
 
 void nb_flush(struct child_struct *child, int handle, const char *status)
 {
+	int i = find_handle(child, handle);
 	(void)status;
-	find_handle(child, handle);
-	/* noop */
+	fsync(ftable[i].fd);
 }
 
 void nb_qpathinfo(struct child_struct *child, const char *fname, int level, 
