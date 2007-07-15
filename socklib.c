@@ -27,7 +27,6 @@ int open_socket_in(int type, int port)
 	struct sockaddr_in sock;
 	int res;
 	int one=1;
-	extern char *tcp_options;
 
 	memset((char *)&sock,0, sizeof(sock));
 	sock.sin_port = htons(port);
@@ -45,7 +44,7 @@ int open_socket_in(int type, int port)
 		return(-1); 
 	}
 
-	set_socket_options(res, tcp_options);
+	set_socket_options(res, options.tcp_options);
 
 	return res;
 }
@@ -59,7 +58,6 @@ int open_socket_out(char *host, int port)
 	struct sockaddr_in sock_out;
 	int res;
 	struct hostent *hp;  
-	extern char *tcp_options;
 
 	res = socket(PF_INET, type, 0);
 	if (res == -1) {
@@ -76,7 +74,7 @@ int open_socket_out(char *host, int port)
 	sock_out.sin_port = htons(port);
 	sock_out.sin_family = PF_INET;
 
-	set_socket_options(res, tcp_options);
+	set_socket_options(res, options.tcp_options);
 
 	if (connect(res,(struct sockaddr *)&sock_out,sizeof(sock_out))) {
 		close(res);

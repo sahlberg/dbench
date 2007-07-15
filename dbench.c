@@ -1,3 +1,7 @@
+/*
+  show max/avg latency for each operation
+ */
+
 /* 
    Copyright (C) by Andrew Tridgell <tridge@samba.org> 1999, 2001
    Copyright (C) 2001 by Martin Pool <mbp@samba.org>
@@ -24,31 +28,37 @@
    can choose what kind it wants for each OPEN operation. */
 
 #include "dbench.h"
+#include "popt.h"
 #include <sys/sem.h>
 
-int sync_open = 0, do_fsync = 0, sync_dirs = 0;
-char *tcp_options = TCP_OPTIONS;
-static int timelimit = 600, warmup;
-static const char *directory = ".";
-static char *loadfile = DATADIR "/client.txt";
+struct options options = {
+	.timelimit        = 600,
+	.loadfile         = DATADIR "/client.txt",
+	.directory        = ".",
+	.tcp_options      = TCP_OPTIONS,
+	.nprocs           = 10,
+	.sync_open        = 0,
+	.sync_dirs        = 0,
+	.do_fsync         = 0,
+	.fsync_frequency  = 0,
+	.warmup           = -1,
+	.targetrate       = 0.0,
+	.ea_enable        = 0
+};
+
 static struct timeval tv_start;
 static struct timeval tv_end;
 static int barrier=-1;
-double targetrate;
-
-#if HAVE_EA_SUPPORT
-int ea_enable=0;
-#endif
 
 static FILE *open_loadfile(void)
 {
 	FILE		*f;
 
-	if ((f = fopen(loadfile, "rt")) != NULL)
+	if ((f = fopen(options.loadfile, "rt")) != NULL)
 		return f;
 
 	fprintf(stderr,
-		"dbench: error opening '%s': %s\n", loadfile,
+		"dbench: error opening '%s': %s\n", options.loadfile,
 		strerror(errno));
 
 	return NULL;
@@ -88,17 +98,17 @@ static void sig_alarm(int sig)
 
 	t = timeval_elapsed(&tv_start);
 
-	if (!in_warmup && warmup>0 && t > warmup) {
+	if (!in_warmup && options.warmup>0 && t > options.warmup) {
 		tv_start = tnow;
-		warmup = 0;
+		options.warmup = 0;
 		for (i=0;i<nprocs;i++) {
 			children[i].bytes_done_warmup = children[i].bytes;
 		}
 		goto next;
 	}
-	if (t < warmup) {
+	if (t < options.warmup) {
 		in_warmup = 1;
-	} else if (!in_warmup && !in_cleanup && t > timelimit) {
+	} else if (!in_warmup && !in_cleanup && t > options.timelimit) {
 		for (i=0;i<nprocs;i++) {
 			children[i].done = 1;
 		}
@@ -171,7 +181,7 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 		children[i].id = i;
 		children[i].nprocs = nprocs;
 		children[i].cleanup = 0;
-		children[i].directory = directory;
+		children[i].directory = options.directory;
 		children[i].starttime = timeval_current();
 	}
 
@@ -204,7 +214,7 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 
 			semctl(barrier,0,IPC_RMID);
 
-			fn(&children[i], loadfile);
+			fn(&children[i], options.loadfile);
 			_exit(0);
 		}
 	}
@@ -274,98 +284,94 @@ static void show_usage(void)
 
 
 
-static int process_opts(int argc, char **argv,
-			int *nprocs)
+static int process_opts(int argc, const char **argv)
 {
-	int c;
-	extern int sync_open;
-	extern char *server;
-	
-	targetrate = 0;
+	const char **extra_argv;
+	int extra_argc = 0;
+	struct poptOption popt_options[] = {
+		POPT_AUTOHELP
+		{ "timelimit", 't', POPT_ARG_INT, &options.timelimit, 0, 
+		  "timelimit", "integer" },
+		{ "loadfile",  'c', POPT_ARG_STRING, &options.loadfile, 0, 
+		  "loadfile", "filename" },
+		{ "directory", 'D', POPT_ARG_STRING, &options.directory, 0, 
+		  "working directory", NULL },
+		{ "tcp-options", 'T', POPT_ARG_STRING, &options.tcp_options, 0, 
+		  "TCP socket options", NULL },
+		{ "target-rate", 'R', POPT_ARG_DOUBLE, &options.targetrate, 0, 
+		  "target throughput (MB/sec)", NULL },
+		{ "sync", 's', POPT_ARG_NONE, &options.sync_open, 0, 
+		  "use O_SYNC", NULL },
+		{ "sync-dir", 'S', POPT_ARG_NONE, &options.sync_dirs, 0, 
+		  "sync directory changes", NULL },
+		{ "fsync", 'F', POPT_ARG_NONE, &options.do_fsync, 0, 
+		  "fsync on write", NULL },
+		{ "xattr", 'x', POPT_ARG_NONE, &options.ea_enable, 0, 
+		  "use xattrs", NULL },
+		POPT_TABLEEND
+	};
+	poptContext pc;
+	int opt;
 
-	while ((c = getopt(argc, argv, "vc:sST:t:xD:R:F")) != -1) 
-		switch (c) {
-		case 'c':
-			loadfile = optarg;
-			break;
-		case 's':
-			sync_open = 1;
-			break;
-		case 'F':
-			do_fsync = 1;
-			break;
-		case 'S':
-			sync_dirs = 1;
-			break;
-		case 'T':
-			tcp_options = optarg;
-			break;
-		case 't':
-			timelimit = atoi(optarg);
-			break;
-		case 'D':
-			directory = optarg;
-			break;
-		case 'v':
-			exit(0);
-			break;
-		case 'R':
-			targetrate = strtod(optarg, NULL);
-			break;
-		case 'x':
+	pc = poptGetContext(argv[0], argc, argv, popt_options, POPT_CONTEXT_KEEP_FIRST);
 
-#if HAVE_EA_SUPPORT
-			ea_enable = 1;
-#else
-			printf("EA suppport not compiled in\n");
-			exit(1);
-#endif
-			break;
-		case '?':
-			if (isprint (optopt))
-				fprintf (stderr, "Unknown option `-%c'.\n", optopt);
-			else
-				fprintf (stderr,
-					 "Unknown option character `\\x%x'.\n",
-					 optopt);
-			return 0;
+	while ((opt = poptGetNextOpt(pc)) != -1) {
+		switch (opt) {
 		default:
-			abort ();
+			fprintf(stderr, "Invalid option %s: %s\n", 
+				poptBadOption(pc, 0), poptStrerror(opt));
+			exit(1);
 		}
-	
-	if (!argv[optind])
-		return 0;
-	
-	*nprocs = atoi(argv[optind++]);
+	}
 
-	if (argv[optind])
-		server = argv[optind++];
+	/* setup the remaining options for the main program to use */
+	extra_argv = poptGetArgs(pc);
+	if (extra_argv) {
+		extra_argv++;
+		while (extra_argv[extra_argc]) extra_argc++;
+	}
+
+	if (extra_argc < 1) {
+		printf("You need to specify NPROCS\n");
+		poptPrintHelp(pc, stdout, 0);
+		exit(1);
+	}
+
+#ifndef HAVE_EA_SUPPORT
+	if (options.ea_enable) {
+		printf("EA suppport not compiled in\n");
+		exit(1);
+	}
+#endif
+	
+	options.nprocs = atoi(extra_argv[0]);
 
 	return 1;
 }
 
 
 
- int main(int argc, char *argv[])
+ int main(int argc, const char *argv[])
 {
-	int nprocs;
 	double total_bytes = 0;
 	double t;
 	int i;
 
 	printf("dbench version %s - Copyright Andrew Tridgell 1999-2004\n\n", VERSION);
 
-	if (!process_opts(argc, argv, &nprocs))
+	if (!process_opts(argc, argv))
 		show_usage();
 
-	warmup = timelimit / 5;
+	if (options.warmup == -1) {
+		options.warmup = options.timelimit / 5;
+	}
 
         printf("Running for %d seconds with load '%s' and minimum warmup %d secs\n", 
-               timelimit, loadfile, warmup);
+               options.timelimit, options.loadfile, options.warmup);
 
-	create_procs(nprocs, child_run);
+	create_procs(options.nprocs, child_run);
 
-	for (i=0;i<nprocs;i++) {
+	for (i=0;i<options.nprocs;i++) {
 		total_bytes += children[i].bytes - children[i].bytes_done_warmup;
 	}
 
@@ -373,7 +379,7 @@ static int process_opts(int argc, char **argv,
 
 	printf("Throughput %g MB/sec%s%s %d procs\n", 
 	       1.0e-6 * total_bytes / t,
-	       sync_open ? " (sync open)" : "",
-	       sync_dirs ? " (sync dirs)" : "", nprocs);
+	       options.sync_open ? " (sync open)" : "",
+	       options.sync_dirs ? " (sync dirs)" : "", options.nprocs);
 	return 0;
 }

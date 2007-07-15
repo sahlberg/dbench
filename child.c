@@ -87,7 +87,6 @@ void child_run(struct child_struct *child, const char *loadfile)
 	char *fname2 = NULL;
 	FILE *f = fopen(loadfile, "r");
 	pid_t parent = getppid();
-	extern double targetrate;
 	double targett;
 
 	child->line = 0;
@@ -139,8 +138,8 @@ again:
 			targett = 0.0;
 		}
 
-		if (targetrate != 0 || targett == 0.0) {
-			nb_target_rate(child, targetrate);
+		if (options.targetrate != 0 || targett == 0.0) {
+			nb_target_rate(child, options.targetrate);
 		} else {
 			nb_time_delay(child, targett);
 		}

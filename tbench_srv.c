@@ -19,7 +19,9 @@
 
 #include "dbench.h"
 
-char *tcp_options = TCP_OPTIONS;
+struct options options = {
+	.tcp_options = TCP_OPTIONS
+};
 
 static void server(int fd)
 {
@@ -64,12 +66,12 @@ static void listener(void)
 
 	while (1) {
 		struct sockaddr addr;
-		int in_addrlen = sizeof(addr);
+		socklen_t in_addrlen = sizeof(addr);
 		int fd;
 
 		while (waitpid((pid_t)-1,(int *)NULL, WNOHANG) > 0) ;
 
-		fd = accept(sock,&addr,&in_addrlen);
+		fd = accept(sock, &addr, &in_addrlen);
 
 		if (fd != -1) {
 			if (fork() == 0) server(fd);
@@ -95,7 +97,7 @@ static void process_opts(int argc, char **argv)
 	while ((c = getopt(argc, argv, "t:")) != -1) {
 		switch (c) {
 		case 't':
-			tcp_options = optarg;
+			options.tcp_options = optarg;
 			break;
 		default:
 			usage();

@@ -105,8 +105,23 @@ struct child_struct {
 	double max_latency;
 	struct timeval starttime;
 	struct timeval lasttime;
+	off_t bytes_since_fsync;
 };
 
+struct options {
+	int nprocs;
+	int sync_open;
+	int sync_dirs;
+	int do_fsync;
+	int fsync_frequency;
+	char *tcp_options;
+	int timelimit;
+	int warmup;
+	const char *directory;
+	char *loadfile;
+	double targetrate;
+	int ea_enable;
+};
 
 /* CreateDisposition field. */
 #define FILE_SUPERSEDE 0
@@ -132,3 +147,4 @@ struct child_struct {
 
 #include "proto.h"
 
+extern struct options options;

@@ -66,14 +66,12 @@ static void do_packets(int send_size, int recv_size)
 
 void nb_setup(struct child_struct *child)
 {
-	extern char *tcp_options;
-
 	sock = open_socket_out(server, TCP_PORT);
 	if (sock == -1) {
 		printf("client %d failed to start\n", child->id);
 		exit(1);
 	}
-	set_socket_options(sock, tcp_options);
+	set_socket_options(sock, options.tcp_options);
 
 	do_packets(8, 8);
 }

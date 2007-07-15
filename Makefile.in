@@ -1,4 +1,4 @@
-VERSION=3.04
+VERSION=4.00
 
 srcdir=@srcdir@
 VPATH=@srcdir@
@@ -9,7 +9,7 @@ bindir=@bindir@
 mandir=@mandir@
 datadir=@datadir@
 INSTALLCMD=@INSTALL@
-LIBS=@LIBS@
+LIBS=@LIBS@ -lpopt
 
 CC=@CC@
 CFLAGS=@CFLAGS@ -I. -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(datadir)\"

@@ -22,8 +22,8 @@
 
 #define MAX_FILES 200
 
+
 char *server = NULL;
-extern int sync_open, sync_dirs, do_fsync;
 
 static struct {
 	char *name;
@@ -87,9 +87,8 @@ static void sync_parent(char *fname)
 static void xattr_fd_read_hook(int fd)
 {
 #if HAVE_EA_SUPPORT
-	extern int ea_enable;
 	char buf[44];
-	if (ea_enable) {
+	if (options.ea_enable) {
 		memset(buf, 0, sizeof(buf));
 		sys_fgetxattr(fd, "user.DosAttrib", buf, sizeof(buf));
 	}
@@ -101,8 +100,7 @@ static void xattr_fd_read_hook(int fd)
 static void xattr_fname_read_hook(const char *fname)
 {
 #if HAVE_EA_SUPPORT
-	extern int ea_enable;
-	if (ea_enable) {
+	if (options.ea_enable) {
 		char buf[44];
 		sys_getxattr(fname, "user.DosAttrib", buf, sizeof(buf));
 	}
@@ -114,8 +112,7 @@ static void xattr_fname_read_hook(const char *fname)
 static void xattr_fd_write_hook(int fd)
 {
 #if HAVE_EA_SUPPORT
-	extern int ea_enable;
-	if (ea_enable) {
+	if (options.ea_enable) {
 		struct timeval tv;
 		char buf[44];
 		sys_fgetxattr(fd, "user.DosAttrib", buf, sizeof(buf));
@@ -208,7 +205,7 @@ void nb_unlink(struct child_struct *child, char *fname, int attr, const char *st
 		       child->line, fname, strerror(errno), status);
 		failed(child);
 	}
-	if (sync_dirs) sync_parent(fname);
+	if (options.sync_dirs) sync_parent(fname);
 }
 
 void nb_mkdir(struct child_struct *child, char *dname, const char *status)
@@ -228,7 +225,7 @@ void nb_rmdir(struct child_struct *child, char *fname, const char *status)
 		       child->line, fname, strerror(errno), status);
 		failed(child);
 	}
-	if (sync_dirs) sync_parent(fname);
+	if (options.sync_dirs) sync_parent(fname);
 }
 
 void nb_createx(struct child_struct *child, const char *fname, 
@@ -241,7 +238,7 @@ void nb_createx(struct child_struct *child, const char *fname,
 
 	resolve_name(fname);
 
-	if (sync_open) flags |= O_SYNC;
+	if (options.sync_open) flags |= O_SYNC;
 
 	if (create_disposition == FILE_CREATE) {
 		flags |= O_CREAT;
@@ -329,11 +326,12 @@ void nb_writex(struct child_struct *child, int handle, int offset,
 		exit(1);
 	}
 
-	if (do_fsync) fsync(ftable[i].fd);
+	if (options.do_fsync) fsync(ftable[i].fd);
 
 	free(buf);
 
 	child->bytes += size;
+	child->bytes_since_fsync += size;
 }
 
 void nb_readx(struct child_struct *child, int handle, int offset, 
@@ -375,7 +373,7 @@ void nb_rename(struct child_struct *child, char *old, char *new, const char *sta
 		       old, new, strerror(errno), status);
 		failed(child);
 	}
-	if (sync_dirs) sync_parent(new);
+	if (options.sync_dirs) sync_parent(new);
 }
 
 void nb_flush(struct child_struct *child, int handle, const char *status)
