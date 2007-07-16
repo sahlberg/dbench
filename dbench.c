@@ -27,18 +27,19 @@
 #include <sys/sem.h>
 
 struct options options = {
-	.timelimit        = 600,
-	.loadfile         = DATADIR "/client.txt",
-	.directory        = ".",
-	.tcp_options      = TCP_OPTIONS,
-	.nprocs           = 10,
-	.sync_open        = 0,
-	.sync_dirs        = 0,
-	.do_fsync         = 0,
-	.fsync_frequency  = 0,
-	.warmup           = -1,
-	.targetrate       = 0.0,
-	.ea_enable        = 0
+	.timelimit           = 600,
+	.loadfile            = DATADIR "/client.txt",
+	.directory           = ".",
+	.tcp_options         = TCP_OPTIONS,
+	.nprocs              = 10,
+	.sync_open           = 0,
+	.sync_dirs           = 0,
+	.do_fsync            = 0,
+	.fsync_frequency     = 0,
+	.warmup              = -1,
+	.targetrate          = 0.0,
+	.ea_enable           = 0,
+	.clients_per_process = 1,
 };
 
 static struct timeval tv_start;
@@ -72,7 +73,7 @@ static void sig_alarm(int sig)
 	double total_bytes = 0;
 	int total_lines = 0;
 	int i;
-	int nprocs = children[0].nprocs;
+	int nclients = options.nprocs * options.clients_per_process;
 	int in_warmup = 0;
 	double t;
 	static int in_cleanup;
@@ -83,7 +84,7 @@ static void sig_alarm(int sig)
 
 	tnow = timeval_current();
 
-	for (i=0;i<nprocs;i++) {
+	for (i=0;i<nclients;i++) {
 		total_bytes += children[i].bytes - children[i].bytes_done_warmup;
 		if (children[i].bytes == 0) {
 			in_warmup = 1;
@@ -96,7 +97,7 @@ static void sig_alarm(int sig)
 	if (!in_warmup && options.warmup>0 && t > options.warmup) {
 		tv_start = tnow;
 		options.warmup = 0;
-		for (i=0;i<nprocs;i++) {
+		for (i=0;i<nclients;i++) {
 			children[i].bytes_done_warmup = children[i].bytes;
 		}
 		goto next;
@@ -104,7 +105,7 @@ static void sig_alarm(int sig)
 	if (t < options.warmup) {
 		in_warmup = 1;
 	} else if (!in_warmup && !in_cleanup && t > options.timelimit) {
-		for (i=0;i<nprocs;i++) {
+		for (i=0;i<nclients;i++) {
 			children[i].done = 1;
 		}
 		tv_end = tnow;
@@ -115,7 +116,7 @@ static void sig_alarm(int sig)
 	}
 
 	latency = 0;
-	for (i=0;i<nprocs;i++) {
+	for (i=0;i<nclients;i++) {
 		latency = MAX(children[i].max_latency, latency);
 		latency = MAX(latency, timeval_elapsed2(&children[i].lasttime, &tnow));
 		children[i].max_latency = 0;
@@ -123,15 +124,15 @@ static void sig_alarm(int sig)
 
         if (in_warmup) {
                 printf("%4d  %8d  %7.2f MB/sec  warmup %3.0f sec  latency %.03f ms \n", 
-                       nprocs, total_lines/nprocs, 
+                       nclients, total_lines/nclients, 
                        1.0e-6 * total_bytes / t, t, latency*1000);
         } else if (in_cleanup) {
                 printf("%4d  %8d  %7.2f MB/sec  cleanup %3.0f sec  latency %.03f ms\n", 
-                       nprocs, total_lines/nprocs, 
+                       nclients, total_lines/nclients, 
                        1.0e-6 * total_bytes / t, t, latency*1000);
         } else {
                 printf("%4d  %8d  %7.2f MB/sec  execute %3.0f sec  latency %.03f ms\n", 
-                       nprocs, total_lines/nprocs, 
+                       nclients, total_lines/nclients, 
                        1.0e-6 * total_bytes / t, t, latency*1000);
         }
 
@@ -145,6 +146,7 @@ next:
    in all of them */
 static void create_procs(int nprocs, void (*fn)(struct child_struct *, const char *))
 {
+	int nclients = nprocs * options.clients_per_process;
 	int i, status;
 	int synccount;
 	struct timeval tv;
@@ -164,17 +166,16 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 		return;
 	}
 
-	children = shm_setup(sizeof(struct child_struct)*nprocs);
+	children = shm_setup(sizeof(struct child_struct)*nclients);
 	if (!children) {
 		printf("Failed to setup shared memory\n");
 		return;
 	}
 
-	memset(children, 0, sizeof(*children)*nprocs);
+	memset(children, 0, sizeof(*children)*nclients);
 
-	for (i=0;i<nprocs;i++) {
+	for (i=0;i<nclients;i++) {
 		children[i].id = i;
-		children[i].nprocs = nprocs;
 		children[i].cleanup = 0;
 		children[i].directory = options.directory;
 		children[i].starttime = timeval_current();
@@ -198,10 +199,15 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 
 	for (i=0;i<nprocs;i++) {
 		if (fork() == 0) {
-			setlinebuf(stdout);
-			nb_setup(&children[i]);
+			int j;
 
-			sbuf.sem_op  =  0;
+			setlinebuf(stdout);
+
+			for (j=0;j<options.clients_per_process;j++) {
+				nb_setup(&children[i*options.clients_per_process + j]);
+			}
+
+			sbuf.sem_op = 0;
 			if (semop(barrier, &sbuf, 1) == -1) {
 				printf("failed to use the barrier semaphore in child %d\n",getpid());
 				exit(1);
@@ -209,7 +215,7 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 
 			semctl(barrier,0,IPC_RMID);
 
-			fn(&children[i], options.loadfile);
+			fn(&children[i*options.clients_per_process], options.loadfile);
 			_exit(0);
 		}
 	}
@@ -219,7 +225,7 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 	do {
 		synccount = semctl(barrier,0,GETZCNT);
 		t = timeval_elapsed(&tv);
-		printf("%d of %d clients prepared for launch %3.0f sec\n", synccount, nprocs, t);
+		printf("%d of %d processes prepared for launch %3.0f sec\n", synccount, nprocs, t);
 		if (synccount == nprocs) break;
 		usleep(100*1000);
 	} while (timeval_elapsed(&tv) < 30);
@@ -303,6 +309,8 @@ static int process_opts(int argc, const char **argv)
 		  "fsync on write", NULL },
 		{ "xattr", 'x', POPT_ARG_NONE, &options.ea_enable, 0, 
 		  "use xattrs", NULL },
+		{ "clients-per-process", 0, POPT_ARG_INT, &options.clients_per_process, 0, 
+		  "number of clients per process", NULL },
 		POPT_TABLEEND
 	};
 	poptContext pc;

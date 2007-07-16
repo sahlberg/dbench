@@ -8,3 +8,5 @@ dbench
 tbench
 tbench_srv
 configure
+TAGS
+clients

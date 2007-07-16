@@ -31,20 +31,19 @@
 
 static void nb_target_rate(struct child_struct *child, double rate)
 {
-	static double last_bytes;
-	static struct timeval last_time;
 	double tdelay;
 
-	if (last_bytes == 0) {
-		last_bytes = child->bytes;
-		last_time = timeval_current();
+	if (child->rate.last_bytes == 0) {
+		child->rate.last_bytes = child->bytes;
+		child->rate.last_time = timeval_current();
 		return;
 	}
 
 	if (rate != 0) {
-		tdelay = (child->bytes - last_bytes)/(1.0e6*rate) - timeval_elapsed(&last_time);
+		tdelay = (child->bytes - child->rate.last_bytes)/(1.0e6*rate) - 
+			timeval_elapsed(&child->rate.last_time);
 	} else {
-		tdelay = - timeval_elapsed(&last_time);
+		tdelay = - timeval_elapsed(&child->rate.last_time);
 	}
 	if (tdelay > 0 && rate != 0) {
 		msleep(tdelay*1000);
@@ -52,8 +51,8 @@ static void nb_target_rate(struct child_struct *child, double rate)
 		child->max_latency = MAX(child->max_latency, -tdelay);
 	}
 
-	last_time = timeval_current();
-	last_bytes = child->bytes;
+	child->rate.last_time = timeval_current();
+	child->rate.last_bytes = child->bytes;
 }
 
 static void nb_time_reset(struct child_struct *child)
@@ -72,25 +71,83 @@ static void nb_time_delay(struct child_struct *child, double targett)
 }
 
 
+/*
+  one child operation
+ */
+static void child_op(struct child_struct *child, char **params, 
+		     const char *fname, const char *fname2, const char *status)
+{
+#if 0
+	printf("op %s in client %d  fname=%s fname2=%s\n", params[0], child->id,
+	       fname, fname2);
+#endif
+	if (!strcmp(params[0],"NTCreateX")) {
+		nb_createx(child, fname, ival(params[2]), ival(params[3]), 
+			   ival(params[4]), status);
+	} else if (!strcmp(params[0],"Close")) {
+		nb_close(child, ival(params[1]), status);
+	} else if (!strcmp(params[0],"Rename")) {
+		nb_rename(child, fname, fname2, status);
+	} else if (!strcmp(params[0],"Unlink")) {
+		nb_unlink(child, fname, ival(params[2]), status);
+	} else if (!strcmp(params[0],"Deltree")) {
+		nb_deltree(child, fname);
+	} else if (!strcmp(params[0],"Rmdir")) {
+		nb_rmdir(child, fname, status);
+	} else if (!strcmp(params[0],"Mkdir")) {
+		nb_mkdir(child, fname, status);
+	} else if (!strcmp(params[0],"QUERY_PATH_INFORMATION")) {
+		nb_qpathinfo(child, fname, ival(params[2]), status);
+	} else if (!strcmp(params[0],"QUERY_FILE_INFORMATION")) {
+		nb_qfileinfo(child, ival(params[1]), ival(params[2]), status);
+	} else if (!strcmp(params[0],"QUERY_FS_INFORMATION")) {
+		nb_qfsinfo(child, ival(params[1]), status);
+	} else if (!strcmp(params[0],"SET_FILE_INFORMATION")) {
+		nb_sfileinfo(child, ival(params[1]), ival(params[2]), status);
+	} else if (!strcmp(params[0],"FIND_FIRST")) {
+		nb_findfirst(child, fname, ival(params[2]), 
+			     ival(params[3]), ival(params[4]), status);
+	} else if (!strcmp(params[0],"WriteX")) {
+		nb_writex(child, ival(params[1]), 
+			  ival(params[2]), ival(params[3]), ival(params[4]),
+			  status);
+	} else if (!strcmp(params[0],"LockX")) {
+		nb_lockx(child, ival(params[1]), 
+			 ival(params[2]), ival(params[3]), status);
+	} else if (!strcmp(params[0],"UnlockX")) {
+		nb_unlockx(child, ival(params[1]), 
+			   ival(params[2]), ival(params[3]), status);
+	} else if (!strcmp(params[0],"ReadX")) {
+		nb_readx(child, ival(params[1]), 
+			 ival(params[2]), ival(params[3]), ival(params[4]),
+			 status);
+	} else if (!strcmp(params[0],"Flush")) {
+		nb_flush(child, ival(params[1]), status);
+	} else if (!strcmp(params[0],"Sleep")) {
+		nb_sleep(child, ival(params[1]), status);
+	} else {
+		printf("[%d] Unknown operation %s\n", child->line, params[0]);
+	}
+}
+
 
 /* run a test that simulates an approximate netbench client load */
-void child_run(struct child_struct *child, const char *loadfile)
+void child_run(struct child_struct *child0, const char *loadfile)
 {
 	int i;
 	char line[1024];
-	char *cname;
 	char **sparams, **params;
 	char *p;
 	const char *status;
-	char *fname = NULL;
-	char *fname2 = NULL;
 	FILE *f = fopen(loadfile, "r");
 	pid_t parent = getppid();
 	double targett;
+	struct child_struct *child;
 
-	child->line = 0;
-
-	asprintf(&cname,"client%d", child->id);
+	for (child=child0;child<child0+options.clients_per_process;child++) {
+		child->line = 0;
+		asprintf(&child->cname,"client%d", child->id);
+	}
 
 	sparams = calloc(20, sizeof(char *));
 	for (i=0;i<20;i++) {
@@ -98,7 +155,9 @@ void child_run(struct child_struct *child, const char *loadfile)
 	}
 
 again:
-	nb_time_reset(child);
+	for (child=child0;child<child0+options.clients_per_process;child++) {
+		nb_time_reset(child);
+	}
 
 	while (fgets(line, sizeof(line)-1, f)) {
 		params = sparams;
@@ -111,7 +170,6 @@ again:
 
 		line[strlen(line)-1] = 0;
 
-		all_string_sub(line,"client1", cname);
 		all_string_sub(line,"\\", "/");
 		all_string_sub(line," /", " ");
 		
@@ -137,83 +195,38 @@ again:
 			targett = 0.0;
 		}
 
-		if (options.targetrate != 0 || targett == 0.0) {
-			nb_target_rate(child, options.targetrate);
-		} else {
-			nb_time_delay(child, targett);
-		}
-		child->lasttime = timeval_current();
-
 		if (strncmp(params[i-1], "NT_STATUS_", 10) != 0 &&
 		    strncmp(params[i-1], "0x", 2) != 0) {
 			printf("Badly formed status at line %d\n", child->line);
 			continue;
 		}
 
-		if (fname) {
-			free(fname);
-			fname = NULL;
-		}
-		if (fname2) {
-			free(fname2);
-			fname2 = NULL;
-		}
-
-		if (i>1 && params[1][0] == '/') {
-			asprintf(&fname, "%s%s", child->directory, params[1]);
-		}
-		if (i>2 && params[2][0] == '/') {
-			asprintf(&fname2, "%s%s", child->directory, params[2]);
-		}
-
 		status = params[i-1];
+		
+		for (child=child0;child<child0+options.clients_per_process;child++) {
+			char *fname = NULL;
+			char *fname2 = NULL;
 
-		if (!strcmp(params[0],"NTCreateX")) {
-			nb_createx(child, fname, ival(params[2]), ival(params[3]), 
-				   ival(params[4]), status);
-		} else if (!strcmp(params[0],"Close")) {
-			nb_close(child, ival(params[1]), status);
-		} else if (!strcmp(params[0],"Rename")) {
-			nb_rename(child, fname, fname2, status);
-		} else if (!strcmp(params[0],"Unlink")) {
-			nb_unlink(child, fname, ival(params[2]), status);
-		} else if (!strcmp(params[0],"Deltree")) {
-			nb_deltree(child, fname);
-		} else if (!strcmp(params[0],"Rmdir")) {
-			nb_rmdir(child, fname, status);
-		} else if (!strcmp(params[0],"Mkdir")) {
-			nb_mkdir(child, fname, status);
-		} else if (!strcmp(params[0],"QUERY_PATH_INFORMATION")) {
-			nb_qpathinfo(child, fname, ival(params[2]), status);
-		} else if (!strcmp(params[0],"QUERY_FILE_INFORMATION")) {
-			nb_qfileinfo(child, ival(params[1]), ival(params[2]), status);
-		} else if (!strcmp(params[0],"QUERY_FS_INFORMATION")) {
-			nb_qfsinfo(child, ival(params[1]), status);
-		} else if (!strcmp(params[0],"SET_FILE_INFORMATION")) {
-			nb_sfileinfo(child, ival(params[1]), ival(params[2]), status);
-		} else if (!strcmp(params[0],"FIND_FIRST")) {
-			nb_findfirst(child, fname, ival(params[2]), 
-				     ival(params[3]), ival(params[4]), status);
-		} else if (!strcmp(params[0],"WriteX")) {
-			nb_writex(child, ival(params[1]), 
-				  ival(params[2]), ival(params[3]), ival(params[4]),
-				  status);
-		} else if (!strcmp(params[0],"LockX")) {
-			nb_lockx(child, ival(params[1]), 
-				 ival(params[2]), ival(params[3]), status);
-		} else if (!strcmp(params[0],"UnlockX")) {
-			nb_unlockx(child, ival(params[1]), 
-				 ival(params[2]), ival(params[3]), status);
-		} else if (!strcmp(params[0],"ReadX")) {
-			nb_readx(child, ival(params[1]), 
-				 ival(params[2]), ival(params[3]), ival(params[4]),
-				 status);
-		} else if (!strcmp(params[0],"Flush")) {
-			nb_flush(child, ival(params[1]), status);
-		} else if (!strcmp(params[0],"Sleep")) {
-			nb_sleep(child, ival(params[1]), status);
-		} else {
-			printf("[%d] Unknown operation %s\n", child->line, params[0]);
+			if (i>1 && params[1][0] == '/') {
+				asprintf(&fname, "%s%s", child->directory, params[1]);
+				all_string_sub(fname,"client1", child->cname);
+			}
+			if (i>2 && params[2][0] == '/') {
+				if (fname2) free(fname2);
+				asprintf(&fname2, "%s%s", child->directory, params[2]);
+				all_string_sub(fname2,"client1", child->cname);
+			}
+
+			if (options.targetrate != 0 || targett == 0.0) {
+				nb_target_rate(child, options.targetrate);
+			} else {
+				nb_time_delay(child, targett);
+			}
+			child->lasttime = timeval_current();
+
+			child_op(child, params, fname, fname2, status);
+			if (fname) free(fname);
+			if (fname2) free(fname2);
 		}
 	}
 
@@ -221,7 +234,9 @@ again:
 	goto again;
 
 done:
-	child->cleanup = 1;
 	fclose(f);
-	nb_cleanup(child);
+	for (child=child0;child<child0+options.clients_per_process;child++) {
+		child->cleanup = 1;
+		nb_cleanup(child);
+	}
 }

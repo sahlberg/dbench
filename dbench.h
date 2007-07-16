@@ -93,7 +93,6 @@
 
 struct child_struct {
 	int id;
-	int nprocs;
 	int failed;
 	int line;
 	int done;
@@ -105,6 +104,11 @@ struct child_struct {
 	struct timeval starttime;
 	struct timeval lasttime;
 	off_t bytes_since_fsync;
+	char *cname;
+	struct {
+		double last_bytes;
+		struct timeval last_time;
+	} rate;
 	void *private;
 };
 
@@ -122,6 +126,7 @@ struct options {
 	double targetrate;
 	int ea_enable;
 	const char *server;
+	int clients_per_process;
 };
 
 /* CreateDisposition field. */

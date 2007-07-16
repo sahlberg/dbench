@@ -45,7 +45,7 @@ static int find_handle(struct child_struct *child, int handle)
    this in -S mode after a directory-modifying mode, to simulate the
    way knfsd tries to flush directories.  MKDIR and similar operations
    are meant to be synchronous on NFSv2. */
-static void sync_parent(char *fname)
+static void sync_parent(const char *fname)
 {
 	char *copy_name;
 	int dir_fd;
@@ -194,7 +194,7 @@ void nb_setup(struct child_struct *child)
 	child->private = ftable;
 }
 
-void nb_unlink(struct child_struct *child, char *fname, int attr, const char *status)
+void nb_unlink(struct child_struct *child, const char *fname, int attr, const char *status)
 {
 	(void)attr;
 
@@ -208,7 +208,7 @@ void nb_unlink(struct child_struct *child, char *fname, int attr, const char *st
 	if (options.sync_dirs) sync_parent(fname);
 }
 
-void nb_mkdir(struct child_struct *child, char *dname, const char *status)
+void nb_mkdir(struct child_struct *child, const char *dname, const char *status)
 {
 	(void)child;
 	(void)status;
@@ -216,7 +216,7 @@ void nb_mkdir(struct child_struct *child, char *dname, const char *status)
 	mkdir(dname, 0777);
 }
 
-void nb_rmdir(struct child_struct *child, char *fname, const char *status)
+void nb_rmdir(struct child_struct *child, const char *fname, const char *status)
 {
 	resolve_name(fname);
 
@@ -367,7 +367,7 @@ void nb_close(struct child_struct *child, int handle, const char *status)
 	ftable[i].name = NULL;
 }
 
-void nb_rename(struct child_struct *child, char *old, char *new, const char *status)
+void nb_rename(struct child_struct *child, const char *old, const char *new, const char *status)
 {
 	resolve_name(old);
 	resolve_name(new);
@@ -419,7 +419,7 @@ void nb_qfsinfo(struct child_struct *child, int level, const char *status)
 	statvfs(child->directory, &st);
 }
 
-void nb_findfirst(struct child_struct *child, char *fname, int level, int maxcnt, 
+void nb_findfirst(struct child_struct *child, const char *fname, int level, int maxcnt, 
 		  int count, const char *status)
 {
 	DIR *dir;
@@ -459,7 +459,7 @@ void nb_cleanup(struct child_struct *child)
 	free(dname);
 }
 
-void nb_deltree(struct child_struct *child, char *dname)
+void nb_deltree(struct child_struct *child, const char *dname)
 {
 	char *path;
 	(void)child;
