@@ -1,14 +1,10 @@
-/*
-  show max/avg latency for each operation
- */
-
 /* 
-   Copyright (C) by Andrew Tridgell <tridge@samba.org> 1999, 2001
+   Copyright (C) by Andrew Tridgell <tridge@samba.org> 1999-2007
    Copyright (C) 2001 by Martin Pool <mbp@samba.org>
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
+   the Free Software Foundation; either version 3 of the License, or
    (at your option) any later version.
    
    This program is distributed in the hope that it will be useful,
@@ -17,8 +13,7 @@
    GNU General Public License for more details.
    
    You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+   along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 /* TODO: We could try allowing for different flavours of synchronous
