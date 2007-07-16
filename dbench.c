@@ -40,6 +40,7 @@ struct options options = {
 	.targetrate          = 0.0,
 	.ea_enable           = 0,
 	.clients_per_process = 1,
+	.server              = "localhost",
 };
 
 static struct timeval tv_start;
