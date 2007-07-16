@@ -52,7 +52,7 @@ int open_socket_in(int type, int port)
 
 /* open a socket to a tcp remote host with the specified port 
    based on code from Warren */
-int open_socket_out(char *host, int port)
+int open_socket_out(const char *host, int port)
 {
 	int type = SOCK_STREAM;
 	struct sockaddr_in sock_out;

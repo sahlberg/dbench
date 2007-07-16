@@ -22,17 +22,15 @@
 
 #define MAX_FILES 200
 
-
-char *server = NULL;
-
-static struct {
+struct ftable {
 	char *name;
 	int fd;
 	int handle;
-} ftable[MAX_FILES];
+};
 
 static int find_handle(struct child_struct *child, int handle)
 {
+	struct ftable *ftable = child->private;
 	int i;
 	for (i=0;i<MAX_FILES;i++) {
 		if (ftable[i].handle == handle) return i;
@@ -191,7 +189,9 @@ static void failed(struct child_struct *child)
 
 void nb_setup(struct child_struct *child)
 {
-	(void)child;
+	struct ftable *ftable;
+	ftable = calloc(MAX_FILES, sizeof(struct ftable));
+	child->private = ftable;
 }
 
 void nb_unlink(struct child_struct *child, char *fname, int attr, const char *status)
@@ -235,6 +235,7 @@ void nb_createx(struct child_struct *child, const char *fname,
 	int fd, i;
 	int flags = O_RDWR;
 	struct stat st;
+	struct ftable *ftable = (struct ftable *)child->private;
 
 	resolve_name(fname);
 
@@ -299,6 +300,7 @@ void nb_writex(struct child_struct *child, int handle, int offset,
 	int i = find_handle(child, handle);
 	void *buf;
 	struct stat st;
+	struct ftable *ftable = (struct ftable *)child->private;
 
 	(void)status;
 
@@ -339,6 +341,7 @@ void nb_readx(struct child_struct *child, int handle, int offset,
 {
 	int i = find_handle(child, handle);
 	void *buf;
+	struct ftable *ftable = (struct ftable *)child->private;
 
 	(void)status;
 
@@ -355,6 +358,7 @@ void nb_readx(struct child_struct *child, int handle, int offset,
 
 void nb_close(struct child_struct *child, int handle, const char *status)
 {
+	struct ftable *ftable = (struct ftable *)child->private;
 	int i = find_handle(child, handle);
 	(void)status;
 	close(ftable[i].fd);
@@ -378,6 +382,7 @@ void nb_rename(struct child_struct *child, char *old, char *new, const char *sta
 
 void nb_flush(struct child_struct *child, int handle, const char *status)
 {
+	struct ftable *ftable = (struct ftable *)child->private;
 	int i = find_handle(child, handle);
 	(void)status;
 	fsync(ftable[i].fd);
@@ -394,6 +399,7 @@ void nb_qpathinfo(struct child_struct *child, const char *fname, int level,
 
 void nb_qfileinfo(struct child_struct *child, int handle, int level, const char *status)
 {
+	struct ftable *ftable = (struct ftable *)child->private;
 	struct stat st;
 	int i = find_handle(child, handle);
 	(void)child;
@@ -464,6 +470,7 @@ void nb_deltree(struct child_struct *child, char *dname)
 
 void nb_sfileinfo(struct child_struct *child, int handle, int level, const char *status)
 {
+	struct ftable *ftable = (struct ftable *)child->private;
 	int i = find_handle(child, handle);
 	struct utimbuf tm;
 	struct stat st;
@@ -488,6 +495,7 @@ void nb_sfileinfo(struct child_struct *child, int handle, int level, const char 
 void nb_lockx(struct child_struct *child, int handle, uint32_t offset, int size, 
 	      const char *status)
 {
+	struct ftable *ftable = (struct ftable *)child->private;
 	int i = find_handle(child, handle);
 	struct flock lock;
 
@@ -506,6 +514,7 @@ void nb_lockx(struct child_struct *child, int handle, uint32_t offset, int size,
 void nb_unlockx(struct child_struct *child,
 		int handle, uint32_t offset, int size, const char *status)
 {
+	struct ftable *ftable = (struct ftable *)child->private;
 	int i = find_handle(child, handle);
 	struct flock lock;
 

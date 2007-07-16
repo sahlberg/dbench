@@ -346,6 +346,10 @@ static int process_opts(int argc, const char **argv)
 	
 	options.nprocs = atoi(extra_argv[0]);
 
+	if (extra_argc >= 2) {
+		options.server = extra_argv[1];
+	}
+
 	return 1;
 }
 

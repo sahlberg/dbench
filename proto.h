@@ -93,7 +93,7 @@ void nb_sleep(struct child_struct *child, int usec, const char *status);
 /* The following definitions come from socklib.c  */
 
 int open_socket_in(int type, int port);
-int open_socket_out(char *host, int port);
+int open_socket_out(const char *host, int port);
 void set_socket_options(int fd, char *options);
 int read_sock(int s, char *buf, int size);
 int write_sock(int s, char *buf, int size);

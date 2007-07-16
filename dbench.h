@@ -106,6 +106,7 @@ struct child_struct {
 	struct timeval starttime;
 	struct timeval lasttime;
 	off_t bytes_since_fsync;
+	void *private;
 };
 
 struct options {
@@ -121,6 +122,7 @@ struct options {
 	char *loadfile;
 	double targetrate;
 	int ea_enable;
+	const char *server;
 };
 
 /* CreateDisposition field. */
