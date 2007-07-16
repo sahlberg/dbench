@@ -46,6 +46,7 @@ struct options options = {
 static struct timeval tv_start;
 static struct timeval tv_end;
 static int barrier=-1;
+static double throughput;
 
 static FILE *open_loadfile(void)
 {
@@ -148,6 +149,7 @@ static void sig_alarm(int sig)
                 printf("%4d  %8d  %7.2f MB/sec  execute %3.0f sec  latency %.03f ms\n", 
                        nclients, total_lines/nclients, 
                        1.0e-6 * total_bytes / t, t, latency*1000);
+		throughput = 1.0e-6 * total_bytes / t;
         }
 
 	fflush(stdout);
@@ -400,10 +402,11 @@ static int process_opts(int argc, const char **argv)
 
 	t = timeval_elapsed2(&tv_start, &tv_end);
 
-	printf("Throughput %g MB/sec%s%s %d procs  max_latency=%.03f ms\n", 
-	       1.0e-6 * total_bytes / t,
+	printf("Throughput %g MB/sec%s%s  %d clients  %d procs  max_latency=%.03f ms\n", 
+	       throughput,
 	       options.sync_open ? " (sync open)" : "",
 	       options.sync_dirs ? " (sync dirs)" : "", 
+	       options.nprocs*options.clients_per_process,
 	       options.nprocs, latency*1000);
 	return 0;
 }
