@@ -381,6 +381,8 @@ static int process_opts(int argc, const char **argv)
 	double t, latency=0;
 	int i;
 
+	setlinebuf(stdout);
+
 	printf("dbench version %s - Copyright Andrew Tridgell 1999-2004\n\n", VERSION);
 
 	if (!process_opts(argc, argv))
