@@ -99,6 +99,7 @@ static void sig_alarm(int sig)
 		options.warmup = 0;
 		for (i=0;i<nclients;i++) {
 			children[i].bytes_done_warmup = children[i].bytes;
+			children[i].worst_latency = 0;
 		}
 		goto next;
 	}
@@ -116,12 +117,15 @@ static void sig_alarm(int sig)
 	}
 
 	latency = 0;
-	for (i=0;i<nclients;i++) {
-		latency = MAX(children[i].max_latency, latency);
-		if (!children[i].cleanup) {
+	if (!in_cleanup) {
+		for (i=0;i<nclients;i++) {
+			latency = MAX(children[i].max_latency, latency);
 			latency = MAX(latency, timeval_elapsed2(&children[i].lasttime, &tnow));
+			children[i].max_latency = 0;
+			if (latency > children[i].worst_latency) {
+				children[i].worst_latency = latency;
+			}
 		}
-		children[i].max_latency = 0;
 	}
 
         if (in_warmup) {
@@ -129,9 +133,9 @@ static void sig_alarm(int sig)
                        nclients, total_lines/nclients, 
                        1.0e-6 * total_bytes / t, t, latency*1000);
         } else if (in_cleanup) {
-                printf("%4d  %8d  %7.2f MB/sec  cleanup %3.0f sec  latency %.03f ms\n", 
+                printf("%4d  %8d  %7.2f MB/sec  cleanup %3.0f sec\n", 
                        nclients, total_lines/nclients, 
-                       1.0e-6 * total_bytes / t, t, latency*1000);
+                       1.0e-6 * total_bytes / t, t);
         } else {
                 printf("%4d  %8d  %7.2f MB/sec  execute %3.0f sec  latency %.03f ms\n", 
                        nclients, total_lines/nclients, 
@@ -364,7 +368,7 @@ static int process_opts(int argc, const char **argv)
  int main(int argc, const char *argv[])
 {
 	double total_bytes = 0;
-	double t;
+	double t, latency=0;
 	int i;
 
 	printf("dbench version %s - Copyright Andrew Tridgell 1999-2004\n\n", VERSION);
@@ -381,15 +385,17 @@ static int process_opts(int argc, const char **argv)
 
 	create_procs(options.nprocs, child_run);
 
-	for (i=0;i<options.nprocs;i++) {
+	for (i=0;i<options.nprocs*options.clients_per_process;i++) {
 		total_bytes += children[i].bytes - children[i].bytes_done_warmup;
+		latency = MAX(latency, children[i].worst_latency);
 	}
 
 	t = timeval_elapsed2(&tv_start, &tv_end);
 
-	printf("Throughput %g MB/sec%s%s %d procs\n", 
+	printf("Throughput %g MB/sec%s%s %d procs  max_latency=%.03f ms\n", 
 	       1.0e-6 * total_bytes / t,
 	       options.sync_open ? " (sync open)" : "",
-	       options.sync_dirs ? " (sync dirs)" : "", options.nprocs);
+	       options.sync_dirs ? " (sync dirs)" : "", 
+	       options.nprocs, latency*1000);
 	return 0;
 }

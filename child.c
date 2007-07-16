@@ -135,7 +135,7 @@ static void child_op(struct child_struct *child, char **params,
 void child_run(struct child_struct *child0, const char *loadfile)
 {
 	int i;
-	char line[1024];
+	char line[1024], fname[1024], fname2[1024];
 	char **sparams, **params;
 	char *p;
 	const char *status;
@@ -208,16 +208,12 @@ again:
 		status = params[i-1];
 		
 		for (child=child0;child<child0+options.clients_per_process;child++) {
-			char *fname = NULL;
-			char *fname2 = NULL;
-
 			if (i>1 && params[1][0] == '/') {
-				asprintf(&fname, "%s%s", child->directory, params[1]);
+				snprintf(fname, sizeof(fname), "%s%s", child->directory, params[1]);
 				all_string_sub(fname,"client1", child->cname);
 			}
 			if (i>2 && params[2][0] == '/') {
-				if (fname2) free(fname2);
-				asprintf(&fname2, "%s%s", child->directory, params[2]);
+				snprintf(fname2, sizeof(fname2), "%s%s", child->directory, params[2]);
 				all_string_sub(fname2,"client1", child->cname);
 			}
 
@@ -229,8 +225,6 @@ again:
 			child->lasttime = timeval_current();
 
 			child_op(child, params, fname, fname2, status);
-			if (fname) free(fname);
-			if (fname2) free(fname2);
 		}
 	}
 

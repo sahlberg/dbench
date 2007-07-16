@@ -102,6 +102,7 @@ struct child_struct {
 	double bytes;
 	double bytes_done_warmup;
 	double max_latency;
+	double worst_latency;
 	struct timeval starttime;
 	struct timeval lasttime;
 	off_t bytes_since_fsync;
