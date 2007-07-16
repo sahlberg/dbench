@@ -118,7 +118,9 @@ static void sig_alarm(int sig)
 	latency = 0;
 	for (i=0;i<nclients;i++) {
 		latency = MAX(children[i].max_latency, latency);
-		latency = MAX(latency, timeval_elapsed2(&children[i].lasttime, &tnow));
+		if (!children[i].cleanup) {
+			latency = MAX(latency, timeval_elapsed2(&children[i].lasttime, &tnow));
+		}
 		children[i].max_latency = 0;
 	}
 
@@ -179,6 +181,7 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 		children[i].cleanup = 0;
 		children[i].directory = options.directory;
 		children[i].starttime = timeval_current();
+		children[i].lasttime = timeval_current();
 	}
 
 	if (atexit(sem_cleanup) != 0) {

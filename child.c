@@ -243,5 +243,6 @@ done:
 		child->cleanup = 1;
 		fflush(stdout);
 		nb_cleanup(child);
+		child->cleanup_finished = 1;
 	}
 }

@@ -97,6 +97,7 @@ struct child_struct {
 	int line;
 	int done;
 	int cleanup;
+	int cleanup_finished;
 	const char *directory;
 	double bytes;
 	double bytes_done_warmup;
