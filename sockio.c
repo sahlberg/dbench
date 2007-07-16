@@ -68,6 +68,8 @@ void nb_setup(struct child_struct *child)
 	struct sockio *sockio;
 	sockio = calloc(1, sizeof(struct sockio));
 	child->private = sockio;
+	child->rate.last_time = timeval_current();
+	child->rate.last_bytes = 0;
 	
 	sockio->sock = open_socket_out(options.server, TCP_PORT);
 	if (sockio->sock == -1) {

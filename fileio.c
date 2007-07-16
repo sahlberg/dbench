@@ -192,6 +192,8 @@ void nb_setup(struct child_struct *child)
 	struct ftable *ftable;
 	ftable = calloc(MAX_FILES, sizeof(struct ftable));
 	child->private = ftable;
+	child->rate.last_time = timeval_current();
+	child->rate.last_bytes = 0;
 }
 
 void nb_unlink(struct child_struct *child, const char *fname, int attr, const char *status)

@@ -162,8 +162,12 @@ again:
 	while (fgets(line, sizeof(line)-1, f)) {
 		params = sparams;
 
-		if (child->done || kill(parent, 0) == -1) {
-			goto done;
+		if (kill(parent, 0) == -1) {
+			exit(1);
+		}
+
+		for (child=child0;child<child0+options.clients_per_process;child++) {
+			if (child->done) goto done;
 		}
 
 		child->line++;
@@ -237,6 +241,7 @@ done:
 	fclose(f);
 	for (child=child0;child<child0+options.clients_per_process;child++) {
 		child->cleanup = 1;
+		fflush(stdout);
 		nb_cleanup(child);
 	}
 }
