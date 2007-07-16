@@ -80,6 +80,8 @@ static void sig_alarm(int sig)
 	static int in_cleanup;
 	double latency;
 	struct timeval tnow;
+	int num_active = 0;
+	int num_finished = 0;
 
 	(void)sig;
 
@@ -89,8 +91,13 @@ static void sig_alarm(int sig)
 		total_bytes += children[i].bytes - children[i].bytes_done_warmup;
 		if (children[i].bytes == 0) {
 			in_warmup = 1;
+		} else {
+			num_active++;
 		}
 		total_lines += children[i].line;
+		if (children[i].cleanup_finished) {
+			num_finished++;
+		}
 	}
 
 	t = timeval_elapsed(&tv_start);
@@ -130,12 +137,12 @@ static void sig_alarm(int sig)
 	}
 
         if (in_warmup) {
-                printf("%4d  %8d  %7.2f MB/sec  warmup %3.0f sec  latency %.03f ms \n", 
-                       nclients, total_lines/nclients, 
+                printf("%4d  %8d  %7.2f MB/sec  warmup %3.0f sec  latency %.03f ms\n", 
+                       num_active, total_lines/nclients, 
                        1.0e-6 * total_bytes / t, t, latency*1000);
         } else if (in_cleanup) {
                 printf("%4d  %8d  %7.2f MB/sec  cleanup %3.0f sec\n", 
-                       nclients, total_lines/nclients, 
+                       nclients - num_finished, total_lines/nclients, 
                        1.0e-6 * total_bytes / t, t);
         } else {
                 printf("%4d  %8d  %7.2f MB/sec  execute %3.0f sec  latency %.03f ms\n", 
