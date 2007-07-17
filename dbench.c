@@ -382,6 +382,8 @@ static int process_opts(int argc, const char **argv)
 		  "fsync on write", NULL },
 		{ "xattr", 'x', POPT_ARG_NONE, &options.ea_enable, 0, 
 		  "use xattrs", NULL },
+		{ "no-resolve", 0, POPT_ARG_NONE, &options.no_resolve, 0, 
+		  "disable name resolution simulation", NULL },
 		{ "clients-per-process", 0, POPT_ARG_INT, &options.clients_per_process, 0, 
 		  "number of clients per process", NULL },
 		POPT_TABLEEND

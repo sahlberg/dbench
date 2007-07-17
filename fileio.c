@@ -155,6 +155,10 @@ static void resolve_name(const char *name)
 	char *p;
 	struct dirent *d;
 
+	if (options.no_resolve) {
+		return;
+	}
+
 	if (name == NULL) return;
 
 	if (stat(name, &st) == 0) {

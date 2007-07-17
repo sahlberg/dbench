@@ -145,6 +145,7 @@ struct options {
 	int sync_open;
 	int sync_dirs;
 	int do_fsync;
+	int no_resolve;
 	int fsync_frequency;
 	char *tcp_options;
 	int timelimit;
