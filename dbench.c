@@ -108,6 +108,7 @@ static void sig_alarm(int sig)
 		for (i=0;i<nclients;i++) {
 			children[i].bytes_done_warmup = children[i].bytes;
 			children[i].worst_latency = 0;
+			memset(&children[i].op, 0, sizeof(children[i].op));
 		}
 		goto next;
 	}
