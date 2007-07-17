@@ -155,8 +155,6 @@ static void resolve_name(const char *name)
 	char *p;
 	struct dirent *d;
 
-	return;
-
 	if (name == NULL) return;
 
 	if (stat(name, &st) == 0) {
