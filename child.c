@@ -77,10 +77,6 @@ static void nb_time_delay(struct child_struct *child, double targett)
 static void child_op(struct child_struct *child, char **params, 
 		     const char *fname, const char *fname2, const char *status)
 {
-#if 0
-	printf("op %s in client %d  fname=%s fname2=%s\n", params[0], child->id,
-	       fname, fname2);
-#endif
 	if (!strcmp(params[0],"NTCreateX")) {
 		nb_createx(child, fname, ival(params[2]), ival(params[3]), 
 			   ival(params[4]), status);
@@ -126,7 +122,8 @@ static void child_op(struct child_struct *child, char **params,
 	} else if (!strcmp(params[0],"Sleep")) {
 		nb_sleep(child, ival(params[1]), status);
 	} else {
-		printf("[%d] Unknown operation %s\n", child->line, params[0]);
+		printf("[%d] Unknown operation %s in pid %d\n", 
+		       child->line, params[0], getpid());
 	}
 }
 
@@ -139,7 +136,7 @@ void child_run(struct child_struct *child0, const char *loadfile)
 	char **sparams, **params;
 	char *p;
 	const char *status;
-	FILE *f = fopen(loadfile, "r");
+	FILE *f;
 	pid_t parent = getppid();
 	double targett;
 	struct child_struct *child;
@@ -152,6 +149,12 @@ void child_run(struct child_struct *child0, const char *loadfile)
 	sparams = calloc(20, sizeof(char *));
 	for (i=0;i<20;i++) {
 		sparams[i] = malloc(100);
+	}
+
+	f = fopen(loadfile, "r");
+	if (f == NULL) {
+		perror(loadfile);
+		exit(1);
 	}
 
 again:
@@ -168,9 +171,8 @@ again:
 
 		for (child=child0;child<child0+options.clients_per_process;child++) {
 			if (child->done) goto done;
+			child->line++;
 		}
-
-		child->line++;
 
 		line[strlen(line)-1] = 0;
 
@@ -208,6 +210,9 @@ again:
 		status = params[i-1];
 		
 		for (child=child0;child<child0+options.clients_per_process;child++) {
+			fname[0] = 0;
+			fname2[0] = 0;
+
 			if (i>1 && params[1][0] == '/') {
 				snprintf(fname, sizeof(fname), "%s%s", child->directory, params[1]);
 				all_string_sub(fname,"client1", child->cname);

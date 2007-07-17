@@ -142,9 +142,7 @@ static void sig_alarm(int sig)
                        num_active, total_lines/nclients, 
                        1.0e-6 * total_bytes / t, t, latency*1000);
         } else if (in_cleanup) {
-                printf("%4d  %8d  %7.2f MB/sec  cleanup %3.0f sec\n", 
-                       nclients - num_finished, total_lines/nclients, 
-                       1.0e-6 * total_bytes / t, t);
+                printf("%4d  cleanup %3.0f sec\n", nclients - num_finished, t);
         } else {
                 printf("%4d  %8d  %7.2f MB/sec  execute %3.0f sec  latency %.03f ms\n", 
                        nclients, total_lines/nclients, 
