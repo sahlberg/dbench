@@ -83,7 +83,6 @@ static void sig_alarm(int sig)
 	struct timeval tnow;
 	int num_active = 0;
 	int num_finished = 0;
-
 	(void)sig;
 
 	tnow = timeval_current();
@@ -154,6 +153,62 @@ static void sig_alarm(int sig)
 next:
 	signal(SIGALRM, sig_alarm);
 	alarm(PRINT_FREQ);
+}
+
+
+static const struct {
+	const char *name;
+	size_t offset;
+} op_names[] = {
+#define OP_NAME(opname) { #opname, offsetof(struct opnames, op_ ## opname) }
+	OP_NAME(NTCreateX),
+	OP_NAME(Close),
+	OP_NAME(Rename),
+	OP_NAME(Unlink),
+	OP_NAME(Deltree),
+	OP_NAME(Rmdir),
+	OP_NAME(Mkdir),
+	OP_NAME(Qpathinfo),
+	OP_NAME(Qfileinfo),
+	OP_NAME(Qfsinfo),
+	OP_NAME(Sfileinfo),
+	OP_NAME(Find),
+	OP_NAME(WriteX),
+	OP_NAME(ReadX),
+	OP_NAME(LockX),
+	OP_NAME(UnlockX),
+	OP_NAME(Flush),
+};
+
+static void report_latencies(void)
+{
+	struct opnames sum;
+	int i, j, n = (sizeof(op_names)/sizeof(op_names[0]));
+	struct op *op1, *op2;
+	struct child_struct *child;
+
+	memset(&sum, 0, sizeof(sum));
+	for (i=0;i<n;i++) {
+		op1 = (struct op *)(op_names[i].offset + (char *)&sum);
+		for (j=0;j<options.nprocs * options.clients_per_process;j++) {
+			child = &children[j];
+			op2 = (struct op *)(op_names[i].offset + (char *)&child->op);
+			op1->count += op2->count;
+			op1->total_time += op2->total_time;
+			op1->max_latency = MAX(op1->max_latency, op2->max_latency);
+		}
+	}
+	printf(" Operation      Count    AvgLat    MaxLat\n");
+	printf(" ----------------------------------------\n");
+	for (i=0;i<n;i++) {
+		op1 = (struct op *)(op_names[i].offset + (char *)&sum);
+		if (op1->count == 0) continue;
+		printf(" %-12s %7u %9.03f %9.03f\n",
+		       op_names[i].name, op1->count, 
+		       1000*op1->total_time/op1->count,
+		       op1->max_latency*1000);
+	}
+	printf("\n");
 }
 
 /* this creates the specified number of child processes and runs fn()
@@ -277,6 +332,8 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 	sig_alarm(SIGALRM);
 
 	printf("\n");
+
+	report_latencies();
 }
 
 

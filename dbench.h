@@ -19,6 +19,7 @@
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <signal.h>
 #include <unistd.h>
 #include <string.h>
@@ -91,6 +92,12 @@
 #define False 0
 #define uint32 unsigned
 
+struct op {
+	unsigned count;
+	double total_time;
+	double max_latency;
+};
+
 struct child_struct {
 	int id;
 	int failed;
@@ -111,6 +118,25 @@ struct child_struct {
 		double last_bytes;
 		struct timeval last_time;
 	} rate;
+	struct opnames {
+		struct op op_NTCreateX;
+		struct op op_Close;
+		struct op op_Rename;
+		struct op op_Unlink;
+		struct op op_Deltree;
+		struct op op_Rmdir;
+		struct op op_Mkdir;
+		struct op op_Qpathinfo;
+		struct op op_Qfileinfo;
+		struct op op_Qfsinfo;
+		struct op op_Sfileinfo;
+		struct op op_Find;
+		struct op op_WriteX;
+		struct op op_ReadX;
+		struct op op_LockX;
+		struct op op_UnlockX;
+		struct op op_Flush;
+	} op;
 	void *private;
 };
 

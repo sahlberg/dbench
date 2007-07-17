@@ -155,6 +155,8 @@ static void resolve_name(const char *name)
 	char *p;
 	struct dirent *d;
 
+	return;
+
 	if (name == NULL) return;
 
 	if (stat(name, &st) == 0) {
@@ -463,11 +465,39 @@ void nb_cleanup(struct child_struct *child)
 
 void nb_deltree(struct child_struct *child, const char *dname)
 {
-	char *path;
+	DIR *d;
+	struct dirent *de;
 	(void)child;
-	asprintf(&path, "/bin/rm -rf %s", dname);
-	system(path);
-	free(path);
+	
+	d = opendir(dname);
+	if (d == NULL) return;
+
+	for (de=readdir(d);de;de=readdir(d)) {
+		struct stat st;
+		char *fname = NULL;
+		if (strcmp(de->d_name, ".") == 0 ||
+		    strcmp(de->d_name, "..") == 0) {
+			continue;
+		}
+		asprintf(&fname, "%s/%s", dname, de->d_name);
+		if (fname == NULL) {
+			printf("Out of memory\n");
+			exit(1);
+		}
+		if (stat(fname, &st) != 0) {
+			continue;
+		}
+		if (S_ISDIR(st.st_mode)) {
+			nb_deltree(child, fname);
+		} else {
+			if (unlink(fname) != 0) {
+				printf("[%d] unlink '%s' failed - %s\n",
+				       child->line, fname, strerror(errno));
+			}
+		}
+		free(fname);
+	}
+	closedir(d);
 }
 
 void nb_sfileinfo(struct child_struct *child, int handle, int level, const char *status)

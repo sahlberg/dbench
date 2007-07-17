@@ -70,6 +70,17 @@ static void nb_time_delay(struct child_struct *child, double targett)
 	}
 }
 
+static void finish_op(struct child_struct *child, struct op *op)
+{
+	double t = timeval_elapsed(&child->lasttime);
+	op->count++;
+	op->total_time += t;
+	if (t > op->max_latency) {
+		op->max_latency = t;
+	}
+}
+
+#define OP_LATENCY(opname) finish_op(child, &child->op.op_ ## opname)
 
 /*
   one child operation
@@ -77,48 +88,67 @@ static void nb_time_delay(struct child_struct *child, double targett)
 static void child_op(struct child_struct *child, char **params, 
 		     const char *fname, const char *fname2, const char *status)
 {
+	child->lasttime = timeval_current();
+
 	if (!strcmp(params[0],"NTCreateX")) {
 		nb_createx(child, fname, ival(params[2]), ival(params[3]), 
 			   ival(params[4]), status);
+		OP_LATENCY(NTCreateX);
 	} else if (!strcmp(params[0],"Close")) {
 		nb_close(child, ival(params[1]), status);
+		OP_LATENCY(Close);
 	} else if (!strcmp(params[0],"Rename")) {
 		nb_rename(child, fname, fname2, status);
+		OP_LATENCY(Rename);
 	} else if (!strcmp(params[0],"Unlink")) {
 		nb_unlink(child, fname, ival(params[2]), status);
+		OP_LATENCY(Unlink);
 	} else if (!strcmp(params[0],"Deltree")) {
 		nb_deltree(child, fname);
+		OP_LATENCY(Deltree);
 	} else if (!strcmp(params[0],"Rmdir")) {
 		nb_rmdir(child, fname, status);
+		OP_LATENCY(Rmdir);
 	} else if (!strcmp(params[0],"Mkdir")) {
 		nb_mkdir(child, fname, status);
+		OP_LATENCY(Mkdir);
 	} else if (!strcmp(params[0],"QUERY_PATH_INFORMATION")) {
 		nb_qpathinfo(child, fname, ival(params[2]), status);
+		OP_LATENCY(Qpathinfo);
 	} else if (!strcmp(params[0],"QUERY_FILE_INFORMATION")) {
 		nb_qfileinfo(child, ival(params[1]), ival(params[2]), status);
+		OP_LATENCY(Qfileinfo);
 	} else if (!strcmp(params[0],"QUERY_FS_INFORMATION")) {
 		nb_qfsinfo(child, ival(params[1]), status);
+		OP_LATENCY(Qfsinfo);
 	} else if (!strcmp(params[0],"SET_FILE_INFORMATION")) {
 		nb_sfileinfo(child, ival(params[1]), ival(params[2]), status);
+		OP_LATENCY(Sfileinfo);
 	} else if (!strcmp(params[0],"FIND_FIRST")) {
 		nb_findfirst(child, fname, ival(params[2]), 
 			     ival(params[3]), ival(params[4]), status);
+		OP_LATENCY(Find);
 	} else if (!strcmp(params[0],"WriteX")) {
 		nb_writex(child, ival(params[1]), 
 			  ival(params[2]), ival(params[3]), ival(params[4]),
 			  status);
+		OP_LATENCY(WriteX);
 	} else if (!strcmp(params[0],"LockX")) {
 		nb_lockx(child, ival(params[1]), 
 			 ival(params[2]), ival(params[3]), status);
+		OP_LATENCY(LockX);
 	} else if (!strcmp(params[0],"UnlockX")) {
 		nb_unlockx(child, ival(params[1]), 
 			   ival(params[2]), ival(params[3]), status);
+		OP_LATENCY(UnlockX);
 	} else if (!strcmp(params[0],"ReadX")) {
 		nb_readx(child, ival(params[1]), 
 			 ival(params[2]), ival(params[3]), ival(params[4]),
 			 status);
+		OP_LATENCY(ReadX);
 	} else if (!strcmp(params[0],"Flush")) {
 		nb_flush(child, ival(params[1]), status);
+		OP_LATENCY(Flush);
 	} else if (!strcmp(params[0],"Sleep")) {
 		nb_sleep(child, ival(params[1]), status);
 	} else {
@@ -227,8 +257,6 @@ again:
 			} else {
 				nb_time_delay(child, targett);
 			}
-			child->lasttime = timeval_current();
-
 			child_op(child, params, fname, fname2, status);
 		}
 	}
