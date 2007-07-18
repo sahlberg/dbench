@@ -45,7 +45,7 @@ static int find_handle(struct child_struct *child, int handle)
    this in -S mode after a directory-modifying mode, to simulate the
    way knfsd tries to flush directories.  MKDIR and similar operations
    are meant to be synchronous on NFSv2. */
-static void sync_parent(const char *fname)
+static void sync_parent(struct child_struct *child, const char *fname)
 {
 	char *copy_name;
 	int dir_fd;
@@ -61,28 +61,27 @@ static void sync_parent(const char *fname)
 	
 	dir_fd = open(copy_name, O_RDONLY);
 	if (dir_fd == -1) {
-		printf("open directory \"%s\" for sync failed: %s\n",
-		       copy_name,
-		       strerror(errno));
+		printf("[%d] open directory \"%s\" for sync failed: %s\n",
+		       child->line, copy_name, strerror(errno));
 	} else {
 #if defined(HAVE_FDATASYNC)
 		if (fdatasync(dir_fd) == -1) {
 #else
 		if (fsync(dir_fd) == -1) {
 #endif
-			printf("datasync directory \"%s\" failed: %s\n",
-			       copy_name,
+			printf("[%d] datasync directory \"%s\" failed: %s\n",
+			       child->line, copy_name,
 			       strerror(errno));
 		}
 		if (close(dir_fd) == -1) {
-			printf("close directory failed: %s\n",
-			       strerror(errno));
+			printf("[%d] close directory failed: %s\n",
+			       child->line, strerror(errno));
 		}
 	}
 	free(copy_name);
 }
 
-static void xattr_fd_read_hook(int fd)
+static void xattr_fd_read_hook(struct child_struct *child, int fd)
 {
 #if HAVE_EA_SUPPORT
 	char buf[44];
@@ -93,9 +92,10 @@ static void xattr_fd_read_hook(int fd)
 #else
 	(void)fd;
 #endif
+	(void)child;
 }
 
-static void xattr_fname_read_hook(const char *fname)
+static void xattr_fname_read_hook(struct child_struct *child, const char *fname)
 {
 #if HAVE_EA_SUPPORT
 	if (options.ea_enable) {
@@ -105,9 +105,10 @@ static void xattr_fname_read_hook(const char *fname)
 #else
 	(void)fname;
 #endif
+	(void)child;
 }
 
-static void xattr_fd_write_hook(int fd)
+static void xattr_fd_write_hook(struct child_struct *child, int fd)
 {
 #if HAVE_EA_SUPPORT
 	if (options.ea_enable) {
@@ -123,7 +124,8 @@ static void xattr_fd_write_hook(int fd)
 			memcpy(buf, &tv, sizeof(tv));
 		}
 		if (sys_fsetxattr(fd, "user.DosAttrib", buf, sizeof(buf), 0) != 0) {
-			printf("fsetxattr failed - %s\n", strerror(errno));
+			printf("[%d] fsetxattr failed - %s\n", 
+			       child->line, strerror(errno));
 			exit(1);
 		}
 	}
@@ -147,7 +149,7 @@ static int expected_status(const char *status)
 /*
   simulate pvfs_resolve_name()
 */
-static void resolve_name(const char *name)
+static void resolve_name(struct child_struct *child, const char *name)
 {
 	struct stat st;
 	char *dname, *fname;
@@ -162,7 +164,7 @@ static void resolve_name(const char *name)
 	if (name == NULL) return;
 
 	if (stat(name, &st) == 0) {
-		xattr_fname_read_hook(name);
+		xattr_fname_read_hook(child, name);
 		return;
 	}
 
@@ -187,7 +189,7 @@ static void resolve_name(const char *name)
 static void failed(struct child_struct *child)
 {
 	child->failed = 1;
-	printf("ERROR: child %d failed\n", child->id);
+	printf("ERROR: child %d failed at line %d\n", child->id, child->line);
 	exit(1);
 }
 
@@ -204,34 +206,34 @@ void nb_unlink(struct child_struct *child, const char *fname, int attr, const ch
 {
 	(void)attr;
 
-	resolve_name(fname);
+	resolve_name(child, fname);
 
 	if (unlink(fname) != expected_status(status)) {
-		printf("(%d) unlink %s failed (%s) - expected %s\n", 
+		printf("[%d] unlink %s failed (%s) - expected %s\n", 
 		       child->line, fname, strerror(errno), status);
 		failed(child);
 	}
-	if (options.sync_dirs) sync_parent(fname);
+	if (options.sync_dirs) sync_parent(child, fname);
 }
 
 void nb_mkdir(struct child_struct *child, const char *dname, const char *status)
 {
 	(void)child;
 	(void)status;
-	resolve_name(dname);
+	resolve_name(child, dname);
 	mkdir(dname, 0777);
 }
 
 void nb_rmdir(struct child_struct *child, const char *fname, const char *status)
 {
-	resolve_name(fname);
+	resolve_name(child, fname);
 
 	if (rmdir(fname) != expected_status(status)) {
-		printf("(%d) rmdir %s failed (%s) - expected %s\n", 
+		printf("[%d] rmdir %s failed (%s) - expected %s\n", 
 		       child->line, fname, strerror(errno), status);
 		failed(child);
 	}
-	if (options.sync_dirs) sync_parent(fname);
+	if (options.sync_dirs) sync_parent(child, fname);
 }
 
 void nb_createx(struct child_struct *child, const char *fname, 
@@ -243,7 +245,7 @@ void nb_createx(struct child_struct *child, const char *fname,
 	struct stat st;
 	struct ftable *ftable = (struct ftable *)child->private;
 
-	resolve_name(fname);
+	resolve_name(child, fname);
 
 	if (options.sync_open) flags |= O_SYNC;
 
@@ -270,13 +272,13 @@ void nb_createx(struct child_struct *child, const char *fname,
 	}
 	if (fd == -1) {
 		if (expected_status(status) == 0) {
-			printf("(%d) open %s failed for handle %d (%s)\n", 
+			printf("[%d] open %s failed for handle %d (%s)\n", 
 			       child->line, fname, fnum, strerror(errno));
 		}
 		return;
 	}
 	if (expected_status(status) != 0) {
-		printf("(%d) open %s succeeded for handle %d\n", 
+		printf("[%d] open %s succeeded for handle %d\n", 
 		       child->line, fname, fnum);
 		close(fd);
 		return;
@@ -296,7 +298,7 @@ void nb_createx(struct child_struct *child, const char *fname,
 	fstat(fd, &st);
 
 	if (!S_ISDIR(st.st_mode)) {
-		xattr_fd_write_hook(fd);
+		xattr_fd_write_hook(child, fd);
 	}
 }
 
@@ -307,12 +309,14 @@ void nb_writex(struct child_struct *child, int handle, int offset,
 	void *buf;
 	struct stat st;
 	struct ftable *ftable = (struct ftable *)child->private;
+	ssize_t ret;
 
 	(void)status;
 
 	buf = calloc(size, 1);
 
-	if (size == 1 && fstat(ftable[i].fd, &st) == 0) {
+	if (options.one_byte_write_fix &&
+	    size == 1 && fstat(ftable[i].fd, &st) == 0) {
 		if (st.st_size > offset) {
 			unsigned char c;
 			pread(ftable[i].fd, &c, 1, offset);
@@ -329,8 +333,15 @@ void nb_writex(struct child_struct *child, int handle, int offset,
 		} 
 	}
 
-	if (pwrite(ftable[i].fd, buf, size, offset) != ret_size) {
-		printf("write failed on handle %d (%s)\n", handle, strerror(errno));
+	ret = pwrite(ftable[i].fd, buf, size, offset);
+	if (ret == -1) {
+		printf("[%d] write failed on handle %d (%s)\n", 
+		       child->line, handle, strerror(errno));
+		exit(1);
+	}
+	if (ret != ret_size) {
+		printf("[%d] wrote %d bytes, expected to write %d bytes on handle %d\n", 
+		       child->line, ret, ret_size, handle);
 		exit(1);
 	}
 
@@ -354,7 +365,8 @@ void nb_readx(struct child_struct *child, int handle, int offset,
 	buf = malloc(size);
 
 	if (pread(ftable[i].fd, buf, size, offset) != ret_size) {
-		printf("read failed on handle %d (%s)\n", handle, strerror(errno));
+		printf("[%d] read failed on handle %d (%s)\n", 
+		       child->line, handle, strerror(errno));
 	}
 
 	free(buf);
@@ -375,15 +387,15 @@ void nb_close(struct child_struct *child, int handle, const char *status)
 
 void nb_rename(struct child_struct *child, const char *old, const char *new, const char *status)
 {
-	resolve_name(old);
-	resolve_name(new);
+	resolve_name(child, old);
+	resolve_name(child, new);
 
 	if (rename(old, new) != expected_status(status)) {
-		printf("rename %s %s failed (%s) - expected %s\n", 
-		       old, new, strerror(errno), status);
+		printf("[%d] rename %s %s failed (%s) - expected %s\n", 
+		       child->line, old, new, strerror(errno), status);
 		failed(child);
 	}
-	if (options.sync_dirs) sync_parent(new);
+	if (options.sync_dirs) sync_parent(child, new);
 }
 
 void nb_flush(struct child_struct *child, int handle, const char *status)
@@ -400,7 +412,7 @@ void nb_qpathinfo(struct child_struct *child, const char *fname, int level,
 	(void)child;
 	(void)level;
 	(void)status;
-	resolve_name(fname);
+	resolve_name(child, fname);
 }
 
 void nb_qfileinfo(struct child_struct *child, int handle, int level, const char *status)
@@ -412,7 +424,7 @@ void nb_qfileinfo(struct child_struct *child, int handle, int level, const char 
 	(void)level;
 	(void)status;
 	fstat(ftable[i].fd, &st);
-	xattr_fd_read_hook(ftable[i].fd);
+	xattr_fd_read_hook(child, ftable[i].fd);
 }
 
 void nb_qfsinfo(struct child_struct *child, int level, const char *status)
@@ -437,7 +449,7 @@ void nb_findfirst(struct child_struct *child, const char *fname, int level, int 
 	(void)count;
 	(void)status;
 
-	resolve_name(fname);
+	resolve_name(child, fname);
 
 	if (strpbrk(fname, "<>*?\"") == NULL) {
 		return;
@@ -512,7 +524,7 @@ void nb_sfileinfo(struct child_struct *child, int handle, int level, const char 
 	(void)handle;
 	(void)level;
 	(void)status;
-	xattr_fd_read_hook(ftable[i].fd);
+	xattr_fd_read_hook(child, ftable[i].fd);
 
 	fstat(ftable[i].fd, &st);
 
@@ -522,7 +534,7 @@ void nb_sfileinfo(struct child_struct *child, int handle, int level, const char 
 	utime(ftable[i].name, &tm);
 
 	if (!S_ISDIR(st.st_mode)) {
-		xattr_fd_write_hook(ftable[i].fd);
+		xattr_fd_write_hook(child, ftable[i].fd);
 	}
 }
 

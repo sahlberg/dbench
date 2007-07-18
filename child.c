@@ -58,6 +58,7 @@ static void nb_target_rate(struct child_struct *child, double rate)
 static void nb_time_reset(struct child_struct *child)
 {
 	child->starttime = timeval_current();	
+	memset(&child->rate, 0, sizeof(child->rate));
 }
 
 static void nb_time_delay(struct child_struct *child, double targett)

@@ -386,6 +386,8 @@ static int process_opts(int argc, const char **argv)
 		  "disable name resolution simulation", NULL },
 		{ "clients-per-process", 0, POPT_ARG_INT, &options.clients_per_process, 0, 
 		  "number of clients per process", NULL },
+		{ "one-byte-write-fix", 0, POPT_ARG_NONE, &options.one_byte_write_fix, 0, 
+		  "try to fix 1 byte writes", NULL },
 		POPT_TABLEEND
 	};
 	poptContext pc;

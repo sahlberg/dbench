@@ -156,6 +156,7 @@ struct options {
 	int ea_enable;
 	const char *server;
 	int clients_per_process;
+	int one_byte_write_fix;
 };
 
 /* CreateDisposition field. */
