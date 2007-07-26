@@ -261,9 +261,10 @@ void nb_createx(struct child_struct *child, const char *fname,
 
 	if (create_disposition == FILE_CREATE) {
 		if (options.stat_check && stat(fname, &st) == 0) {
-			return;
+			create_disposition = FILE_OPEN;
+		} else {
+			flags |= O_CREAT;
 		}
-		flags |= O_CREAT;
 	}
 
 	if (create_disposition == FILE_OVERWRITE ||
