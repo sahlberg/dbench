@@ -388,6 +388,8 @@ static int process_opts(int argc, const char **argv)
 		  "number of clients per process", NULL },
 		{ "one-byte-write-fix", 0, POPT_ARG_NONE, &options.one_byte_write_fix, 0, 
 		  "try to fix 1 byte writes", NULL },
+		{ "stat-check", 0, POPT_ARG_NONE, &options.stat_check, 0, 
+		  "check for pointless calls with stat", NULL },
 		POPT_TABLEEND
 	};
 	poptContext pc;

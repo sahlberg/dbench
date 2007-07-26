@@ -218,15 +218,25 @@ void nb_unlink(struct child_struct *child, const char *fname, int attr, const ch
 
 void nb_mkdir(struct child_struct *child, const char *dname, const char *status)
 {
+	struct stat st;
 	(void)child;
 	(void)status;
 	resolve_name(child, dname);
+	if (options.stat_check && stat(dname, &st) == 0) {
+		return;
+	}
 	mkdir(dname, 0777);
 }
 
 void nb_rmdir(struct child_struct *child, const char *fname, const char *status)
 {
+	struct stat st;
 	resolve_name(child, fname);
+
+	if (options.stat_check && 
+	    (stat(fname, &st) != 0 || !S_ISDIR(st.st_mode))) {
+		return;
+	}
 
 	if (rmdir(fname) != expected_status(status)) {
 		printf("[%d] rmdir %s failed (%s) - expected %s\n", 
@@ -250,6 +260,9 @@ void nb_createx(struct child_struct *child, const char *fname,
 	if (options.sync_open) flags |= O_SYNC;
 
 	if (create_disposition == FILE_CREATE) {
+		if (options.stat_check && stat(fname, &st) == 0) {
+			return;
+		}
 		flags |= O_CREAT;
 	}
 
@@ -341,7 +354,7 @@ void nb_writex(struct child_struct *child, int handle, int offset,
 	}
 	if (ret != ret_size) {
 		printf("[%d] wrote %d bytes, expected to write %d bytes on handle %d\n", 
-		       child->line, ret, ret_size, handle);
+		       child->line, (int)ret, (int)ret_size, handle);
 		exit(1);
 	}
 
@@ -389,6 +402,16 @@ void nb_rename(struct child_struct *child, const char *old, const char *new, con
 {
 	resolve_name(child, old);
 	resolve_name(child, new);
+
+	if (options.stat_check) {
+		struct stat st;
+		if (stat(old, &st) != 0 && expected_status(status) == 0) {
+			printf("[%d] rename %s %s failed - file doesn't exist\n",
+			       child->line, old, new);
+			failed(child);
+			return;
+		}
+	}
 
 	if (rename(old, new) != expected_status(status)) {
 		printf("[%d] rename %s %s failed (%s) - expected %s\n", 

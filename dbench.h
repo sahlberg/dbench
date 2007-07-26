@@ -157,6 +157,7 @@ struct options {
 	const char *server;
 	int clients_per_process;
 	int one_byte_write_fix;
+	int stat_check;
 };
 
 /* CreateDisposition field. */
