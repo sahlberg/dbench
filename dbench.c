@@ -181,6 +181,24 @@ static const struct {
 	OP_NAME(Flush),
 };
 
+static void show_one_latency(struct opnames *ops, struct opnames *ops_all)
+{
+	int i, n = (sizeof(op_names)/sizeof(op_names[0]));
+	printf(" Operation      Count    AvgLat    MaxLat\n");
+	printf(" ----------------------------------------\n");
+	for (i=0;i<n;i++) {
+		struct op *op1, *op_all;
+		op1    = (struct op *)(op_names[i].offset + (char *)ops);
+		op_all = (struct op *)(op_names[i].offset + (char *)ops_all);
+		if (op_all->count == 0) continue;
+		printf(" %-12s %7u %9.03f %9.03f\n",
+		       op_names[i].name, op1->count, 
+		       1000*op1->total_time/op1->count,
+		       op1->max_latency*1000);
+	}
+	printf("\n");
+}
+
 static void report_latencies(void)
 {
 	struct opnames sum;
@@ -199,17 +217,19 @@ static void report_latencies(void)
 			op1->max_latency = MAX(op1->max_latency, op2->max_latency);
 		}
 	}
-	printf(" Operation      Count    AvgLat    MaxLat\n");
-	printf(" ----------------------------------------\n");
-	for (i=0;i<n;i++) {
-		op1 = (struct op *)(op_names[i].offset + (char *)&sum);
-		if (op1->count == 0) continue;
-		printf(" %-12s %7u %9.03f %9.03f\n",
-		       op_names[i].name, op1->count, 
-		       1000*op1->total_time/op1->count,
-		       op1->max_latency*1000);
+	show_one_latency(&sum, &sum);
+
+	if (!options.per_client_results) {
+		return;
 	}
-	printf("\n");
+
+	printf("Per client results:\n");
+	for (i=0;i<options.nprocs * options.clients_per_process;i++) {
+		child = &children[i];
+		printf("Client %u did %u lines and %.0f bytes\n", 
+		       i, child->line, child->bytes - child->bytes_done_warmup);
+		show_one_latency(&child->op, &sum);		
+	}
 }
 
 /* this creates the specified number of child processes and runs fn()
@@ -394,6 +414,8 @@ static int process_opts(int argc, const char **argv)
 		  "fake up read/write calls", NULL },
 		{ "skip-cleanup", 0, POPT_ARG_NONE, &options.skip_cleanup, 0, 
 		  "skip cleanup operations", NULL },
+		{ "per-client-results", 0, POPT_ARG_NONE, &options.per_client_results, 0, 
+		  "show results per client", NULL },
 		POPT_TABLEEND
 	};
 	poptContext pc;

@@ -160,6 +160,7 @@ struct options {
 	int stat_check;
 	int fake_io;
 	int skip_cleanup;
+	int per_client_results;
 };
 
 /* CreateDisposition field. */
