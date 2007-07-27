@@ -157,14 +157,14 @@ static void resolve_name(struct child_struct *child, const char *name)
 	char *p;
 	struct dirent *d;
 
-	if (options.no_resolve) {
-		return;
-	}
-
 	if (name == NULL) return;
 
 	if (stat(name, &st) == 0) {
 		xattr_fname_read_hook(child, name);
+		return;
+	}
+
+	if (options.no_resolve) {
 		return;
 	}
 
@@ -274,7 +274,9 @@ void nb_createx(struct child_struct *child, const char *fname,
 
 	if (create_options & FILE_DIRECTORY_FILE) {
 		/* not strictly correct, but close enough */
-		mkdir(fname, 0700);
+		if (!options.stat_check || stat(fname, &st) == -1) {
+			mkdir(fname, 0700);
+		}
 	}
 
 	if (create_options & FILE_DIRECTORY_FILE) flags = O_RDONLY|O_DIRECTORY;
@@ -325,6 +327,12 @@ void nb_writex(struct child_struct *child, int handle, int offset,
 	struct ftable *ftable = (struct ftable *)child->private;
 	ssize_t ret;
 
+	if (options.fake_io) {
+		child->bytes += ret_size;
+		child->bytes_since_fsync += ret_size;
+		return;
+	}
+
 	(void)status;
 
 	buf = calloc(size, 1);
@@ -373,6 +381,11 @@ void nb_readx(struct child_struct *child, int handle, int offset,
 	int i = find_handle(child, handle);
 	void *buf;
 	struct ftable *ftable = (struct ftable *)child->private;
+
+	if (options.fake_io) {
+		child->bytes += ret_size;
+		return;
+	}
 
 	(void)status;
 

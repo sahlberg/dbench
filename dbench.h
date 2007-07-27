@@ -158,6 +158,7 @@ struct options {
 	int clients_per_process;
 	int one_byte_write_fix;
 	int stat_check;
+	int fake_io;
 };
 
 /* CreateDisposition field. */

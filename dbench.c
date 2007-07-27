@@ -390,6 +390,8 @@ static int process_opts(int argc, const char **argv)
 		  "try to fix 1 byte writes", NULL },
 		{ "stat-check", 0, POPT_ARG_NONE, &options.stat_check, 0, 
 		  "check for pointless calls with stat", NULL },
+		{ "fake-io", 0, POPT_ARG_NONE, &options.fake_io, 0, 
+		  "fake up read/write calls", NULL },
 		POPT_TABLEEND
 	};
 	poptContext pc;
