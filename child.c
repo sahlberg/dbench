@@ -270,7 +270,9 @@ done:
 	for (child=child0;child<child0+options.clients_per_process;child++) {
 		child->cleanup = 1;
 		fflush(stdout);
-		nb_cleanup(child);
+		if (!options.skip_cleanup) {
+			nb_cleanup(child);
+		}
 		child->cleanup_finished = 1;
 	}
 }

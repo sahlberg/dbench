@@ -159,6 +159,7 @@ struct options {
 	int one_byte_write_fix;
 	int stat_check;
 	int fake_io;
+	int skip_cleanup;
 };
 
 /* CreateDisposition field. */

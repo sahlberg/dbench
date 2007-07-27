@@ -392,6 +392,8 @@ static int process_opts(int argc, const char **argv)
 		  "check for pointless calls with stat", NULL },
 		{ "fake-io", 0, POPT_ARG_NONE, &options.fake_io, 0, 
 		  "fake up read/write calls", NULL },
+		{ "skip-cleanup", 0, POPT_ARG_NONE, &options.skip_cleanup, 0, 
+		  "skip cleanup operations", NULL },
 		POPT_TABLEEND
 	};
 	poptContext pc;
