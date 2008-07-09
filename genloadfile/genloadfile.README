@@ -1,0 +1,76 @@
+How to generate NBENCH loadfiles from a network capture trace:
+
+0, start with an empty share
+We have to start with an empty share to make sure that the responses from the server will not
+be dependent on additional state, not described in the network trace.
+
+
+1, start capture on server (or client)   use pcap filter to reduce workload
+[root@h01n002mz RPM]# tcpdump -n -i eth0 -s 0 -w smb.cap host 10.0.0.11 and tcp port 445
+
+
+2, log in to the share and start doing operations
+   The operations i do are
+   1, map the share
+   2, open the share in explorer
+   3, drag a file onto the share
+   4, read the file 5 times (dragging off)
+   5, delete the file
+
+
+3, stop the capture
+
+
+4, convert the captyure file to a NBENCH loadfile :
+
+    genloadfile.sh smb.cap >smb.loadfile
+
+beware if there are any 
+    Unknown command:21   1.723006    10.0.0.12 -> 10.0.0.11    SMB Query Information Disk Response
+          frame.time_relative == 1.723006000  smb.cmd == 0x80  smb.nt_status == 0x00000000
+
+These means there was a SMB command that the generator didnt know how to convert yet.
+Either delete these and repair the loadfile or enhance the generator to be able to handle this opcode.
+This particular command listed above we can just ignore since it will not affect our i/o.
+
+
+5, now you can hopefully run this loadfile like this :
+
+	smbtorture //10.0.0.12/data -UAdministrator%test01 BENCH-NBENCH --loadfile=/shared/smb.loadfile
+		--num-progs=10 -t 120
+
+Which will run 10 threads for 120 seconds, each thread running the same loadfil.
+These threads will try to keep the same "speed" of i/o as the original trace (using the timestamps in the loadfile)
+
+This will produce output something like this :
+...
+  10        96  0.00 MB/sec  execute 29 sec  latency 22.72 msec 
+...
+which tells us that there are 10 threads running. We have reached line 96 in the loadfile and we have executed for 29 seconds.
+
+The latency 22.72 means that we are within 22.72ms in time compared to the timestamps in the original trace.
+This number will usually never be 0 no matter how fast your server is since it is only an approximation.
+
+However, it can be used to test scalability of your server
+How high can you make --num-progs be before latency starts going above 5000ms and remain above 5000ms
+permanently?
+Since each thread runs the same i/o pattern and keeps the same approximate rate as the original client
+this tells an approximation of how many such clients in parallell your server can handle.
+
+
+If your server is clustered like ctdb/samba you can spread the threads out and do i/o to multiple nodes
+in the cluster in parallell using an unclist.
+This is a file that lists the ip addresses and shares that the threads should round-robin from.
+
+example unclist :
+    //10.0.0.12/data
+    //10.0.0.13/data
+    //10.0.0.14/data
+
+By specifying --unclist=unclist to smbtorture the threads will now be spread out across three nodes.
+
+
+
+
+
+
