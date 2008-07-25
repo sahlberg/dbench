@@ -54,6 +54,7 @@ static void nfs3_cleanup(struct child_struct *child)
 static void nfs3_setup(struct child_struct *child)
 {
 	const char *status = "0x00000000";
+	nfsstat3 res;
 
 	child->rate.last_time = timeval_current();
 	child->rate.last_bytes = 0;
@@ -66,6 +67,17 @@ static void nfs3_setup(struct child_struct *child)
 		child->failed = 1;
 		printf("nfsio_connect() failed\n");
 		exit(10);
+	}
+
+	/* create '/clients' */
+	res = nfsio_lookup(child->private, "/clients", NULL);
+	if (res == NFS3ERR_NOENT) {
+		res = nfsio_mkdir(child->private, "/clients");
+		if( (res != NFS3_OK) &&
+		    (res != NFS3ERR_EXIST) ) {
+			printf("Failed to create '/clients' directory. res:%u\n", res);
+			exit(10);
+		}
 	}
 }
 
