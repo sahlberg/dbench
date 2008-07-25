@@ -1,3 +1,15 @@
+dbench is a tool for measuring filesystem and network performance.
+
+The rest of this README came from a very early version of dbench,
+which I haven't updated. Ill get around to that some day ...
+
+
+   Andrew Tridgell
+   July 2008
+
+------------------------------
+
+
 Emulating Netbench
 ==================
 
