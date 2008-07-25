@@ -29,6 +29,12 @@
 
 #define ival(s) strtol(s, NULL, 0)
 
+static void nb_sleep(int usec)
+{
+	usleep(usec);
+}
+
+
 static void nb_target_rate(struct child_struct *child, double rate)
 {
 	double tdelay;
@@ -86,76 +92,40 @@ static void finish_op(struct child_struct *child, struct op *op)
 /*
   one child operation
  */
-static void child_op(struct child_struct *child, char **params, 
-		     const char *fname, const char *fname2, const char *status)
+static void child_op(struct child_struct *child, const char *opname,
+		     const char *fname, const char *fname2, 
+		     char **params, const char *status)
 {
+	struct dbench_op op;
+	unsigned i;
+
 	child->lasttime = timeval_current();
 
-	if (!strcmp(params[0],"NTCreateX")) {
-		nb_createx(child, fname, ival(params[2]), ival(params[3]), 
-			   ival(params[4]), status);
-		OP_LATENCY(NTCreateX);
-	} else if (!strcmp(params[0],"Close")) {
-		nb_close(child, ival(params[1]), status);
-		OP_LATENCY(Close);
-	} else if (!strcmp(params[0],"Rename")) {
-		nb_rename(child, fname, fname2, status);
-		OP_LATENCY(Rename);
-	} else if (!strcmp(params[0],"Unlink")) {
-		nb_unlink(child, fname, ival(params[2]), status);
-		OP_LATENCY(Unlink);
-	} else if (!strcmp(params[0],"Deltree")) {
-		nb_deltree(child, fname);
-		OP_LATENCY(Deltree);
-	} else if (!strcmp(params[0],"Rmdir")) {
-		nb_rmdir(child, fname, status);
-		OP_LATENCY(Rmdir);
-	} else if (!strcmp(params[0],"Mkdir")) {
-		nb_mkdir(child, fname, status);
-		OP_LATENCY(Mkdir);
-	} else if (!strcmp(params[0],"QUERY_PATH_INFORMATION")) {
-		nb_qpathinfo(child, fname, ival(params[2]), status);
-		OP_LATENCY(Qpathinfo);
-	} else if (!strcmp(params[0],"QUERY_FILE_INFORMATION")) {
-		nb_qfileinfo(child, ival(params[1]), ival(params[2]), status);
-		OP_LATENCY(Qfileinfo);
-	} else if (!strcmp(params[0],"QUERY_FS_INFORMATION")) {
-		nb_qfsinfo(child, ival(params[1]), status);
-		OP_LATENCY(Qfsinfo);
-	} else if (!strcmp(params[0],"SET_FILE_INFORMATION")) {
-		nb_sfileinfo(child, ival(params[1]), ival(params[2]), status);
-		OP_LATENCY(Sfileinfo);
-	} else if (!strcmp(params[0],"FIND_FIRST")) {
-		nb_findfirst(child, fname, ival(params[2]), 
-			     ival(params[3]), ival(params[4]), status);
-		OP_LATENCY(Find);
-	} else if (!strcmp(params[0],"WriteX")) {
-		nb_writex(child, ival(params[1]), 
-			  ival(params[2]), ival(params[3]), ival(params[4]),
-			  status);
-		OP_LATENCY(WriteX);
-	} else if (!strcmp(params[0],"LockX")) {
-		nb_lockx(child, ival(params[1]), 
-			 ival(params[2]), ival(params[3]), status);
-		OP_LATENCY(LockX);
-	} else if (!strcmp(params[0],"UnlockX")) {
-		nb_unlockx(child, ival(params[1]), 
-			   ival(params[2]), ival(params[3]), status);
-		OP_LATENCY(UnlockX);
-	} else if (!strcmp(params[0],"ReadX")) {
-		nb_readx(child, ival(params[1]), 
-			 ival(params[2]), ival(params[3]), ival(params[4]),
-			 status);
-		OP_LATENCY(ReadX);
-	} else if (!strcmp(params[0],"Flush")) {
-		nb_flush(child, ival(params[1]), status);
-		OP_LATENCY(Flush);
-	} else if (!strcmp(params[0],"Sleep")) {
-		nb_sleep(child, ival(params[1]), status);
-	} else {
-		printf("[%d] Unknown operation %s in pid %d\n", 
-		       child->line, params[0], getpid());
+	ZERO_STRUCT(op);
+	op.child = child;
+	op.op = opname;
+	op.fname = fname;
+	op.fname2 = fname2;
+	op.status = status;
+	for (i=0;i<sizeof(op.params)/sizeof(op.params[0]);i++) {
+		op.params[i] = params[i]?ival(params[i]):0;
 	}
+
+	if (strcasecmp(op.op, "Sleep") == 0) {
+		nb_sleep(op.params[0]);
+		return;
+	}
+
+	for (i=0;nb_ops.ops[i].name;i++) {
+		if (strcasecmp(op.op, nb_ops.ops[i].name) == 0) {
+			nb_ops.ops[i].fn(&op);
+			finish_op(child, &child->ops[i]);
+			return;
+		}
+	}
+
+	printf("[%u] Unknown operation %s in pid %u\n", 
+	       child->line, op.op, (unsigned)getpid());
 }
 
 
@@ -241,16 +211,20 @@ again:
 		status = params[i-1];
 		
 		for (child=child0;child<child0+options.clients_per_process;child++) {
+			int pcount = 1;
+
 			fname[0] = 0;
 			fname2[0] = 0;
 
 			if (i>1 && params[1][0] == '/') {
 				snprintf(fname, sizeof(fname), "%s%s", child->directory, params[1]);
 				all_string_sub(fname,"client1", child->cname);
+				pcount++;
 			}
 			if (i>2 && params[2][0] == '/') {
 				snprintf(fname2, sizeof(fname2), "%s%s", child->directory, params[2]);
 				all_string_sub(fname2,"client1", child->cname);
+				pcount++;
 			}
 
 			if (options.targetrate != 0 || targett == 0.0) {
@@ -258,7 +232,7 @@ again:
 			} else {
 				nb_time_delay(child, targett);
 			}
-			child_op(child, params, fname, fname2, status);
+			child_op(child, params[0], fname, fname2, params+pcount, status);
 		}
 	}
 
@@ -271,7 +245,7 @@ done:
 		child->cleanup = 1;
 		fflush(stdout);
 		if (!options.skip_cleanup) {
-			nb_cleanup(child);
+			nb_ops.cleanup(child);
 		}
 		child->cleanup_finished = 1;
 	}

@@ -193,7 +193,7 @@ static void failed(struct child_struct *child)
 	exit(1);
 }
 
-void nb_setup(struct child_struct *child)
+static void fio_setup(struct child_struct *child)
 {
 	struct ftable *ftable;
 	ftable = calloc(MAX_FILES, sizeof(struct ftable));
@@ -202,65 +202,62 @@ void nb_setup(struct child_struct *child)
 	child->rate.last_bytes = 0;
 }
 
-void nb_unlink(struct child_struct *child, const char *fname, int attr, const char *status)
+static void fio_unlink(struct dbench_op *op)
 {
-	(void)attr;
+	resolve_name(op->child, op->fname);
 
-	resolve_name(child, fname);
-
-	if (unlink(fname) != expected_status(status)) {
+	if (unlink(op->fname) != expected_status(op->status)) {
 		printf("[%d] unlink %s failed (%s) - expected %s\n", 
-		       child->line, fname, strerror(errno), status);
-		failed(child);
+		       op->child->line, op->fname, strerror(errno), op->status);
+		failed(op->child);
 	}
-	if (options.sync_dirs) sync_parent(child, fname);
+	if (options.sync_dirs) sync_parent(op->child, op->fname);
 }
 
-void nb_mkdir(struct child_struct *child, const char *dname, const char *status)
+static void fio_mkdir(struct dbench_op *op)
 {
 	struct stat st;
-	(void)child;
-	(void)status;
-	resolve_name(child, dname);
-	if (options.stat_check && stat(dname, &st) == 0) {
+	resolve_name(op->child, op->fname);
+	if (options.stat_check && stat(op->fname, &st) == 0) {
 		return;
 	}
-	mkdir(dname, 0777);
+	mkdir(op->fname, 0777);
 }
 
-void nb_rmdir(struct child_struct *child, const char *fname, const char *status)
+static void fio_rmdir(struct dbench_op *op)
 {
 	struct stat st;
-	resolve_name(child, fname);
+	resolve_name(op->child, op->fname);
 
 	if (options.stat_check && 
-	    (stat(fname, &st) != 0 || !S_ISDIR(st.st_mode))) {
+	    (stat(op->fname, &st) != 0 || !S_ISDIR(st.st_mode))) {
 		return;
 	}
 
-	if (rmdir(fname) != expected_status(status)) {
+	if (rmdir(op->fname) != expected_status(op->status)) {
 		printf("[%d] rmdir %s failed (%s) - expected %s\n", 
-		       child->line, fname, strerror(errno), status);
-		failed(child);
+		       op->child->line, op->fname, strerror(errno), op->status);
+		failed(op->child);
 	}
-	if (options.sync_dirs) sync_parent(child, fname);
+	if (options.sync_dirs) sync_parent(op->child, op->fname);
 }
 
-void nb_createx(struct child_struct *child, const char *fname, 
-		uint32_t create_options, uint32_t create_disposition, int fnum,
-		const char *status)
+static void fio_createx(struct dbench_op *op)
 {
+	uint32_t create_options = op->params[0];
+	uint32_t create_disposition = op->params[1];
+	int fnum = op->params[2];
 	int fd, i;
 	int flags = O_RDWR;
 	struct stat st;
-	struct ftable *ftable = (struct ftable *)child->private;
+	struct ftable *ftable = (struct ftable *)op->child->private;
 
-	resolve_name(child, fname);
+	resolve_name(op->child, op->fname);
 
 	if (options.sync_open) flags |= O_SYNC;
 
 	if (create_disposition == FILE_CREATE) {
-		if (options.stat_check && stat(fname, &st) == 0) {
+		if (options.stat_check && stat(op->fname, &st) == 0) {
 			create_disposition = FILE_OPEN;
 		} else {
 			flags |= O_CREAT;
@@ -274,28 +271,28 @@ void nb_createx(struct child_struct *child, const char *fname,
 
 	if (create_options & FILE_DIRECTORY_FILE) {
 		/* not strictly correct, but close enough */
-		if (!options.stat_check || stat(fname, &st) == -1) {
-			mkdir(fname, 0700);
+		if (!options.stat_check || stat(op->fname, &st) == -1) {
+			mkdir(op->fname, 0700);
 		}
 	}
 
 	if (create_options & FILE_DIRECTORY_FILE) flags = O_RDONLY|O_DIRECTORY;
 
-	fd = open(fname, flags, 0600);
+	fd = open(op->fname, flags, 0600);
 	if (fd == -1 && errno == EISDIR) {
 		flags = O_RDONLY|O_DIRECTORY;
-		fd = open(fname, flags, 0600);
+		fd = open(op->fname, flags, 0600);
 	}
 	if (fd == -1) {
-		if (expected_status(status) == 0) {
+		if (expected_status(op->status) == 0) {
 			printf("[%d] open %s failed for handle %d (%s)\n", 
-			       child->line, fname, fnum, strerror(errno));
+			       op->child->line, op->fname, fnum, strerror(errno));
 		}
 		return;
 	}
-	if (expected_status(status) != 0) {
+	if (expected_status(op->status) != 0) {
 		printf("[%d] open %s succeeded for handle %d\n", 
-		       child->line, fname, fnum);
+		       op->child->line, op->fname, fnum);
 		close(fd);
 		return;
 	}
@@ -304,36 +301,37 @@ void nb_createx(struct child_struct *child, const char *fname,
 		if (ftable[i].handle == 0) break;
 	}
 	if (i == MAX_FILES) {
-		printf("file table full for %s\n", fname);
+		printf("file table full for %s\n", op->fname);
 		exit(1);
 	}
-	ftable[i].name = strdup(fname);
+	ftable[i].name = strdup(op->fname);
 	ftable[i].handle = fnum;
 	ftable[i].fd = fd;
 
 	fstat(fd, &st);
 
 	if (!S_ISDIR(st.st_mode)) {
-		xattr_fd_write_hook(child, fd);
+		xattr_fd_write_hook(op->child, fd);
 	}
 }
 
-void nb_writex(struct child_struct *child, int handle, int offset, 
-	       int size, int ret_size, const char *status)
+static void fio_writex(struct dbench_op *op)
 {
-	int i = find_handle(child, handle);
+	int handle = op->params[0];
+	int offset = op->params[1];
+	int size = op->params[2];
+	int ret_size = op->params[3];
+	int i = find_handle(op->child, handle);
 	void *buf;
 	struct stat st;
-	struct ftable *ftable = (struct ftable *)child->private;
+	struct ftable *ftable = (struct ftable *)op->child->private;
 	ssize_t ret;
 
 	if (options.fake_io) {
-		child->bytes += ret_size;
-		child->bytes_since_fsync += ret_size;
+		op->child->bytes += ret_size;
+		op->child->bytes_since_fsync += ret_size;
 		return;
 	}
-
-	(void)status;
 
 	buf = calloc(size, 1);
 
@@ -344,13 +342,13 @@ void nb_writex(struct child_struct *child, int handle, int offset,
 			pread(ftable[i].fd, &c, 1, offset);
 			if (c == ((unsigned char *)buf)[0]) {
 				free(buf);
-				child->bytes += size;
+				op->child->bytes += size;
 				return;
 			}
 		} else if (((unsigned char *)buf)[0] == 0) {
 			ftruncate(ftable[i].fd, offset+1);
 			free(buf);
-			child->bytes += size;
+			op->child->bytes += size;
 			return;
 		} 
 	}
@@ -358,12 +356,12 @@ void nb_writex(struct child_struct *child, int handle, int offset,
 	ret = pwrite(ftable[i].fd, buf, size, offset);
 	if (ret == -1) {
 		printf("[%d] write failed on handle %d (%s)\n", 
-		       child->line, handle, strerror(errno));
+		       op->child->line, handle, strerror(errno));
 		exit(1);
 	}
 	if (ret != ret_size) {
 		printf("[%d] wrote %d bytes, expected to write %d bytes on handle %d\n", 
-		       child->line, (int)ret, (int)ret_size, handle);
+		       op->child->line, (int)ret, (int)ret_size, handle);
 		exit(1);
 	}
 
@@ -371,156 +369,144 @@ void nb_writex(struct child_struct *child, int handle, int offset,
 
 	free(buf);
 
-	child->bytes += size;
-	child->bytes_since_fsync += size;
+	op->child->bytes += size;
+	op->child->bytes_since_fsync += size;
 }
 
-void nb_readx(struct child_struct *child, int handle, int offset, 
-	      int size, int ret_size, const char *status)
+static void fio_readx(struct dbench_op *op)
 {
-	int i = find_handle(child, handle);
+	int handle = op->params[0];
+	int offset = op->params[1];
+	int size = op->params[2];
+	int ret_size = op->params[3];
+	int i = find_handle(op->child, handle);
 	void *buf;
-	struct ftable *ftable = (struct ftable *)child->private;
+	struct ftable *ftable = (struct ftable *)op->child->private;
 
 	if (options.fake_io) {
-		child->bytes += ret_size;
+		op->child->bytes += ret_size;
 		return;
 	}
-
-	(void)status;
 
 	buf = malloc(size);
 
 	if (pread(ftable[i].fd, buf, size, offset) != ret_size) {
 		printf("[%d] read failed on handle %d (%s)\n", 
-		       child->line, handle, strerror(errno));
+		       op->child->line, handle, strerror(errno));
 	}
 
 	free(buf);
 
-	child->bytes += size;
+	op->child->bytes += size;
 }
 
-void nb_close(struct child_struct *child, int handle, const char *status)
+static void fio_close(struct dbench_op *op)
 {
-	struct ftable *ftable = (struct ftable *)child->private;
-	int i = find_handle(child, handle);
-	(void)status;
+	int handle = op->params[0];
+	struct ftable *ftable = (struct ftable *)op->child->private;
+	int i = find_handle(op->child, handle);
 	close(ftable[i].fd);
 	ftable[i].handle = 0;
 	if (ftable[i].name) free(ftable[i].name);
 	ftable[i].name = NULL;
 }
 
-void nb_rename(struct child_struct *child, const char *old, const char *new, const char *status)
+static void fio_rename(struct dbench_op *op)
 {
-	resolve_name(child, old);
-	resolve_name(child, new);
+	const char *old = op->fname;
+	const char *new = op->fname2;
+
+	resolve_name(op->child, old);
+	resolve_name(op->child, new);
 
 	if (options.stat_check) {
 		struct stat st;
-		if (stat(old, &st) != 0 && expected_status(status) == 0) {
+		if (stat(old, &st) != 0 && expected_status(op->status) == 0) {
 			printf("[%d] rename %s %s failed - file doesn't exist\n",
-			       child->line, old, new);
-			failed(child);
+			       op->child->line, old, new);
+			failed(op->child);
 			return;
 		}
 	}
 
-	if (rename(old, new) != expected_status(status)) {
+	if (rename(old, new) != expected_status(op->status)) {
 		printf("[%d] rename %s %s failed (%s) - expected %s\n", 
-		       child->line, old, new, strerror(errno), status);
-		failed(child);
+		       op->child->line, old, new, strerror(errno), op->status);
+		failed(op->child);
 	}
-	if (options.sync_dirs) sync_parent(child, new);
+	if (options.sync_dirs) sync_parent(op->child, new);
 }
 
-void nb_flush(struct child_struct *child, int handle, const char *status)
+static void fio_flush(struct dbench_op *op)
 {
-	struct ftable *ftable = (struct ftable *)child->private;
-	int i = find_handle(child, handle);
-	(void)status;
+	int handle = op->params[0];
+	struct ftable *ftable = (struct ftable *)op->child->private;
+	int i = find_handle(op->child, handle);
 	fsync(ftable[i].fd);
 }
 
-void nb_qpathinfo(struct child_struct *child, const char *fname, int level, 
-		  const char *status)
+static void fio_qpathinfo(struct dbench_op *op)
 {
-	(void)child;
-	(void)level;
-	(void)status;
-	resolve_name(child, fname);
+	resolve_name(op->child, op->fname);
 }
 
-void nb_qfileinfo(struct child_struct *child, int handle, int level, const char *status)
+static void fio_qfileinfo(struct dbench_op *op)
 {
-	struct ftable *ftable = (struct ftable *)child->private;
+	int handle = op->params[0];
+	int level = op->params[1];
+	struct ftable *ftable = (struct ftable *)op->child->private;
 	struct stat st;
-	int i = find_handle(child, handle);
-	(void)child;
+	int i = find_handle(op->child, handle);
+	(void)op->child;
 	(void)level;
-	(void)status;
 	fstat(ftable[i].fd, &st);
-	xattr_fd_read_hook(child, ftable[i].fd);
+	xattr_fd_read_hook(op->child, ftable[i].fd);
 }
 
-void nb_qfsinfo(struct child_struct *child, int level, const char *status)
+static void fio_qfsinfo(struct dbench_op *op)
 {
+	int level = op->params[0];
 	struct statvfs st;
 
 	(void)level;
-	(void)status;
 
-	statvfs(child->directory, &st);
+	statvfs(op->child->directory, &st);
 }
 
-void nb_findfirst(struct child_struct *child, const char *fname, int level, int maxcnt, 
-		  int count, const char *status)
+static void fio_findfirst(struct dbench_op *op)
 {
+	int level = op->params[0];
+	int maxcnt = op->params[1];
+	int count = op->params[2];
 	DIR *dir;
 	struct dirent *d;
 	char *p;
 
-	(void)child;
+	(void)op->child;
 	(void)level;
 	(void)count;
-	(void)status;
 
-	resolve_name(child, fname);
+	resolve_name(op->child, op->fname);
 
-	if (strpbrk(fname, "<>*?\"") == NULL) {
+	if (strpbrk(op->fname, "<>*?\"") == NULL) {
 		return;
 	}
 
-	p = strrchr(fname, '/');
+	p = strrchr(op->fname, '/');
 	if (!p) return;
 	*p = 0;
-	dir = opendir(fname);
+	dir = opendir(op->fname);
 	if (!dir) return;
 	while (maxcnt && (d = readdir(dir))) maxcnt--;
 	closedir(dir);
 }
 
-void nb_cleanup(struct child_struct *child)
-{
-	char *dname;
-
-	asprintf(&dname, "%s/clients/client%d", child->directory, child->id);
-	nb_deltree(child, dname);
-	free(dname);
-
-	asprintf(&dname, "%s%s", child->directory, "/clients");
-	rmdir(dname);
-	free(dname);
-}
-
-void nb_deltree(struct child_struct *child, const char *dname)
+static void fio_deltree(struct dbench_op *op)
 {
 	DIR *d;
 	struct dirent *de;
-	(void)child;
 	
-	d = opendir(dname);
+	d = opendir(op->fname);
 	if (d == NULL) return;
 
 	for (de=readdir(d);de;de=readdir(d)) {
@@ -530,7 +516,7 @@ void nb_deltree(struct child_struct *child, const char *dname)
 		    strcmp(de->d_name, "..") == 0) {
 			continue;
 		}
-		asprintf(&fname, "%s/%s", dname, de->d_name);
+		asprintf(&fname, "%s/%s", op->fname, de->d_name);
 		if (fname == NULL) {
 			printf("Out of memory\n");
 			exit(1);
@@ -539,11 +525,13 @@ void nb_deltree(struct child_struct *child, const char *dname)
 			continue;
 		}
 		if (S_ISDIR(st.st_mode)) {
-			nb_deltree(child, fname);
+			struct dbench_op op2 = *op;
+			op2.fname = fname;
+			fio_deltree(&op2);
 		} else {
 			if (unlink(fname) != 0) {
 				printf("[%d] unlink '%s' failed - %s\n",
-				       child->line, fname, strerror(errno));
+				       op->child->line, fname, strerror(errno));
 			}
 		}
 		free(fname);
@@ -551,17 +539,37 @@ void nb_deltree(struct child_struct *child, const char *dname)
 	closedir(d);
 }
 
-void nb_sfileinfo(struct child_struct *child, int handle, int level, const char *status)
+static void fio_cleanup(struct child_struct *child)
 {
-	struct ftable *ftable = (struct ftable *)child->private;
-	int i = find_handle(child, handle);
+	char *dname;
+	struct dbench_op op;
+
+	ZERO_STRUCT(op);
+
+	asprintf(&dname, "%s/clients/client%d", child->directory, child->id);
+	op.child = child;
+	op.fname = dname;
+	fio_deltree(&op);
+	free(dname);
+
+	asprintf(&dname, "%s%s", child->directory, "/clients");
+	rmdir(dname);
+	free(dname);
+}
+
+
+static void fio_sfileinfo(struct dbench_op *op)
+{
+	int handle = op->params[0];
+	int level = op->params[1];
+	struct ftable *ftable = (struct ftable *)op->child->private;
+	int i = find_handle(op->child, handle);
 	struct utimbuf tm;
 	struct stat st;
-	(void)child;
+	(void)op->child;
 	(void)handle;
 	(void)level;
-	(void)status;
-	xattr_fd_read_hook(child, ftable[i].fd);
+	xattr_fd_read_hook(op->child, ftable[i].fd);
 
 	fstat(ftable[i].fd, &st);
 
@@ -571,19 +579,20 @@ void nb_sfileinfo(struct child_struct *child, int handle, int level, const char 
 	utime(ftable[i].name, &tm);
 
 	if (!S_ISDIR(st.st_mode)) {
-		xattr_fd_write_hook(child, ftable[i].fd);
+		xattr_fd_write_hook(op->child, ftable[i].fd);
 	}
 }
 
-void nb_lockx(struct child_struct *child, int handle, uint32_t offset, int size, 
-	      const char *status)
+static void fio_lockx(struct dbench_op *op)
 {
-	struct ftable *ftable = (struct ftable *)child->private;
-	int i = find_handle(child, handle);
+	int handle = op->params[0];
+	uint32_t offset = op->params[1];
+	int size = op->params[2];
+	struct ftable *ftable = (struct ftable *)op->child->private;
+	int i = find_handle(op->child, handle);
 	struct flock lock;
 
-	(void)child;
-	(void)status;
+	(void)op->child;
 
 	lock.l_type = F_WRLCK;
 	lock.l_whence = SEEK_SET;
@@ -594,15 +603,14 @@ void nb_lockx(struct child_struct *child, int handle, uint32_t offset, int size,
 	fcntl(ftable[i].fd, F_SETLKW, &lock);
 }
 
-void nb_unlockx(struct child_struct *child,
-		int handle, uint32_t offset, int size, const char *status)
+static void fio_unlockx(struct dbench_op *op)
 {
-	struct ftable *ftable = (struct ftable *)child->private;
-	int i = find_handle(child, handle);
+	int handle = op->params[0];
+	uint32_t offset = op->params[1];
+	int size = op->params[2];
+	struct ftable *ftable = (struct ftable *)op->child->private;
+	int i = find_handle(op->child, handle);
 	struct flock lock;
-
-	(void)child;
-	(void)status;
 
 	lock.l_type = F_UNLCK;
 	lock.l_whence = SEEK_SET;
@@ -613,10 +621,30 @@ void nb_unlockx(struct child_struct *child,
 	fcntl(ftable[i].fd, F_SETLKW, &lock);
 }
 
-void nb_sleep(struct child_struct *child, int usec, const char *status)
-{
-	(void)child;
-	(void)usec;
-	(void)status;
-	usleep(usec);
-}
+static struct backend_op ops[] = {
+	{ "Deltree", fio_deltree },
+	{ "Flush", fio_flush },
+	{ "Close", fio_close },
+	{ "LockX", fio_lockx },
+	{ "Rmdir", fio_rmdir },
+	{ "Mkdir", fio_mkdir },
+	{ "Rename", fio_rename },
+	{ "ReadX", fio_readx },
+	{ "WriteX", fio_writex },
+	{ "Unlink", fio_unlink },
+	{ "UnlockX", fio_unlockx },
+	{ "FIND_FIRST", fio_findfirst },
+	{ "SET_FILE_INFORMATION", fio_sfileinfo },
+	{ "QUERY_FILE_INFORMATION", fio_qfileinfo },
+	{ "QUERY_PATH_INFORMATION", fio_qpathinfo },
+	{ "QUERY_FS_INFORMATION", fio_qfsinfo },
+	{ "NTCreateX", fio_createx },
+	{ NULL, NULL}
+};
+
+struct nb_operations nb_ops = {
+	.backend_name = "dbench",
+	.setup 		= fio_setup,
+	.cleanup	= fio_cleanup,
+	.ops          = ops
+};

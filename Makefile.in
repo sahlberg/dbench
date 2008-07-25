@@ -15,11 +15,14 @@ CC=@CC@
 CFLAGS=@CFLAGS@ -I. -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(datadir)\"
 EXEEXT=@EXEEXT@
 
+LIBNFS_OBJ = libnfs.o mount_client.o nfs_client.o mount_xdr.o nfs_xdr.o
+
 DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o
 TB_OBJS = sockio.o util.o dbench.o child.o socklib.o snprintf.o
+NFS_OBJS = nfsio.o util.o dbench.o child.o socklib.o snprintf.o libnfs.a
 SRV_OBJS = util.o tbench_srv.o socklib.o
 
-all: dbench tbench tbench_srv
+all: dbench tbench tbench_srv nfsbench
 
 dbench: $(DB_OBJS)
 	$(CC) -o $@ $(DB_OBJS) $(LIBS)
@@ -29,6 +32,64 @@ tbench: $(TB_OBJS)
 
 tbench_srv: $(SRV_OBJS)
 	$(CC) -o $@ $(SRV_OBJS) $(LIBS)
+
+nfsbench: $(NFS_OBJS)
+	$(CC) -o $@ $(NFS_OBJS) $(LIBS)
+
+
+libnfs.a: $(LIBNFS_OBJ) 
+	@echo Creating library $@
+	ar r libnfs.a $(LIBNFS_OBJ) 
+	ranlib libnfs.a
+
+nfsio.o: nfsio.c mount.h nfs.h
+	@echo Compiling $@
+	gcc -g -c nfsio.c -o $@
+
+libnfs.o: libnfs.c libnfs.h mount.h nfs.h
+	@echo Compiling $@
+	gcc -g -c libnfs.c -o $@
+
+mount.h: mount.x
+	@echo Generating $@
+	rpcgen -h mount.x > mount.h
+
+nfs.h: nfs.x
+	@echo Generating $@
+	rpcgen -h nfs.x > nfs.h
+
+mount_xdr.o: mount_xdr.c mount.h
+	@echo Compiling $@
+	gcc -g -c mount_xdr.c -o $@
+
+mount_xdr.c: mount.x
+	@echo Generating $@
+	rpcgen -c mount.x > mount_xdr.c
+
+mount_client.o: mount_client.c mount.h
+	@echo Compiling $@
+	gcc -g -c mount_client.c -o $@
+
+mount_client.c: mount.x
+	@echo Generating $@
+	rpcgen -l mount.x > mount_client.c
+
+nfs_xdr.o: nfs_xdr.c nfs.h
+	@echo Compiling $@
+	gcc -g -c nfs_xdr.c -o $@
+
+nfs_xdr.c: nfs.x
+	@echo Generating $@
+	rpcgen -c nfs.x > nfs_xdr.c
+
+nfs_client.o: nfs_client.c nfs.h
+	@echo Compiling $@
+	gcc -g -c nfs_client.c -o $@
+
+nfs_client.c: nfs.x
+	@echo Generating $@
+	rpcgen -l nfs.x > nfs_client.c
+
 
 # Careful here: don't install client.txt over itself.
 install: all
@@ -40,7 +101,9 @@ install: all
 	ln -sf dbench.1 $(mandir)/tbench_srv.1
 
 clean:
-	rm -f *.o *~ dbench tbench tbench_srv
+	rm -f *.o *~ dbench tbench tbench_srv libnfs.a 
+	rm -f mount.h mount_xdr.c mount_client.c
+	rm -f nfs.h nfs_xdr.c nfs_client.c 
 
 proto:
 	./mkproto.pl *.c > proto.h

@@ -63,7 +63,7 @@ static void do_packets(struct child_struct *child, int send_size, int recv_size)
 }
 
 
-void nb_setup(struct child_struct *child)
+static void sio_setup(struct child_struct *child)
 {
 	struct sockio *sockio;
 	sockio = calloc(1, sizeof(struct sockio));
@@ -82,169 +82,127 @@ void nb_setup(struct child_struct *child)
 }
 
 
-void nb_unlink(struct child_struct *child, const char *fname, int attr, const char *status)
+static void sio_unlink(struct dbench_op *op)
 {
-	(void)child;
-	(void)attr;
-	(void)status;
-        do_packets(child, 39+2+strlen(fname)*2+2, 39);
+        do_packets(op->child, 39+2+strlen(op->fname)*2+2, 39);
 }
 
-void nb_mkdir(struct child_struct *child, const char *dname, const char *status)
+static void sio_mkdir(struct dbench_op *op)
 {
-	(void)child;
-	(void)status;
-        do_packets(child, 39+2+strlen(dname)*2+2, 39);
+        do_packets(op->child, 39+2+strlen(op->fname)*2+2, 39);
 }
 
-void nb_rmdir(struct child_struct *child, const char *fname, const char *status)
+static void sio_rmdir(struct dbench_op *op)
 {
-	(void)child;
-	(void)status;
-        do_packets(child, 39+2+strlen(fname)*2+2, 39);
+        do_packets(op->child, 39+2+strlen(op->fname)*2+2, 39);
 }
 
-void nb_createx(struct child_struct *child, const char *fname, 
-		uint32_t create_options, uint32_t create_disposition, int fnum,
-		const char *status)
+static void sio_createx(struct dbench_op *op)
 {
-	(void)child;
-	(void)create_options;
-	(void)create_disposition;
-	(void)fnum;
-	(void)status;
-        do_packets(child, 70+2+strlen(fname)*2+2, 39+12*4);
+        do_packets(op->child, 70+2+strlen(op->fname)*2+2, 39+12*4);
 }
 
-void nb_writex(struct child_struct *child, int handle, int offset, 
-	       int size, int ret_size, const char *status)
+static void sio_writex(struct dbench_op *op)
 {
-	(void)child;
-	(void)handle;
-	(void)offset;
-	(void)ret_size;
-	(void)status;
-        do_packets(child, 39+20+size, 39+16);
-	child->bytes += size;
+	int size = op->params[2];
+        do_packets(op->child, 39+20+size, 39+16);
+	op->child->bytes += size;
 }
 
-void nb_readx(struct child_struct *child, int handle, int offset, 
-	      int size, int ret_size, const char *status)
+static void sio_readx(struct dbench_op *op)
 {
-	(void)child;
-	(void)handle;
-	(void)offset;
-	(void)size;
-	(void)status;
-        do_packets(child, 39+20, 39+20+ret_size);
-	child->bytes += ret_size;
+	int ret_size = op->params[3];
+        do_packets(op->child, 39+20, 39+20+ret_size);
+	op->child->bytes += ret_size;
 }
 
-void nb_close(struct child_struct *child, int handle, const char *status)
+static void sio_close(struct dbench_op *op)
 {
-	(void)child;
-	(void)handle;
-	(void)status;
-        do_packets(child, 39+8, 39);
+        do_packets(op->child, 39+8, 39);
 }
 
-void nb_rename(struct child_struct *child, const char *old, const char *new, const char *status)
+static void sio_rename(struct dbench_op *op)
 {
-	(void)child;
-	(void)status;
-        do_packets(child, 39+8+2*strlen(old)+2*strlen(new), 39);
+	const char *old = op->fname;
+	const char *new = op->fname2;
+        do_packets(op->child, 39+8+2*strlen(old)+2*strlen(new), 39);
 }
 
-void nb_flush(struct child_struct *child, int handle, const char *status)
+static void sio_flush(struct dbench_op *op)
 {
-	(void)child;
-	(void)handle;
-	(void)status;
-        do_packets(child, 39+2, 39);
+        do_packets(op->child, 39+2, 39);
 }
 
-void nb_qpathinfo(struct child_struct *child, const char *fname, int level, 
-		  const char *status)
+static void sio_qpathinfo(struct dbench_op *op)
 {
-	(void)child;
-	(void)level;
-	(void)status;
-        do_packets(child, 39+16+2*strlen(fname), 39+32);
+        do_packets(op->child, 39+16+2*strlen(op->fname), 39+32);
 }
 
-void nb_qfileinfo(struct child_struct *child, int handle, int level, const char *status)
+static void sio_qfileinfo(struct dbench_op *op)
 {
-	(void)child;
-	(void)level;
-	(void)handle;
-	(void)status;
-        do_packets(child, 39+20, 39+32);
+        do_packets(op->child, 39+20, 39+32);
 }
 
-void nb_qfsinfo(struct child_struct *child, int level, const char *status)
+static void sio_qfsinfo(struct dbench_op *op)
 {
-	(void)child;
-	(void)level;
-	(void)status;
-        do_packets(child, 39+20, 39+32);
+        do_packets(op->child, 39+20, 39+32);
 }
 
-void nb_findfirst(struct child_struct *child, const char *fname, int level, int maxcnt, 
-		  int count, const char *status)
+static void sio_findfirst(struct dbench_op *op)
 {
-	(void)child;
-	(void)level;
-	(void)maxcnt;
-	(void)status;
-        do_packets(child, 39+20+strlen(fname)*2, 39+90*count);
+	int count = op->params[2];
+        do_packets(op->child, 39+20+strlen(op->fname)*2, 39+90*count);
 }
 
-void nb_cleanup(struct child_struct *child)
+static void sio_cleanup(struct child_struct *child)
 {
 	(void)child;
 }
 
-void nb_deltree(struct child_struct *child, const char *dname)
+static void sio_deltree(struct dbench_op *op)
 {
-	(void)child;
-	(void)dname;
+	(void)op;
 }
 
-void nb_sfileinfo(struct child_struct *child, int handle, int level, const char *status)
+static void sio_sfileinfo(struct dbench_op *op)
 {
-	(void)child;
-	(void)handle;
-	(void)level;
-	(void)status;
-        do_packets(child, 39+32, 39+8);
+        do_packets(op->child, 39+32, 39+8);
 }
 
-void nb_lockx(struct child_struct *child, int handle, uint32_t offset, int size, 
-	      const char *status)
+static void sio_lockx(struct dbench_op *op)
 {
-	(void)child;
-	(void)handle;
-	(void)offset;
-	(void)size;
-	(void)status;
-        do_packets(child, 39+12, 39);
+        do_packets(op->child, 39+12, 39);
 }
 
-void nb_unlockx(struct child_struct *child,
-		int handle, uint32_t offset, int size, const char *status)
+static void sio_unlockx(struct dbench_op *op)
 {
-	(void)child;
-	(void)handle;
-	(void)offset;
-	(void)size;
-	(void)status;
-        do_packets(child, 39+12, 39);
+        do_packets(op->child, 39+12, 39);
 }
 
-void nb_sleep(struct child_struct *child, int usec, const char *status)
-{
-	(void)child;
-	(void)usec;
-	(void)status;
-	usleep(usec);
-}
+static struct backend_op ops[] = {
+	{ "Deltree", sio_deltree },
+	{ "Flush", sio_flush },
+	{ "Close", sio_close },
+	{ "LockX", sio_lockx },
+	{ "Rmdir", sio_rmdir },
+	{ "Mkdir", sio_mkdir },
+	{ "Rename", sio_rename },
+	{ "ReadX", sio_readx },
+	{ "WriteX", sio_writex },
+	{ "Unlink", sio_unlink },
+	{ "UnlockX", sio_unlockx },
+	{ "FIND_FIRST", sio_findfirst },
+	{ "SET_FILE_INFORMATION", sio_sfileinfo },
+	{ "QUERY_FILE_INFORMATION", sio_qfileinfo },
+	{ "QUERY_PATH_INFORMATION", sio_qpathinfo },
+	{ "QUERY_FS_INFORMATION", sio_qfsinfo },
+	{ "NTCreateX", sio_createx },
+	{ NULL, NULL}
+};
+
+struct nb_operations nb_ops = {
+	.backend_name = "tbench",
+	.setup 	      = sio_setup,
+	.cleanup      = sio_cleanup,
+	.ops          = ops
+};

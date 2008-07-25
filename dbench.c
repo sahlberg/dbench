@@ -41,6 +41,8 @@ struct options options = {
 	.ea_enable           = 0,
 	.clients_per_process = 1,
 	.server              = "localhost",
+	.export		     = "/tmp",
+	.protocol	     = "tcp",
 };
 
 static struct timeval tv_start;
@@ -108,7 +110,7 @@ static void sig_alarm(int sig)
 		for (i=0;i<nclients;i++) {
 			children[i].bytes_done_warmup = children[i].bytes;
 			children[i].worst_latency = 0;
-			memset(&children[i].op, 0, sizeof(children[i].op));
+			memset(&children[i].ops, 0, sizeof(children[i].ops));
 		}
 		goto next;
 	}
@@ -157,42 +159,18 @@ next:
 }
 
 
-static const struct {
-	const char *name;
-	size_t offset;
-} op_names[] = {
-#define OP_NAME(opname) { #opname, offsetof(struct opnames, op_ ## opname) }
-	OP_NAME(NTCreateX),
-	OP_NAME(Close),
-	OP_NAME(Rename),
-	OP_NAME(Unlink),
-	OP_NAME(Deltree),
-	OP_NAME(Rmdir),
-	OP_NAME(Mkdir),
-	OP_NAME(Qpathinfo),
-	OP_NAME(Qfileinfo),
-	OP_NAME(Qfsinfo),
-	OP_NAME(Sfileinfo),
-	OP_NAME(Find),
-	OP_NAME(WriteX),
-	OP_NAME(ReadX),
-	OP_NAME(LockX),
-	OP_NAME(UnlockX),
-	OP_NAME(Flush),
-};
-
-static void show_one_latency(struct opnames *ops, struct opnames *ops_all)
+static void show_one_latency(struct op *ops, struct op *ops_all)
 {
-	int i, n = (sizeof(op_names)/sizeof(op_names[0]));
-	printf(" Operation      Count    AvgLat    MaxLat\n");
-	printf(" ----------------------------------------\n");
-	for (i=0;i<n;i++) {
+	int i;
+	printf(" Operation                Count    AvgLat    MaxLat\n");
+	printf(" --------------------------------------------------\n");
+	for (i=0;nb_ops.ops[i].name;i++) {
 		struct op *op1, *op_all;
-		op1    = (struct op *)(op_names[i].offset + (char *)ops);
-		op_all = (struct op *)(op_names[i].offset + (char *)ops_all);
+		op1    = &ops[i];
+		op_all = &ops_all[i];
 		if (op_all->count == 0) continue;
-		printf(" %-12s %7u %9.03f %9.03f\n",
-		       op_names[i].name, op1->count, 
+		printf(" %-22s %7u %9.03f %9.03f\n",
+		       nb_ops.ops[i].name, op1->count, 
 		       1000*op1->total_time/op1->count,
 		       op1->max_latency*1000);
 	}
@@ -201,23 +179,23 @@ static void show_one_latency(struct opnames *ops, struct opnames *ops_all)
 
 static void report_latencies(void)
 {
-	struct opnames sum;
-	int i, j, n = (sizeof(op_names)/sizeof(op_names[0]));
+	struct op sum[MAX_OPS];
+	int i, j;
 	struct op *op1, *op2;
 	struct child_struct *child;
 
-	memset(&sum, 0, sizeof(sum));
-	for (i=0;i<n;i++) {
-		op1 = (struct op *)(op_names[i].offset + (char *)&sum);
+	memset(sum, 0, sizeof(sum));
+	for (i=0;nb_ops.ops[i].name;i++) {
+		op1 = &sum[i];
 		for (j=0;j<options.nprocs * options.clients_per_process;j++) {
 			child = &children[j];
-			op2 = (struct op *)(op_names[i].offset + (char *)&child->op);
+			op2 = &child->ops[i];
 			op1->count += op2->count;
 			op1->total_time += op2->total_time;
 			op1->max_latency = MAX(op1->max_latency, op2->max_latency);
 		}
 	}
-	show_one_latency(&sum, &sum);
+	show_one_latency(sum, sum);
 
 	if (!options.per_client_results) {
 		return;
@@ -228,7 +206,7 @@ static void report_latencies(void)
 		child = &children[i];
 		printf("Client %u did %u lines and %.0f bytes\n", 
 		       i, child->line, child->bytes - child->bytes_done_warmup);
-		show_one_latency(&child->op, &sum);		
+		show_one_latency(child->ops, sum);		
 	}
 }
 
@@ -295,7 +273,7 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 			setlinebuf(stdout);
 
 			for (j=0;j<options.clients_per_process;j++) {
-				nb_setup(&children[i*options.clients_per_process + j]);
+				nb_ops.setup(&children[i*options.clients_per_process + j]);
 			}
 
 			sbuf.sem_op = 0;
@@ -416,6 +394,12 @@ static int process_opts(int argc, const char **argv)
 		  "skip cleanup operations", NULL },
 		{ "per-client-results", 0, POPT_ARG_NONE, &options.per_client_results, 0, 
 		  "show results per client", NULL },
+		{ "server",  'S', POPT_ARG_STRING, &options.server, 0, 
+		  "server", NULL },
+		{ "export",  'E', POPT_ARG_STRING, &options.export, 0, 
+		  "export", NULL },
+		{ "protocol",  'P', POPT_ARG_STRING, &options.protocol, 0, 
+		  "protocol", NULL },
 		POPT_TABLEEND
 	};
 	poptContext pc;

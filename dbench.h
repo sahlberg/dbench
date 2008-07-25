@@ -98,6 +98,10 @@ struct op {
 	double max_latency;
 };
 
+#define ZERO_STRUCT(x) memset(&(x), 0, sizeof(x))
+
+#define MAX_OPS 100
+
 struct child_struct {
 	int id;
 	int failed;
@@ -118,25 +122,7 @@ struct child_struct {
 		double last_bytes;
 		struct timeval last_time;
 	} rate;
-	struct opnames {
-		struct op op_NTCreateX;
-		struct op op_Close;
-		struct op op_Rename;
-		struct op op_Unlink;
-		struct op op_Deltree;
-		struct op op_Rmdir;
-		struct op op_Mkdir;
-		struct op op_Qpathinfo;
-		struct op op_Qfileinfo;
-		struct op op_Qfsinfo;
-		struct op op_Sfileinfo;
-		struct op op_Find;
-		struct op op_WriteX;
-		struct op op_ReadX;
-		struct op op_LockX;
-		struct op op_UnlockX;
-		struct op op_Flush;
-	} op;
+	struct op ops[MAX_OPS];
 	void *private;
 };
 
@@ -161,7 +147,32 @@ struct options {
 	int fake_io;
 	int skip_cleanup;
 	int per_client_results;
+	const char *export;
+	const char *protocol;
 };
+
+
+struct dbench_op {
+	struct child_struct *child;
+	const char *op;
+	const char *fname;
+	const char *fname2;
+	const char *status;
+	int params[10];
+};
+
+struct backend_op {
+	const char *name;
+	void (*fn)(struct dbench_op *);
+};
+
+struct nb_operations {
+	const char *backend_name;	
+	struct backend_op *ops;
+	void (*setup)(struct child_struct *child);
+	void (*cleanup)(struct child_struct *child);
+};
+extern struct nb_operations nb_ops;
 
 /* CreateDisposition field. */
 #define FILE_SUPERSEDE 0
@@ -184,6 +195,8 @@ struct options {
 #ifndef O_DIRECTORY
 #define O_DIRECTORY    0200000
 #endif
+
+struct nfsio;
 
 #include "proto.h"
 
