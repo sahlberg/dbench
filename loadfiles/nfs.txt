@@ -4,7 +4,7 @@
 0.000 Deltree "/clients/client1" 0x00000000
 0.000 MKDIR3 "/clients/client1" 0x00000000
 #
-# This this lookup must be performed to pre-load the name to filehandle cache.
+# This lookup must be performed to pre-load the name to filehandle cache.
 # Othervise we will get errors like this :
 #     failed to fetch handle in nfsio_read
 #
@@ -33,12 +33,12 @@
 1.090 REMOVE3 "/clients/client1/test.link" 0x00000000
 1.100 MKDIR3 "/clients/client1/test.dir" 0x00000000
 1.110 RMDIR3 "/clients/client1/test.dir" 0x00000000
-# The READDIRPLUS3 function will automatically loop and rad the entire
+# The READDIRPLUS3 function will automatically loop and read the entire
 # directory, so when transcoding from a network trace, only transcode
 # the initial READDIRPLUS3 into the clients.txt file (where cookie is 0)
 # and ignore all other READDIRPLUS3 calls.
 2.000 READDIRPLUS3 "/clients/client1" 0x00000000
-# The arguments are desireg access and granted access
+# The arguments are desired access and granted access
 2.010 ACCESS3 "/clients/client1" 0 0 0x00000000
 2.020 GETATTR3 "/clients/client1" 0x00000000
 2.030 GETATTR3 "/clients/client1" 0x00000000
