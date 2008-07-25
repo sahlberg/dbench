@@ -41,6 +41,8 @@ struct options options = {
 	.ea_enable           = 0,
 	.clients_per_process = 1,
 	.server              = "localhost",
+	.export		     = "/tmp",
+	.protocol	     = "tcp",
 };
 
 static struct timeval tv_start;
@@ -179,6 +181,22 @@ static const struct {
 	OP_NAME(LockX),
 	OP_NAME(UnlockX),
 	OP_NAME(Flush),
+	/* NFSv3 commands */
+	OP_NAME(GETATTR3),
+	OP_NAME(LOOKUP3),
+	OP_NAME(CREATE3),
+	OP_NAME(WRITE3),
+	OP_NAME(COMMIT3),
+	OP_NAME(READ3),
+	OP_NAME(ACCESS3),
+	OP_NAME(MKDIR3),
+	OP_NAME(RMDIR3),
+	OP_NAME(FSSTAT3),
+	OP_NAME(FSINFO3),
+	OP_NAME(SYMLINK3),
+	OP_NAME(REMOVE3),
+	OP_NAME(READDIRPLUS3),
+	OP_NAME(LINK3),
 };
 
 static void show_one_latency(struct opnames *ops, struct opnames *ops_all)
@@ -295,7 +313,7 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 			setlinebuf(stdout);
 
 			for (j=0;j<options.clients_per_process;j++) {
-				nb_setup(&children[i*options.clients_per_process + j]);
+				nb_ops.setup(&children[i*options.clients_per_process + j]);
 			}
 
 			sbuf.sem_op = 0;
@@ -416,6 +434,12 @@ static int process_opts(int argc, const char **argv)
 		  "skip cleanup operations", NULL },
 		{ "per-client-results", 0, POPT_ARG_NONE, &options.per_client_results, 0, 
 		  "show results per client", NULL },
+		{ "server",  'S', POPT_ARG_STRING, &options.server, 0, 
+		  "server", NULL },
+		{ "export",  'E', POPT_ARG_STRING, &options.export, 0, 
+		  "export", NULL },
+		{ "protocol",  'P', POPT_ARG_STRING, &options.protocol, 0, 
+		  "protocol", NULL },
 		POPT_TABLEEND
 	};
 	poptContext pc;

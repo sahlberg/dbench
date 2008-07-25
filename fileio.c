@@ -193,7 +193,7 @@ static void failed(struct child_struct *child)
 	exit(1);
 }
 
-void nb_setup(struct child_struct *child)
+static void fio_setup(struct child_struct *child)
 {
 	struct ftable *ftable;
 	ftable = calloc(MAX_FILES, sizeof(struct ftable));
@@ -202,7 +202,7 @@ void nb_setup(struct child_struct *child)
 	child->rate.last_bytes = 0;
 }
 
-void nb_unlink(struct child_struct *child, const char *fname, int attr, const char *status)
+static void fio_unlink(struct child_struct *child, const char *fname, int attr, const char *status)
 {
 	(void)attr;
 
@@ -216,7 +216,7 @@ void nb_unlink(struct child_struct *child, const char *fname, int attr, const ch
 	if (options.sync_dirs) sync_parent(child, fname);
 }
 
-void nb_mkdir(struct child_struct *child, const char *dname, const char *status)
+static void fio_mkdir(struct child_struct *child, const char *dname, const char *status)
 {
 	struct stat st;
 	(void)child;
@@ -228,7 +228,7 @@ void nb_mkdir(struct child_struct *child, const char *dname, const char *status)
 	mkdir(dname, 0777);
 }
 
-void nb_rmdir(struct child_struct *child, const char *fname, const char *status)
+static void fio_rmdir(struct child_struct *child, const char *fname, const char *status)
 {
 	struct stat st;
 	resolve_name(child, fname);
@@ -246,7 +246,7 @@ void nb_rmdir(struct child_struct *child, const char *fname, const char *status)
 	if (options.sync_dirs) sync_parent(child, fname);
 }
 
-void nb_createx(struct child_struct *child, const char *fname, 
+static void fio_createx(struct child_struct *child, const char *fname, 
 		uint32_t create_options, uint32_t create_disposition, int fnum,
 		const char *status)
 {
@@ -318,7 +318,7 @@ void nb_createx(struct child_struct *child, const char *fname,
 	}
 }
 
-void nb_writex(struct child_struct *child, int handle, int offset, 
+static void fio_writex(struct child_struct *child, int handle, int offset, 
 	       int size, int ret_size, const char *status)
 {
 	int i = find_handle(child, handle);
@@ -375,7 +375,7 @@ void nb_writex(struct child_struct *child, int handle, int offset,
 	child->bytes_since_fsync += size;
 }
 
-void nb_readx(struct child_struct *child, int handle, int offset, 
+static void fio_readx(struct child_struct *child, int handle, int offset, 
 	      int size, int ret_size, const char *status)
 {
 	int i = find_handle(child, handle);
@@ -401,7 +401,7 @@ void nb_readx(struct child_struct *child, int handle, int offset,
 	child->bytes += size;
 }
 
-void nb_close(struct child_struct *child, int handle, const char *status)
+static void fio_close(struct child_struct *child, int handle, const char *status)
 {
 	struct ftable *ftable = (struct ftable *)child->private;
 	int i = find_handle(child, handle);
@@ -412,7 +412,7 @@ void nb_close(struct child_struct *child, int handle, const char *status)
 	ftable[i].name = NULL;
 }
 
-void nb_rename(struct child_struct *child, const char *old, const char *new, const char *status)
+static void fio_rename(struct child_struct *child, const char *old, const char *new, const char *status)
 {
 	resolve_name(child, old);
 	resolve_name(child, new);
@@ -435,7 +435,7 @@ void nb_rename(struct child_struct *child, const char *old, const char *new, con
 	if (options.sync_dirs) sync_parent(child, new);
 }
 
-void nb_flush(struct child_struct *child, int handle, const char *status)
+static void fio_flush(struct child_struct *child, int handle, const char *status)
 {
 	struct ftable *ftable = (struct ftable *)child->private;
 	int i = find_handle(child, handle);
@@ -443,7 +443,7 @@ void nb_flush(struct child_struct *child, int handle, const char *status)
 	fsync(ftable[i].fd);
 }
 
-void nb_qpathinfo(struct child_struct *child, const char *fname, int level, 
+static void fio_qpathinfo(struct child_struct *child, const char *fname, int level, 
 		  const char *status)
 {
 	(void)child;
@@ -452,7 +452,7 @@ void nb_qpathinfo(struct child_struct *child, const char *fname, int level,
 	resolve_name(child, fname);
 }
 
-void nb_qfileinfo(struct child_struct *child, int handle, int level, const char *status)
+static void fio_qfileinfo(struct child_struct *child, int handle, int level, const char *status)
 {
 	struct ftable *ftable = (struct ftable *)child->private;
 	struct stat st;
@@ -464,7 +464,7 @@ void nb_qfileinfo(struct child_struct *child, int handle, int level, const char 
 	xattr_fd_read_hook(child, ftable[i].fd);
 }
 
-void nb_qfsinfo(struct child_struct *child, int level, const char *status)
+static void fio_qfsinfo(struct child_struct *child, int level, const char *status)
 {
 	struct statvfs st;
 
@@ -474,7 +474,7 @@ void nb_qfsinfo(struct child_struct *child, int level, const char *status)
 	statvfs(child->directory, &st);
 }
 
-void nb_findfirst(struct child_struct *child, const char *fname, int level, int maxcnt, 
+static void fio_findfirst(struct child_struct *child, const char *fname, int level, int maxcnt, 
 		  int count, const char *status)
 {
 	DIR *dir;
@@ -501,20 +501,7 @@ void nb_findfirst(struct child_struct *child, const char *fname, int level, int 
 	closedir(dir);
 }
 
-void nb_cleanup(struct child_struct *child)
-{
-	char *dname;
-
-	asprintf(&dname, "%s/clients/client%d", child->directory, child->id);
-	nb_deltree(child, dname);
-	free(dname);
-
-	asprintf(&dname, "%s%s", child->directory, "/clients");
-	rmdir(dname);
-	free(dname);
-}
-
-void nb_deltree(struct child_struct *child, const char *dname)
+void fio_deltree(struct child_struct *child, const char *dname)
 {
 	DIR *d;
 	struct dirent *de;
@@ -539,7 +526,7 @@ void nb_deltree(struct child_struct *child, const char *dname)
 			continue;
 		}
 		if (S_ISDIR(st.st_mode)) {
-			nb_deltree(child, fname);
+			fio_deltree(child, fname);
 		} else {
 			if (unlink(fname) != 0) {
 				printf("[%d] unlink '%s' failed - %s\n",
@@ -551,7 +538,21 @@ void nb_deltree(struct child_struct *child, const char *dname)
 	closedir(d);
 }
 
-void nb_sfileinfo(struct child_struct *child, int handle, int level, const char *status)
+static void fio_cleanup(struct child_struct *child)
+{
+	char *dname;
+
+	asprintf(&dname, "%s/clients/client%d", child->directory, child->id);
+	fio_deltree(child, dname);
+	free(dname);
+
+	asprintf(&dname, "%s%s", child->directory, "/clients");
+	rmdir(dname);
+	free(dname);
+}
+
+
+static void fio_sfileinfo(struct child_struct *child, int handle, int level, const char *status)
 {
 	struct ftable *ftable = (struct ftable *)child->private;
 	int i = find_handle(child, handle);
@@ -575,7 +576,7 @@ void nb_sfileinfo(struct child_struct *child, int handle, int level, const char 
 	}
 }
 
-void nb_lockx(struct child_struct *child, int handle, uint32_t offset, int size, 
+static void fio_lockx(struct child_struct *child, int handle, uint32_t offset, int size, 
 	      const char *status)
 {
 	struct ftable *ftable = (struct ftable *)child->private;
@@ -594,7 +595,7 @@ void nb_lockx(struct child_struct *child, int handle, uint32_t offset, int size,
 	fcntl(ftable[i].fd, F_SETLKW, &lock);
 }
 
-void nb_unlockx(struct child_struct *child,
+static void fio_unlockx(struct child_struct *child,
 		int handle, uint32_t offset, int size, const char *status)
 {
 	struct ftable *ftable = (struct ftable *)child->private;
@@ -620,3 +621,26 @@ void nb_sleep(struct child_struct *child, int usec, const char *status)
 	(void)status;
 	usleep(usec);
 }
+
+struct nb_operations nb_ops = {
+	.setup 		= fio_setup,
+	.deltree	= fio_deltree,
+	.cleanup	= fio_cleanup,
+
+	.flush		= fio_flush,
+	.close		= fio_close,
+	.lockx		= fio_lockx,
+	.rmdir		= fio_rmdir,
+	.mkdir		= fio_mkdir,
+	.rename		= fio_rename,
+	.readx		= fio_readx,
+	.writex		= fio_writex,
+	.unlink		= fio_unlink,
+	.unlockx	= fio_unlockx,
+	.findfirst	= fio_findfirst,
+	.sfileinfo	= fio_sfileinfo,
+	.qfileinfo	= fio_qfileinfo,
+	.qpathinfo	= fio_qpathinfo,
+	.qfsinfo	= fio_qfsinfo,
+	.createx	= fio_createx,
+};

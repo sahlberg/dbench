@@ -13,7 +13,6 @@ void child_run(struct child_struct *child0, const char *loadfile);
 
 /* The following definitions come from fileio.c  */
 
-void nb_setup(struct child_struct *child);
 void nb_unlink(struct child_struct *child, const char *fname, int attr, const char *status);
 void nb_mkdir(struct child_struct *child, const char *dname, const char *status);
 void nb_rmdir(struct child_struct *child, const char *fname, const char *status);
@@ -56,12 +55,33 @@ void do_rename(char *old, char *new);
 void do_stat(char *fname, int size);
 void do_create(char *fname, int size);
 
+/* The following definitions come from libnfs.c  */
+
+
+/* The following definitions come from mount_client.c  */
+
+
+/* The following definitions come from mount_xdr.c  */
+
+
+/* The following definitions come from nfs_client.c  */
+
+
+/* The following definitions come from nfs_xdr.c  */
+
+
+/* The following definitions come from nfsio.c  */
+
+void nb_sleep(struct child_struct *child, int usec, const char *status);
+void nb_deltree(struct child_struct *child, const char *dname);
+void nb_cleanup(struct child_struct *child);
+void nb_sfileinfo(struct child_struct *child, int handle, int level, const char *status);
+
 /* The following definitions come from snprintf.c  */
 
 
 /* The following definitions come from sockio.c  */
 
-void nb_setup(struct child_struct *child);
 void nb_unlink(struct child_struct *child, const char *fname, int attr, const char *status);
 void nb_mkdir(struct child_struct *child, const char *dname, const char *status);
 void nb_rmdir(struct child_struct *child, const char *fname, const char *status);
