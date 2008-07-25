@@ -98,6 +98,10 @@ struct op {
 	double max_latency;
 };
 
+#define ZERO_STRUCT(x) memset(&(x), 0, sizeof(x))
+
+#define MAX_OPS 100
+
 struct child_struct {
 	int id;
 	int failed;
@@ -118,40 +122,7 @@ struct child_struct {
 		double last_bytes;
 		struct timeval last_time;
 	} rate;
-	struct opnames {
-		struct op op_NTCreateX;
-		struct op op_Close;
-		struct op op_Rename;
-		struct op op_Unlink;
-		struct op op_Deltree;
-		struct op op_Rmdir;
-		struct op op_Mkdir;
-		struct op op_Qpathinfo;
-		struct op op_Qfileinfo;
-		struct op op_Qfsinfo;
-		struct op op_Sfileinfo;
-		struct op op_Find;
-		struct op op_WriteX;
-		struct op op_ReadX;
-		struct op op_LockX;
-		struct op op_UnlockX;
-		struct op op_Flush;
-		struct op op_GETATTR3;
-		struct op op_MKDIR3;
-		struct op op_RMDIR3;
-		struct op op_LOOKUP3;
-		struct op op_CREATE3;
-		struct op op_WRITE3;
-		struct op op_COMMIT3;
-		struct op op_READ3;
-		struct op op_ACCESS3;
-		struct op op_FSSTAT3;
-		struct op op_FSINFO3;
-		struct op op_SYMLINK3;
-		struct op op_REMOVE3;
-		struct op op_READDIRPLUS3;
-		struct op op_LINK3;
-	} op;
+	struct op ops[MAX_OPS];
 	void *private;
 };
 
@@ -180,46 +151,26 @@ struct options {
 	const char *protocol;
 };
 
+
+struct dbench_op {
+	struct child_struct *child;
+	const char *op;
+	const char *fname;
+	const char *fname2;
+	const char *status;
+	int params[10];
+};
+
+struct backend_op {
+	const char *name;
+	void (*fn)(struct dbench_op *);
+};
+
 struct nb_operations {
-	void (*setup)(struct child_struct *);
-	void (*deltree)(struct child_struct *, const char *dname);
+	const char *backend_name;	
+	struct backend_op *ops;
+	void (*setup)(struct child_struct *child);
 	void (*cleanup)(struct child_struct *child);
-
-	/* CIFS operations */
-	void (*flush)(struct child_struct *, int handle, const char *status);
-	void (*close)(struct child_struct *, int handle, const char *status);
-	void (*lockx)(struct child_struct *, int handle, uint32_t offset, int size, const char *status);
-	void (*rmdir)(struct child_struct *, const char *fname, const char *status);
-	void (*mkdir)(struct child_struct *, const char *dname, const char *status);
-	void (*rename)(struct child_struct *, const char *old, const char *new, const char *status);
-	void (*readx)(struct child_struct *, int handle, int offset, int size, int ret_size, const char *status);
-	void (*writex)(struct child_struct *, int handle, int offset, int size, int ret_size, const char *status);
-	void (*unlink)(struct child_struct *, const char *fname, int attr, const char *status);
-	void (*unlockx)(struct child_struct *child,int handle, uint32_t offset, int size, const char *status);
-	void (*findfirst)(struct child_struct *child, const char *fname, int level, int maxcnt, int count, const char *status);
-	void (*sfileinfo)(struct child_struct *child, int handle, int level, const char *status);
-	void (*qfileinfo)(struct child_struct *child, int handle, int level, const char *status);
-	void (*qpathinfo)(struct child_struct *child, const char *fname, int level, const char *status);
-	void (*qfsinfo)(struct child_struct *child, int level, const char *status);
-	void (*createx)(struct child_struct *child, const char *fname, uint32_t create_options, uint32_t create_disposition, int fnum, const char *status);
-
-	/* NFSv3 operations */
-	void (*getattr3)(struct child_struct *child, const char *fname, const char *status);
-	void (*lookup3)(struct child_struct *child, const char *fname, const char *status);
-	void (*create3)(struct child_struct *child, const char *fname, const char *status);
-	void (*write3)(struct child_struct *child, const char *fname, int offset, int len, int stable, const char *status);
-	void (*commit3)(struct child_struct *child, const char *fname, const char *status);
-	void (*read3)(struct child_struct *child, const char *fname, int offset, int len, const char *status);
-	void (*access3)(struct child_struct *child, const char *fname, int desired, int granted, const char *status);
-	void (*mkdir3)(struct child_struct *child, const char *fname, const char *status);
-	void (*rmdir3)(struct child_struct *child, const char *fname, const char *status);
-	void (*fsstat3)(struct child_struct *child, const char *status);
-	void (*fsinfo3)(struct child_struct *child, const char *status);
-	void (*symlink3)(struct child_struct *child, const char *fname, const char *fname2, const char *status);
-	void (*remove3)(struct child_struct *child, const char *fname, const char *status);
-	void (*readdirplus3)(struct child_struct *child, const char *fname, const char *status);
-	void (*link3)(struct child_struct *child, const char *fname, const char *fname2, const char *status);
-	void (*rename3)(struct child_struct *child, const char *fname, const char *fname2, const char *status);
 };
 extern struct nb_operations nb_ops;
 
@@ -244,6 +195,8 @@ extern struct nb_operations nb_ops;
 #ifndef O_DIRECTORY
 #define O_DIRECTORY    0200000
 #endif
+
+struct nfsio;
 
 #include "proto.h"
 

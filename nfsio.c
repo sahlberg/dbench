@@ -1,7 +1,5 @@
 /* 
-   nfs backend for dbench
-
-   Copyright (C) 2008 by Ronnie Sahlberg (ronniesahlberg@gmail.com)
+   Copyright (C) by Ronnie Sahlberg <sahlberg@samba.org> 2008
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -33,18 +31,44 @@
 static char rw_buf[65536];
 
 
-void nb_sleep(struct child_struct *child, int usec, const char *status)
-{
-	(void)child;
-	(void)usec;
-	(void)status;
-	usleep(usec);
-}
-
 struct cb_data {
 	struct nfsio *nfsio;
 	char *dirname;
 };
+
+static void nfs3_deltree(struct dbench_op *op);
+
+static void nfs3_cleanup(struct child_struct *child)
+{
+	char *dname;
+	struct dbench_op op;
+	ZERO_STRUCT(op);
+
+	asprintf(&dname, "/clients/client%d", child->id);
+	op.fname = dname;
+	op.child = child;
+	nfs3_deltree(&op);
+	free(dname);
+}
+
+static void nfs3_setup(struct child_struct *child)
+{
+	const char *status = "0x00000000";
+
+	child->rate.last_time = timeval_current();
+	child->rate.last_bytes = 0;
+
+
+	srandom(getpid() ^ time(NULL));
+	child->private = nfsio_connect(options.server, options.export, options.protocol);
+
+	if (child->private == NULL) {
+		child->failed = 1;
+		printf("nfsio_connect() failed\n");
+		exit(10);
+	}
+}
+
 
 static void dirent_cb(struct entryplus3 *e, void *private_data)
 {
@@ -99,15 +123,15 @@ static void dirent_cb(struct entryplus3 *e, void *private_data)
 	free(objname);
 }
 
-static void nfs3_deltree(struct child_struct *child, const char *dname)
+static void nfs3_deltree(struct dbench_op *op)
 {
 	struct cb_data *cbd;
 	nfsstat3 res;
 	
 	cbd = malloc(sizeof(struct cb_data));
 
-	cbd->nfsio = child->private;
-	cbd->dirname = discard_const(dname);
+	cbd->nfsio = op->child->private;
+	cbd->dirname = discard_const(op->fname);
 
 	res = nfsio_lookup(cbd->nfsio, cbd->dirname, NULL);
 	if (res != NFS3ERR_NOENT) {
@@ -138,254 +162,236 @@ static void failed(struct child_struct *child)
 	exit(1);
 }
 
-static void nfs3_getattr(struct child_struct *child, const char *fname, const char *status)
+static void nfs3_getattr(struct dbench_op *op)
 {
 	nfsstat3 res;
 
-	res = nfsio_getattr(child->private, fname, NULL);
-	if (res != expected_status(status)) {
+	res = nfsio_getattr(op->child->private, op->fname, NULL);
+	if (res != expected_status(op->status)) {
 		printf("[%d] GETATTR \"%s\" failed (%x) - expected %x\n", 
-		       child->line, fname, res, expected_status(status));
-		failed(child);
+		       op->child->line, op->fname, res, expected_status(op->status));
+		failed(op->child);
 	}
 }
 
 
-static void nfs3_lookup(struct child_struct *child, const char *fname, const char *status)
+static void nfs3_lookup(struct dbench_op *op)
 {
 	nfsstat3 res;
 
-	res = nfsio_lookup(child->private, fname, NULL);
-	if (res != expected_status(status)) {
+	res = nfsio_lookup(op->child->private, op->fname, NULL);
+	if (res != expected_status(op->status)) {
 		printf("[%d] LOOKUP \"%s\" failed (%x) - expected %x\n", 
-		       child->line, fname, res, expected_status(status));
-		failed(child);
+		       op->child->line, op->fname, res, expected_status(op->status));
+		failed(op->child);
 	}
 }
 
-static void nfs3_create(struct child_struct *child, const char *fname, const char *status)
+static void nfs3_create(struct dbench_op *op)
 {
 	nfsstat3 res;
 
-	res = nfsio_create(child->private, fname);
-	if (res != expected_status(status)) {
+	res = nfsio_create(op->child->private, op->fname);
+	if (res != expected_status(op->status)) {
 		printf("[%d] CREATE \"%s\" failed (%x) - expected %x\n", 
-		       child->line, fname, res, expected_status(status));
-		failed(child);
+		       op->child->line, op->fname, res, expected_status(op->status));
+		failed(op->child);
 	}
 }
 
-static void nfs3_write(struct child_struct *child, const char *fname, int offset, int len, int stable, const char *status)
+static void nfs3_write(struct dbench_op *op)
 {
+	int offset = op->params[0];
+	int len = op->params[1];
+	int stable = op->params[2];
 	nfsstat3 res;
 
-	res = nfsio_write(child->private, fname, rw_buf, offset, len, stable);
-	if (res != expected_status(status)) {
+	res = nfsio_write(op->child->private, op->fname, rw_buf, offset, len, stable);
+	if (res != expected_status(op->status)) {
 		printf("[%d] WRITE \"%s\" failed (%x) - expected %x\n", 
-		       child->line, fname,
-		       res, expected_status(status));
-		failed(child);
+		       op->child->line, op->fname,
+		       res, expected_status(op->status));
+		failed(op->child);
 	}
-	child->bytes += len;
+	op->child->bytes += len;
 }
 
-static void nfs3_commit(struct child_struct *child, const char *fname, const char *status)
+static void nfs3_commit(struct dbench_op *op)
 {
 	nfsstat3 res;
 
-	res = nfsio_commit(child->private, fname);
-	if (res != expected_status(status)) {
+	res = nfsio_commit(op->child->private, op->fname);
+	if (res != expected_status(op->status)) {
 		printf("[%d] COMMIT \"%s\" failed (%x) - expected %x\n", 
-		       child->line, fname, res, expected_status(status));
-		failed(child);
+		       op->child->line, op->fname, res, expected_status(op->status));
+		failed(op->child);
 	}
 }
 
 
-static void nfs3_read(struct child_struct *child, const char *fname, int offset, int len, const char *status)
+static void nfs3_read(struct dbench_op *op)
 {
+	int offset = op->params[0];
+	int len = op->params[1];
 	nfsstat3 res = 0;
 
-	res = nfsio_read(child->private, fname, rw_buf, offset, len, NULL, NULL);
-	if (res != expected_status(status)) {
+	res = nfsio_read(op->child->private, op->fname, rw_buf, offset, len, NULL, NULL);
+	if (res != expected_status(op->status)) {
 		printf("[%d] READ \"%s\" failed (%x) - expected %x\n", 
-		       child->line, fname,
-		       res, expected_status(status));
-		failed(child);
+		       op->child->line, op->fname,
+		       res, expected_status(op->status));
+		failed(op->child);
 	}
-	child->bytes += len;
+	op->child->bytes += len;
 }
 
-static void nfs3_access(struct child_struct *child, const char *fname, int desired, int granted, const char *status)
+static void nfs3_access(struct dbench_op *op)
 {
 	nfsstat3 res;
 
-	res = nfsio_access(child->private, fname, 0, NULL);
-	if (res != expected_status(status)) {
+	res = nfsio_access(op->child->private, op->fname, 0, NULL);
+	if (res != expected_status(op->status)) {
 		printf("[%d] ACCESS \"%s\" failed (%x) - expected %x\n", 
-		       child->line, fname, res, expected_status(status));
-		failed(child);
+		       op->child->line, op->fname, res, expected_status(op->status));
+		failed(op->child);
 	}
 }
 
-static void nfs3_mkdir(struct child_struct *child, const char *fname, const char *status)
+static void nfs3_mkdir(struct dbench_op *op)
 {
 	nfsstat3 res;
 
-	res = nfsio_mkdir(child->private, fname);
-	if (res != expected_status(status)) {
+	res = nfsio_mkdir(op->child->private, op->fname);
+	if (res != expected_status(op->status)) {
 		printf("[%d] MKDIR \"%s\" failed (%x) - expected %x\n", 
-		       child->line, fname, res, expected_status(status));
-		failed(child);
+		       op->child->line, op->fname, res, expected_status(op->status));
+		failed(op->child);
 	}
 }
 
-static void nfs3_rmdir(struct child_struct *child, const char *fname, const char *status)
+static void nfs3_rmdir(struct dbench_op *op)
 {
 	nfsstat3 res;
 
-	res = nfsio_rmdir(child->private, fname);
-	if (res != expected_status(status)) {
+	res = nfsio_rmdir(op->child->private, op->fname);
+	if (res != expected_status(op->status)) {
 		printf("[%d] RMDIR \"%s\" failed (%x) - expected %x\n", 
-		       child->line, fname, res, expected_status(status));
-		failed(child);
+		       op->child->line, op->fname, res, expected_status(op->status));
+		failed(op->child);
 	}
 }
 
-static void nfs3_fsstat(struct child_struct *child, const char *status)
+static void nfs3_fsstat(struct dbench_op *op)
 {
 	nfsstat3 res;
 
-	res = nfsio_fsstat(child->private);
-	if (res != expected_status(status)) {
+	res = nfsio_fsstat(op->child->private);
+	if (res != expected_status(op->status)) {
 		printf("[%d] FSSTAT failed (%x) - expected %x\n", 
-		       child->line, res, expected_status(status));
-		failed(child);
+		       op->child->line, res, expected_status(op->status));
+		failed(op->child);
 	}
 }
 
-static void nfs3_fsinfo(struct child_struct *child, const char *status)
+static void nfs3_fsinfo(struct dbench_op *op)
 {
 	nfsstat3 res;
 
-	res = nfsio_fsinfo(child->private);
-	if (res != expected_status(status)) {
+	res = nfsio_fsinfo(op->child->private);
+	if (res != expected_status(op->status)) {
 		printf("[%d] FSINFO failed (%x) - expected %x\n", 
-		       child->line, res, expected_status(status));
-		failed(child);
+		       op->child->line, res, expected_status(op->status));
+		failed(op->child);
 	}
 }
 
-static void nfs3_cleanup(struct child_struct *child)
-{
-	char *dname;
-
-	asprintf(&dname, "/clients/client%d", child->id);
-	nfs3_deltree(child, dname);
-	free(dname);
-}
-
-static void nfs3_setup(struct child_struct *child)
-{
-	const char *status = "0x00000000";
-
-	child->rate.last_time = timeval_current();
-	child->rate.last_bytes = 0;
-
-
-	srandom(getpid() ^ time(NULL));
-	child->private = nfsio_connect(options.server, options.export, options.protocol);
-
-	if (child->private == NULL) {
-		child->failed = 1;
-		printf("nfsio_connect() failed\n");
-		exit(10);
-	}
-
-}
-
-static void nfs3_symlink(struct child_struct *child, const char *fname, const char *fname2, const char *status)
+static void nfs3_symlink(struct dbench_op *op)
 {
 	nfsstat3 res;
 
-	res = nfsio_symlink(child->private, fname, fname2);
-	if (res != expected_status(status)) {
+	res = nfsio_symlink(op->child->private, op->fname, op->fname2);
+	if (res != expected_status(op->status)) {
 		printf("[%d] SYMLINK \"%s\"->\"%s\" failed (%x) - expected %x\n", 
-		       child->line, fname, fname2,
-		       res, expected_status(status));
-		failed(child);
+		       op->child->line, op->fname, op->fname2,
+		       res, expected_status(op->status));
+		failed(op->child);
 	}
 }
 
-static void nfs3_remove(struct child_struct *child, const char *fname, const char *status)
+static void nfs3_remove(struct dbench_op *op)
 {
 	nfsstat3 res;
 
-	res = nfsio_remove(child->private, fname);
-	if (res != expected_status(status)) {
+	res = nfsio_remove(op->child->private, op->fname);
+	if (res != expected_status(op->status)) {
 		printf("[%d] REMOVE \"%s\" failed (%x) - expected %x\n", 
-		       child->line, fname, res, expected_status(status));
-		failed(child);
+		       op->child->line, op->fname, res, expected_status(op->status));
+		failed(op->child);
 	}
 }
 
-static void nfs3_readdirplus(struct child_struct *child, const char *fname, const char *status)
+static void nfs3_readdirplus(struct dbench_op *op)
 {
 	nfsstat3 res;
 
-	res = nfsio_readdirplus(child->private, fname, NULL, NULL);
-	if (res != expected_status(status)) {
+	res = nfsio_readdirplus(op->child->private, op->fname, NULL, NULL);
+	if (res != expected_status(op->status)) {
 		printf("[%d] READDIRPLUS \"%s\" failed (%x) - expected %x\n", 
-		       child->line, fname, res, expected_status(status));
-		failed(child);
+		       op->child->line, op->fname, res, expected_status(op->status));
+		failed(op->child);
 	}
 }
 
-static void nfs3_link(struct child_struct *child, const char *fname, const char *fname2, const char *status)
+static void nfs3_link(struct dbench_op *op)
 {
 	nfsstat3 res;
 
-	res = nfsio_link(child->private, fname, fname2);
-	if (res != expected_status(status)) {
+	res = nfsio_link(op->child->private, op->fname, op->fname2);
+	if (res != expected_status(op->status)) {
 		printf("[%d] LINK \"%s\"->\"%s\" failed (%x) - expected %x\n", 
-		       child->line, fname, fname2,
-		       res, expected_status(status));
-		failed(child);
+		       op->child->line, op->fname, op->fname2,
+		       res, expected_status(op->status));
+		failed(op->child);
 	}
 }
 
-static void nfs3_rename(struct child_struct *child, const char *fname, const char *fname2, const char *status)
+static void nfs3_rename(struct dbench_op *op)
 {
 	nfsstat3 res;
 
-	res = nfsio_rename(child->private, fname, fname2);
-	if (res != expected_status(status)) {
+	res = nfsio_rename(op->child->private, op->fname, op->fname2);
+	if (res != expected_status(op->status)) {
 		printf("[%d] RENAME \"%s\"->\"%s\" failed (%x) - expected %x\n", 
-		       child->line, fname, fname2,
-		       res, expected_status(status));
-		failed(child);
+		       op->child->line, op->fname, op->fname2,
+		       res, expected_status(op->status));
+		failed(op->child);
 	}
 }
+
+static struct backend_op ops[] = {
+	{ "Deltree",  nfs3_deltree },
+	{ "GETATTR3", nfs3_getattr },
+	{ "LOOKUP3",  nfs3_lookup },
+	{ "CREATE3",  nfs3_create },
+	{ "WRITE3",   nfs3_write },
+	{ "COMMIT3",  nfs3_commit },
+	{ "READ3",    nfs3_read },
+	{ "ACCESS3",  nfs3_access },
+	{ "MKDIR3",   nfs3_mkdir },
+	{ "RMDIR3",   nfs3_rmdir },
+	{ "FSSTAT3",  nfs3_fsstat },
+	{ "FSINFO3",  nfs3_fsinfo },
+	{ "SYMLINK3", nfs3_symlink },
+	{ "REMOVE3",  nfs3_remove },
+	{ "READDIRPLUS3", nfs3_readdirplus },
+	{ "RENAME3",  nfs3_rename },
+	{ "LINK3",    nfs3_link },
+	{ NULL, NULL}
+};
 
 struct nb_operations nb_ops = {
-	.setup 		= nfs3_setup,
-	.deltree	= nfs3_deltree,
-	.cleanup	= nfs3_cleanup,
-
-	.getattr3	= nfs3_getattr,
-	.lookup3	= nfs3_lookup,
-	.create3	= nfs3_create,
-	.write3		= nfs3_write,
-	.commit3	= nfs3_commit,
-	.read3		= nfs3_read,
-	.access3	= nfs3_access,
-	.mkdir3		= nfs3_mkdir,
-	.rmdir3		= nfs3_rmdir,
-	.fsstat3	= nfs3_fsstat,
-	.fsinfo3	= nfs3_fsinfo,
-	.symlink3	= nfs3_symlink,
-	.remove3	= nfs3_remove,
-	.readdirplus3	= nfs3_readdirplus,
-	.rename3	= nfs3_rename,
-	.link3		= nfs3_link,
+	.backend_name = "nfsbench",
+	.setup 	      = nfs3_setup,
+	.cleanup      = nfs3_cleanup,
+	.ops          = ops
 };
