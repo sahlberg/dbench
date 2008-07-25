@@ -1,15 +1,13 @@
 # DELTREE if we want to delete the client directory everytime we restart 
-# the script. Remove these three lines if the script is only "read-only"
+# the script. Remove these two lines if the script is only "read-only"
 # reading from pre-existing files in the /clients/clientX/ tree
-0.000 LOOKUP3 "/clients" 0x00000000
 0.000 Deltree "/clients/client1" 0x00000000
 0.000 MKDIR3 "/clients/client1" 0x00000000
 #
-# These two lokups must be performed to pre-load the name to filehandle cache.
+# This this lookup must be performed to pre-load the name to filehandle cache.
 # Othervise we will get errors like this :
 #     failed to fetch handle in nfsio_read
 #
-0.000 LOOKUP3 "/clients" 0x00000000
 0.000 LOOKUP3 "/clients/client1" 0x00000000
 #
 # Here is where the script starts
