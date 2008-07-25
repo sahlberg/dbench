@@ -20,13 +20,19 @@ LIBNFS_OBJ = libnfs.o mount_client.o nfs_client.o mount_xdr.o nfs_xdr.o
 DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o sockio.o nfsio.o libnfs.a socklib.o
 SRV_OBJS = util.o tbench_srv.o socklib.o
 
-all: dbench tbench_srv
+all: dbench tbench nfsbench tbench_srv
 
 dbench: $(DB_OBJS)
 	$(CC) -o $@ $(DB_OBJS) $(LIBS)
 
 tbench_srv: $(SRV_OBJS)
 	$(CC) -o $@ $(SRV_OBJS) $(LIBS)
+
+tbench: dbench
+	ln -sf dbench tbench
+
+nfsbench: dbench
+	ln -sf dbench nfsbench
 
 libnfs.a: $(LIBNFS_OBJ) 
 	@echo Creating library $@
