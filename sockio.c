@@ -200,7 +200,7 @@ static struct backend_op ops[] = {
 	{ NULL, NULL}
 };
 
-struct nb_operations nb_ops = {
+struct nb_operations sockio_ops = {
 	.backend_name = "tbench",
 	.setup 	      = sio_setup,
 	.cleanup      = sio_cleanup,

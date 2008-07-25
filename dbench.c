@@ -27,6 +27,7 @@
 #include <sys/sem.h>
 
 struct options options = {
+	.backend             = "fileio",
 	.timelimit           = 600,
 	.loadfile            = DATADIR "/client.txt",
 	.directory           = ".",
@@ -49,6 +50,7 @@ static struct timeval tv_start;
 static struct timeval tv_end;
 static int barrier=-1;
 static double throughput;
+struct nb_operations *nb_ops;
 
 static FILE *open_loadfile(void)
 {
@@ -164,13 +166,13 @@ static void show_one_latency(struct op *ops, struct op *ops_all)
 	int i;
 	printf(" Operation                Count    AvgLat    MaxLat\n");
 	printf(" --------------------------------------------------\n");
-	for (i=0;nb_ops.ops[i].name;i++) {
+	for (i=0;nb_ops->ops[i].name;i++) {
 		struct op *op1, *op_all;
 		op1    = &ops[i];
 		op_all = &ops_all[i];
 		if (op_all->count == 0) continue;
 		printf(" %-22s %7u %9.03f %9.03f\n",
-		       nb_ops.ops[i].name, op1->count, 
+		       nb_ops->ops[i].name, op1->count, 
 		       1000*op1->total_time/op1->count,
 		       op1->max_latency*1000);
 	}
@@ -185,7 +187,7 @@ static void report_latencies(void)
 	struct child_struct *child;
 
 	memset(sum, 0, sizeof(sum));
-	for (i=0;nb_ops.ops[i].name;i++) {
+	for (i=0;nb_ops->ops[i].name;i++) {
 		op1 = &sum[i];
 		for (j=0;j<options.nprocs * options.clients_per_process;j++) {
 			child = &children[j];
@@ -273,7 +275,7 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 			setlinebuf(stdout);
 
 			for (j=0;j<options.clients_per_process;j++) {
-				nb_ops.setup(&children[i*options.clients_per_process + j]);
+				nb_ops->setup(&children[i*options.clients_per_process + j]);
 			}
 
 			sbuf.sem_op = 0;
@@ -336,32 +338,15 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 }
 
 
-static void show_usage(void)
-{
-	printf("usage: dbench [OPTIONS] nprocs\n" \
-	       "usage: tbench [OPTIONS] nprocs <server>\n" \
-	       "options:\n" \
-	       "  -v               show version\n" \
-	       "  -t timelimit     run time in seconds (default 600)\n" \
-	       "  -D directory     base directory to run in\n" \
-	       "  -c loadfile      set location of the loadfile\n" \
-	       "  -R               target rate (MByte/sec)\n" \
-	       "  -s               synchronous file IO\n" \
-	       "  -F               fsync on write\n" \
-	       "  -S               synchronous directories (mkdir, unlink...)\n" \
-	       "  -x               enable EA support\n" \
-	       "  -T options       set socket options for tbench\n");
-	exit(1);
-}
 
-
-
-static int process_opts(int argc, const char **argv)
+static void process_opts(int argc, const char **argv)
 {
 	const char **extra_argv;
 	int extra_argc = 0;
 	struct poptOption popt_options[] = {
 		POPT_AUTOHELP
+		{ "backend", 'B', POPT_ARG_STRING, &options.backend, 0, 
+		  "dbench backend (fileio, sockio, nfs)", "string" },
 		{ "timelimit", 't', POPT_ARG_INT, &options.timelimit, 0, 
 		  "timelimit", "integer" },
 		{ "loadfile",  'c', POPT_ARG_STRING, &options.loadfile, 0, 
@@ -408,12 +393,13 @@ static int process_opts(int argc, const char **argv)
 	pc = poptGetContext(argv[0], argc, argv, popt_options, POPT_CONTEXT_KEEP_FIRST);
 
 	while ((opt = poptGetNextOpt(pc)) != -1) {
-		switch (opt) {
-		default:
-			fprintf(stderr, "Invalid option %s: %s\n", 
-				poptBadOption(pc, 0), poptStrerror(opt));
+		if (strcmp(poptBadOption(pc, 0), "-h") == 0) {
+			poptPrintHelp(pc, stdout, 0);
 			exit(1);
 		}
+		fprintf(stderr, "Invalid option %s: %s\n", 
+			poptBadOption(pc, 0), poptStrerror(opt));
+		exit(1);
 	}
 
 	/* setup the remaining options for the main program to use */
@@ -441,8 +427,6 @@ static int process_opts(int argc, const char **argv)
 	if (extra_argc >= 2) {
 		options.server = extra_argv[1];
 	}
-
-	return 1;
 }
 
 
@@ -457,8 +441,29 @@ static int process_opts(int argc, const char **argv)
 
 	printf("dbench version %s - Copyright Andrew Tridgell 1999-2004\n\n", VERSION);
 
-	if (!process_opts(argc, argv))
-		show_usage();
+	if (strstr(argv[0], "dbench")) {
+		options.backend = "fileio";
+	} else if (strstr(argv[0], "tbench")) {
+		options.backend = "sockio";
+	} else if (strstr(argv[0], "nfsbench")) {
+		options.backend = "nfs";
+	}
+
+	process_opts(argc, argv);
+
+	if (strcmp(options.backend, "fileio") == 0) {
+		extern struct nb_operations fileio_ops;
+		nb_ops = &fileio_ops;
+	} else if (strcmp(options.backend, "sockio") == 0) {
+		extern struct nb_operations sockio_ops;
+		nb_ops = &sockio_ops;
+	} else if (strcmp(options.backend, "nfs") == 0) {
+		extern struct nb_operations nfs_ops;
+		nb_ops = &nfs_ops;
+	} else {
+		printf("Unknown backend '%s'\n", options.backend);
+		exit(1);
+	}
 
 	if (options.warmup == -1) {
 		options.warmup = options.timelimit / 5;

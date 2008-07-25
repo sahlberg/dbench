@@ -17,4 +17,5 @@ mount_client.c
 nfs_client.c
 nfs_xdr.c
 Makefile
-
+prefix
+clients

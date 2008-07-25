@@ -401,7 +401,7 @@ static struct backend_op ops[] = {
 	{ NULL, NULL}
 };
 
-struct nb_operations nb_ops = {
+struct nb_operations nfs_ops = {
 	.backend_name = "nfsbench",
 	.setup 	      = nfs3_setup,
 	.cleanup      = nfs3_cleanup,

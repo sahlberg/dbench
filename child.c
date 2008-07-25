@@ -116,9 +116,9 @@ static void child_op(struct child_struct *child, const char *opname,
 		return;
 	}
 
-	for (i=0;nb_ops.ops[i].name;i++) {
-		if (strcasecmp(op.op, nb_ops.ops[i].name) == 0) {
-			nb_ops.ops[i].fn(&op);
+	for (i=0;nb_ops->ops[i].name;i++) {
+		if (strcasecmp(op.op, nb_ops->ops[i].name) == 0) {
+			nb_ops->ops[i].fn(&op);
 			finish_op(child, &child->ops[i]);
 			return;
 		}
@@ -245,7 +245,7 @@ done:
 		child->cleanup = 1;
 		fflush(stdout);
 		if (!options.skip_cleanup) {
-			nb_ops.cleanup(child);
+			nb_ops->cleanup(child);
 		}
 		child->cleanup_finished = 1;
 	}

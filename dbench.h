@@ -127,6 +127,7 @@ struct child_struct {
 };
 
 struct options {
+	const char *backend;
 	int nprocs;
 	int sync_open;
 	int sync_dirs;
@@ -172,7 +173,7 @@ struct nb_operations {
 	void (*setup)(struct child_struct *child);
 	void (*cleanup)(struct child_struct *child);
 };
-extern struct nb_operations nb_ops;
+extern struct nb_operations *nb_ops;
 
 /* CreateDisposition field. */
 #define FILE_SUPERSEDE 0

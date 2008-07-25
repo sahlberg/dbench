@@ -17,25 +17,16 @@ EXEEXT=@EXEEXT@
 
 LIBNFS_OBJ = libnfs.o mount_client.o nfs_client.o mount_xdr.o nfs_xdr.o
 
-DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o
-TB_OBJS = sockio.o util.o dbench.o child.o socklib.o snprintf.o
-NFS_OBJS = nfsio.o util.o dbench.o child.o socklib.o snprintf.o libnfs.a
+DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o sockio.o nfsio.o libnfs.a socklib.o
 SRV_OBJS = util.o tbench_srv.o socklib.o
 
-all: dbench tbench tbench_srv nfsbench
+all: dbench tbench_srv
 
 dbench: $(DB_OBJS)
 	$(CC) -o $@ $(DB_OBJS) $(LIBS)
 
-tbench: $(TB_OBJS)
-	$(CC) -o $@ $(TB_OBJS) $(LIBS)
-
 tbench_srv: $(SRV_OBJS)
 	$(CC) -o $@ $(SRV_OBJS) $(LIBS)
-
-nfsbench: $(NFS_OBJS)
-	$(CC) -o $@ $(NFS_OBJS) $(LIBS)
-
 
 libnfs.a: $(LIBNFS_OBJ) 
 	@echo Creating library $@
@@ -94,15 +85,17 @@ nfs_client.c: nfs.x
 # Careful here: don't install client.txt over itself.
 install: all
 	${INSTALLCMD} -d $(bindir) $(datadir) $(mandir)
-	${INSTALLCMD} dbench tbench tbench_srv $(bindir)
+	${INSTALLCMD} dbench tbench_srv $(bindir)
 	${INSTALLCMD} loadfiles/client.txt $(datadir)
 	${INSTALLCMD} loadfiles/nfs.txt $(datadir)
 	${INSTALLCMD} -m644 dbench.1 $(mandir)
 	ln -sf dbench.1 $(mandir)/tbench.1
 	ln -sf dbench.1 $(mandir)/tbench_srv.1
+	ln -sf $(bindir)/dbench $(bindir)/tbench 
+	ln -sf $(bindir)/dbench $(bindir)/nfsbench 
 
 clean:
-	rm -f *.o *~ dbench tbench tbench_srv libnfs.a 
+	rm -f *.[ao] *~ dbench tbench_srv
 	rm -f mount.h mount_xdr.c mount_client.c
 	rm -f nfs.h nfs_xdr.c nfs_client.c 
 

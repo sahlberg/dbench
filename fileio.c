@@ -642,7 +642,7 @@ static struct backend_op ops[] = {
 	{ NULL, NULL}
 };
 
-struct nb_operations nb_ops = {
+struct nb_operations fileio_ops = {
 	.backend_name = "dbench",
 	.setup 		= fio_setup,
 	.cleanup	= fio_cleanup,
