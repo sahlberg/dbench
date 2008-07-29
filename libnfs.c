@@ -108,20 +108,30 @@ static void delete_fhandle(struct nfsio *nfsio, const char *name)
 		for(tmp_tree=t->left;tmp_tree->right;tmp_tree=tmp_tree->right)
 			;
 		tmp_tree->right = t->right;
+		if (t->right) {
+			t->right->parent = tmp_tree;
+		}
 
 		if (t->parent == NULL) {
 			nfsio->fhandles = tmp_tree;
+			tmp_tree->parent = NULL;
 			free_node(t);
 			return;
 		}
 
 		if (t->parent->left == t) {
 			t->parent->left = t->left;
+			if (t->left) {
+				t->left->parent = t->parent;
+			}
 			free_node(t);
 			return;
 		}
 
 		t->parent->right = t->left;
+		if (t->left) {
+			t->left->parent = t->parent;
+		}
 		free_node(t);
 		return;
 	}
@@ -133,20 +143,30 @@ static void delete_fhandle(struct nfsio *nfsio, const char *name)
 		for(tmp_tree=t->right;tmp_tree->left;tmp_tree=tmp_tree->left)
 			;
 		tmp_tree->left = t->left;
+		if (t->left) {
+			t->left->parent = tmp_tree;
+		}
 
 		if (t->parent == NULL) {
 			nfsio->fhandles = tmp_tree;
+			tmp_tree->parent = NULL;
 			free_node(t);
 			return;
 		}
 
 		if (t->parent->left == t) {
 			t->parent->left = t->right;
+			if (t->right) {
+				t->right->parent = t->parent;
+			}
 			free_node(t);
 			return;
 		}
 
 		t->parent->right = t->right;
+		if (t->right) {
+			t->right->parent = t->parent;
+		}
 		free_node(t);
 		return;
 	}
