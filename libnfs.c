@@ -41,8 +41,8 @@ typedef struct _tree_t {
 
 
 struct nfsio {
-	CLIENT *mnt_clnt;
-	CLIENT *nfs_clnt;
+	int s;
+	CLIENT *clnt;
 	tree_t *fhandles;
 };
 
@@ -290,13 +290,12 @@ const char *nfs_error(int error)
 
 void nfsio_disconnect(struct nfsio *nfsio)
 {
-	if (nfsio->mnt_clnt != NULL) {
-		clnt_destroy(nfsio->mnt_clnt);
-		nfsio->mnt_clnt = NULL;
+	if (nfsio->clnt != NULL) {
+		clnt_destroy(nfsio->clnt);
+		nfsio->clnt = NULL;
 	}
-	if (nfsio->nfs_clnt != NULL) {
-		clnt_destroy(nfsio->nfs_clnt);
-		nfsio->nfs_clnt = NULL;
+	if (nfsio->s != -1) {
+		close(nfsio->s);
 	}
 	// qqq free the tree*/
 
@@ -312,6 +311,8 @@ struct nfsio *nfsio_connect(const char *server, const char *export, const char *
 	struct nfsio *nfsio;
 	mountres3 *mountres;
 	fhandle3 *fh;
+        struct sockaddr_in sin;
+	int ret;
 
 	nfsio = malloc(sizeof(struct nfsio));
 	if (nfsio == NULL) {
@@ -320,15 +321,44 @@ struct nfsio *nfsio_connect(const char *server, const char *export, const char *
 	}
 	bzero(nfsio, sizeof(struct nfsio));
 
-	nfsio->mnt_clnt = clnt_create(server, MOUNT_PROGRAM, MOUNT_V3, "udp");
-	if (nfsio->mnt_clnt == NULL) {
+	nfsio->s = -1;
+
+
+	/*
+	 * set up the MOUNT client. If we are running as root, we get
+	 * a port <1024 by default. If we are not root, we can not
+	 * bind to these ports, so the server must be in "insecure"
+	 * mode.
+	 */
+	memset(&sin, 0, sizeof(sin));
+	sin.sin_port = 0;
+	sin.sin_family = PF_INET;
+	if (inet_aton(server, &sin.sin_addr) == 0) {
+		fprintf(stderr, "Invalid address '%s'\n", server);
+		nfsio_disconnect(nfsio);
+		return NULL;
+	}
+
+	if (!strcmp(protocol, "tcp")) {
+		nfsio->s = RPC_ANYSOCK;
+		nfsio->clnt = clnttcp_create(&sin, MOUNT_PROGRAM, MOUNT_V3, &nfsio->s, 32768, 32768);
+	} else {
+		struct timeval wait;
+
+		wait.tv_sec  = 5;
+		wait.tv_usec = 0;
+		nfsio->s = RPC_ANYSOCK;
+		nfsio->clnt = clntudp_create(&sin, MOUNT_PROGRAM, MOUNT_V3, wait, &nfsio->s);
+	}
+
+	if (nfsio->clnt == NULL) {
 		printf("ERROR: failed to connect to MOUNT daemon on %s\n", server);
 		nfsio_disconnect(nfsio);
 		return NULL;
 	}
-	nfsio->mnt_clnt->cl_auth = authunix_create_default();
+	nfsio->clnt->cl_auth = authunix_create_default();
 
-	mountres=mountproc3_mnt_3(&mountdir, nfsio->mnt_clnt);
+	mountres=mountproc3_mnt_3(&mountdir, nfsio->clnt);
 	if (mountres == NULL) {
 		printf("ERROR: failed to call the MNT procedure\n");
 		nfsio_disconnect(nfsio);
@@ -343,13 +373,47 @@ struct nfsio *nfsio_connect(const char *server, const char *export, const char *
 	fh = &mountres->mountres3_u.mountinfo.fhandle;
 	insert_fhandle(nfsio, "/", fh->fhandle3_val, fh->fhandle3_len);
 
-	nfsio->nfs_clnt = clnt_create(server, NFS_PROGRAM, NFS_V3, protocol);
-	if (nfsio->nfs_clnt == NULL) {
+
+	/* we dont need the mount client any more */
+	clnt_destroy(nfsio->clnt);
+	nfsio->clnt = NULL;
+	close(nfsio->s);
+	nfsio->s = -1;
+
+
+	/*
+	 * set up the NFS client. If we are running as root, we get
+	 * a port <1024 by default. If we are not root, we can not
+	 * bind to these ports, so the server must be in "insecure"
+	 * mode.
+	 */
+	memset(&sin, 0, sizeof(sin));
+	sin.sin_port = 0;
+	sin.sin_family = PF_INET;
+	if (inet_aton(server, &sin.sin_addr) == 0) {
+		fprintf(stderr, "Invalid address '%s'\n", server);
+		nfsio_disconnect(nfsio);
+		return NULL;
+	}
+
+	if (!strcmp(protocol, "tcp")) {
+		nfsio->s = RPC_ANYSOCK;
+		nfsio->clnt = clnttcp_create(&sin, NFS_PROGRAM, NFS_V3, &nfsio->s, 327680, 327680);
+	} else {
+		struct timeval wait;
+
+		wait.tv_sec  = 5;
+		wait.tv_usec = 0;
+		nfsio->s = RPC_ANYSOCK;
+		nfsio->clnt = clntudp_create(&sin, NFS_PROGRAM, NFS_V3, wait, &nfsio->s);
+	}
+
+	if (nfsio->clnt == NULL) {
 		fprintf(stderr, "Failed to initialize nfs client structure\n");
 		nfsio_disconnect(nfsio);
 		return NULL;
 	}
-	nfsio->nfs_clnt->cl_auth = authunix_create_default();
+	nfsio->clnt->cl_auth = authunix_create_default();
 
 	return nfsio;
 }
@@ -370,7 +434,7 @@ nfsstat3 nfsio_getattr(struct nfsio *nfsio, const char *name, fattr3 *attributes
 	GETATTR3args.object.data.data_len = fh->dsize;
 	GETATTR3args.object.data.data_val = discard_const(fh->dptr);
 
-	GETATTR3res = nfsproc3_getattr_3(&GETATTR3args, nfsio->nfs_clnt);
+	GETATTR3res = nfsproc3_getattr_3(&GETATTR3args, nfsio->clnt);
 
 	if (GETATTR3res == NULL) {
 		fprintf(stderr, "nfsproc3_getattr_3 failed in getattr\n");
@@ -427,7 +491,7 @@ nfsstat3 nfsio_lookup(struct nfsio *nfsio, const char *name, fattr3 *attributes)
 	LOOKUP3args.what.dir.data.data_val = discard_const(fh->dptr);
 	LOOKUP3args.what.name = ptr;
 
-	LOOKUP3res = nfsproc3_lookup_3(&LOOKUP3args, nfsio->nfs_clnt);
+	LOOKUP3res = nfsproc3_lookup_3(&LOOKUP3args, nfsio->clnt);
 
 	if (LOOKUP3res == NULL) {
 		fprintf(stderr, "nfsproc3_lookup_3 failed in lookup\n");
@@ -474,7 +538,7 @@ nfsstat3 nfsio_access(struct nfsio *nfsio, const char *name, uint32 desired, uin
 	ACCESS3args.object.data.data_len = fh->dsize;
 	ACCESS3args.access = desired;
 
-	ACCESS3res = nfsproc3_access_3(&ACCESS3args, nfsio->nfs_clnt);
+	ACCESS3res = nfsproc3_access_3(&ACCESS3args, nfsio->clnt);
 
 	if (ACCESS3res == NULL) {
 		fprintf(stderr, "nfsproc3_access_3 failed in access\n");
@@ -545,7 +609,7 @@ nfsstat3 nfsio_create(struct nfsio *nfsio, const char *name)
 	CREATE3args.how.createhow3_u.obj_attributes.atime.set_it = FALSE;
 	CREATE3args.how.createhow3_u.obj_attributes.mtime.set_it = FALSE;
 
-	CREATE3res = nfsproc3_create_3(&CREATE3args, nfsio->nfs_clnt);
+	CREATE3res = nfsproc3_create_3(&CREATE3args, nfsio->clnt);
 
 	if (CREATE3res == NULL) {
 		fprintf(stderr, "nfsproc3_create_3 failed in nfsio_create\n");
@@ -611,7 +675,7 @@ nfsstat3 nfsio_remove(struct nfsio *nfsio, const char *name)
 	REMOVE3args.object.dir.data.data_val  = discard_const(fh->dptr);
 	REMOVE3args.object.name               = ptr;
 
-	REMOVE3res = nfsproc3_remove_3(&REMOVE3args, nfsio->nfs_clnt);
+	REMOVE3res = nfsproc3_remove_3(&REMOVE3args, nfsio->clnt);
 
 	if (REMOVE3res == NULL) {
 		fprintf(stderr, "nfsproc3_remove_3 failed in nfsio_remove\n");
@@ -660,7 +724,7 @@ nfsstat3 nfsio_write(struct nfsio *nfsio, const char *name, char *buf, uint32 of
 	WRITE3args.data.data_val      = buf;
 
 
-	WRITE3res = nfsproc3_write_3(&WRITE3args, nfsio->nfs_clnt);
+	WRITE3res = nfsproc3_write_3(&WRITE3args, nfsio->clnt);
 
 	if (WRITE3res == NULL) {
 		fprintf(stderr, "nfsproc3_write_3 failed in nfsio_write\n");
@@ -696,7 +760,7 @@ nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf, uint32 off
 	READ3args.offset             = offset;
 	READ3args.count              = len;
 
-	READ3res = nfsproc3_read_3(&READ3args, nfsio->nfs_clnt);
+	READ3res = nfsproc3_read_3(&READ3args, nfsio->clnt);
 
 	if (READ3res == NULL) {
 		fprintf(stderr, "nfsproc3_read_3 failed in nfsio_read\n");
@@ -745,7 +809,7 @@ nfsstat3 nfsio_commit(struct nfsio *nfsio, const char *name)
 	COMMIT3args.count              = 0;
 
 
-	COMMIT3res = nfsproc3_commit_3(&COMMIT3args, nfsio->nfs_clnt);
+	COMMIT3res = nfsproc3_commit_3(&COMMIT3args, nfsio->clnt);
 
 	if (COMMIT3res == NULL) {
 		fprintf(stderr, "nfsproc3_commit_3 failed in nfsio_commit\n");
@@ -778,7 +842,7 @@ nfsstat3 nfsio_fsinfo(struct nfsio *nfsio)
 	FSINFO3args.fsroot.data.data_len = fh->dsize;
 	FSINFO3args.fsroot.data.data_val = discard_const(fh->dptr);
 
-	FSINFO3res = nfsproc3_fsinfo_3(&FSINFO3args, nfsio->nfs_clnt);
+	FSINFO3res = nfsproc3_fsinfo_3(&FSINFO3args, nfsio->clnt);
 
 	if (FSINFO3res == NULL) {
 		fprintf(stderr, "nfsproc3_fsinfo_3 failed in nfsio_fsinfo\n");
@@ -809,7 +873,7 @@ nfsstat3 nfsio_fsstat(struct nfsio *nfsio)
 	FSSTAT3args.fsroot.data.data_len = fh->dsize;
 	FSSTAT3args.fsroot.data.data_val = discard_const(fh->dptr);
 
-	FSSTAT3res = nfsproc3_fsstat_3(&FSSTAT3args, nfsio->nfs_clnt);
+	FSSTAT3res = nfsproc3_fsstat_3(&FSSTAT3args, nfsio->clnt);
 
 	if (FSSTAT3res == NULL) {
 		fprintf(stderr, "nfsproc3_fsstat_3 failed in nfsio_fsstat\n");
@@ -839,7 +903,7 @@ nfsstat3 nfsio_pathconf(struct nfsio *nfsio, char *name)
 	PATHCONF3args.object.data.data_len = fh->dsize;
 	PATHCONF3args.object.data.data_val = discard_const(fh->dptr);
 
-	PATHCONF3res = nfsproc3_pathconf_3(&PATHCONF3args, nfsio->nfs_clnt);
+	PATHCONF3res = nfsproc3_pathconf_3(&PATHCONF3args, nfsio->clnt);
 
 	if (PATHCONF3res == NULL) {
 		fprintf(stderr, "nfsproc3_pathconf_3 failed in nfsio_pathconf\n");
@@ -906,7 +970,7 @@ nfsstat3 nfsio_symlink(struct nfsio *nfsio, const char *old, const char *new)
 	SYMLINK3args.symlink.symlink_data     = discard_const(new);
 
 
-	SYMLINK3res = nfsproc3_symlink_3(&SYMLINK3args, nfsio->nfs_clnt);
+	SYMLINK3res = nfsproc3_symlink_3(&SYMLINK3args, nfsio->clnt);
 
 	if (SYMLINK3res == NULL) {
 		fprintf(stderr, "nfsproc3_symlink_3 failed in nfsio_symlink\n");
@@ -985,7 +1049,7 @@ nfsstat3 nfsio_link(struct nfsio *nfsio, const char *old, const char *new)
 	LINK3args.link.dir.data.data_val  = discard_const(fh->dptr);
 	LINK3args.link.name	          = ptr;
 
-	LINK3res = nfsproc3_link_3(&LINK3args, nfsio->nfs_clnt);
+	LINK3res = nfsproc3_link_3(&LINK3args, nfsio->clnt);
 
 	if (LINK3res == NULL) {
 		fprintf(stderr, "nfsproc3_link_3 failed in nfsio_link\n");
@@ -1030,7 +1094,7 @@ nfsstat3 nfsio_readlink(struct nfsio *nfsio, char *name, char **link_name)
 	READLINK3args.symlink.data.data_len  = fh->dsize;
 	READLINK3args.symlink.data.data_val  = discard_const(fh->dptr);
 
-	READLINK3res = nfsproc3_readlink_3(&READLINK3args, nfsio->nfs_clnt);
+	READLINK3res = nfsproc3_readlink_3(&READLINK3args, nfsio->clnt);
 
 	if (READLINK3res == NULL) {
 		fprintf(stderr, "nfsproc3_readlink_3 failed in nfsio_readlink\n");
@@ -1088,7 +1152,7 @@ nfsstat3 nfsio_rmdir(struct nfsio *nfsio, const char *name)
 	RMDIR3args.object.dir.data.data_val  = discard_const(fh->dptr);
 	RMDIR3args.object.name               = ptr;
 
-	RMDIR3res = nfsproc3_rmdir_3(&RMDIR3args, nfsio->nfs_clnt);
+	RMDIR3res = nfsproc3_rmdir_3(&RMDIR3args, nfsio->clnt);
 
 	if (RMDIR3res == NULL) {
 		fprintf(stderr, "nfsproc3_rmdir_3 failed in nfsio_rmdir\n");
@@ -1162,7 +1226,7 @@ nfsstat3 nfsio_mkdir(struct nfsio *nfsio, const char *name)
 	MKDIR3args.attributes.atime.set_it = FALSE;
 	MKDIR3args.attributes.mtime.set_it = FALSE;
 
-	MKDIR3res = nfsproc3_mkdir_3(&MKDIR3args, nfsio->nfs_clnt);
+	MKDIR3res = nfsproc3_mkdir_3(&MKDIR3args, nfsio->clnt);
 
 	if (MKDIR3res == NULL) {
 		fprintf(stderr, "nfsproc3_mkdir_3 failed in nfsio_mkdir\n");
@@ -1220,7 +1284,7 @@ nfsstat3 nfsio_readdirplus(struct nfsio *nfsio, const char *name, nfs3_dirent_cb
 	READDIRPLUS3args.maxcount          = 8192;
 
 again:
-	READDIRPLUS3res = nfsproc3_readdirplus_3(&READDIRPLUS3args, nfsio->nfs_clnt);
+	READDIRPLUS3res = nfsproc3_readdirplus_3(&READDIRPLUS3args, nfsio->clnt);
 
 	if (READDIRPLUS3res == NULL) {
 		fprintf(stderr, "nfsproc3_readdirplus_3 failed in readdirplus\n");
@@ -1349,7 +1413,7 @@ nfsstat3 nfsio_rename(struct nfsio *nfsio, const char *old, const char *new)
 	RENAME3args.to.name		  = new_ptr;
 
 
-	RENAME3res = nfsproc3_rename_3(&RENAME3args, nfsio->nfs_clnt);
+	RENAME3res = nfsproc3_rename_3(&RENAME3args, nfsio->clnt);
 
 	if (RENAME3res == NULL) {
 		fprintf(stderr, "nfsproc3_rename_3 failed in nfsio_rename\n");

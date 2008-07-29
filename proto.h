@@ -34,6 +34,18 @@ const char *nfs_error(int error);
 void nfsio_disconnect(struct nfsio *nfsio);
 struct nfsio *nfsio_connect(const char *server, const char *export, const char *protocol);
 
+/* The following definitions come from mount_client.c  */
+
+
+/* The following definitions come from mount_xdr.c  */
+
+
+/* The following definitions come from nfs_client.c  */
+
+
+/* The following definitions come from nfs_xdr.c  */
+
+
 /* The following definitions come from nfsio.c  */
 
 
