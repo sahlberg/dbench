@@ -2,7 +2,12 @@
 # the script. Remove these two lines if the script is only "read-only"
 # reading from pre-existing files in the /clients/clientX/ tree
 0.000 Deltree "/clients/client1" 0x00000000
-0.000 MKDIR3 "/clients/client1" 0x00000000
+#
+# Make sure these directories exist. We specify * as the status code
+# since these directories might already exist and in which case
+# we dont care that the command returned an error.
+0.000 MKDIR3 "/clients" *
+0.000 MKDIR3 "/clients/client1" *
 #
 # This lookup must be performed to pre-load the name to filehandle cache.
 # Othervise we will get errors like this :

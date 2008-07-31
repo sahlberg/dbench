@@ -160,11 +160,15 @@ static void nfs3_deltree(struct dbench_op *op)
 	free(cbd);
 }
 
-static int expected_status(const char *status)
+static int check_status(int status, const char *expected)
 {
-	if (strncmp(status, "0x", 2) == 0) {
-		return strtol(status, NULL, 16);
+	if (strcmp(expected, "*") == 0){
+		return 1;
 	}
+	if (strncmp(expected, "0x", 2) == 0) {
+		return status == strtol(expected, NULL, 16);
+	}
+	return 0;
 }
 
 static void failed(struct child_struct *child)
@@ -179,9 +183,9 @@ static void nfs3_getattr(struct dbench_op *op)
 	nfsstat3 res;
 
 	res = nfsio_getattr(op->child->private, op->fname, NULL);
-	if (res != expected_status(op->status)) {
-		printf("[%d] GETATTR \"%s\" failed (%x) - expected %x\n", 
-		       op->child->line, op->fname, res, expected_status(op->status));
+	if (!check_status(res, op->status)) {
+		printf("[%d] GETATTR \"%s\" failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, res, op->status);
 		failed(op->child);
 	}
 }
@@ -192,9 +196,9 @@ static void nfs3_lookup(struct dbench_op *op)
 	nfsstat3 res;
 
 	res = nfsio_lookup(op->child->private, op->fname, NULL);
-	if (res != expected_status(op->status)) {
-		printf("[%d] LOOKUP \"%s\" failed (%x) - expected %x\n", 
-		       op->child->line, op->fname, res, expected_status(op->status));
+	if (!check_status(res, op->status)) {
+		printf("[%d] LOOKUP \"%s\" failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, res, op->status);
 		failed(op->child);
 	}
 }
@@ -204,9 +208,9 @@ static void nfs3_create(struct dbench_op *op)
 	nfsstat3 res;
 
 	res = nfsio_create(op->child->private, op->fname);
-	if (res != expected_status(op->status)) {
-		printf("[%d] CREATE \"%s\" failed (%x) - expected %x\n", 
-		       op->child->line, op->fname, res, expected_status(op->status));
+	if (!check_status(res, op->status)) {
+		printf("[%d] CREATE \"%s\" failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, res, op->status);
 		failed(op->child);
 	}
 }
@@ -219,10 +223,10 @@ static void nfs3_write(struct dbench_op *op)
 	nfsstat3 res;
 
 	res = nfsio_write(op->child->private, op->fname, rw_buf, offset, len, stable);
-	if (res != expected_status(op->status)) {
-		printf("[%d] WRITE \"%s\" failed (%x) - expected %x\n", 
+	if (!check_status(res, op->status)) {
+		printf("[%d] WRITE \"%s\" failed (%x) - expected %s\n", 
 		       op->child->line, op->fname,
-		       res, expected_status(op->status));
+		       res, op->status);
 		failed(op->child);
 	}
 	op->child->bytes += len;
@@ -233,9 +237,9 @@ static void nfs3_commit(struct dbench_op *op)
 	nfsstat3 res;
 
 	res = nfsio_commit(op->child->private, op->fname);
-	if (res != expected_status(op->status)) {
-		printf("[%d] COMMIT \"%s\" failed (%x) - expected %x\n", 
-		       op->child->line, op->fname, res, expected_status(op->status));
+	if (!check_status(res, op->status)) {
+		printf("[%d] COMMIT \"%s\" failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, res, op->status);
 		failed(op->child);
 	}
 }
@@ -248,10 +252,10 @@ static void nfs3_read(struct dbench_op *op)
 	nfsstat3 res = 0;
 
 	res = nfsio_read(op->child->private, op->fname, rw_buf, offset, len, NULL, NULL);
-	if (res != expected_status(op->status)) {
-		printf("[%d] READ \"%s\" failed (%x) - expected %x\n", 
+	if (!check_status(res, op->status)) {
+		printf("[%d] READ \"%s\" failed (%x) - expected %s\n", 
 		       op->child->line, op->fname,
-		       res, expected_status(op->status));
+		       res, op->status);
 		failed(op->child);
 	}
 	op->child->bytes += len;
@@ -262,9 +266,9 @@ static void nfs3_access(struct dbench_op *op)
 	nfsstat3 res;
 
 	res = nfsio_access(op->child->private, op->fname, 0, NULL);
-	if (res != expected_status(op->status)) {
-		printf("[%d] ACCESS \"%s\" failed (%x) - expected %x\n", 
-		       op->child->line, op->fname, res, expected_status(op->status));
+	if (!check_status(res, op->status)) {
+		printf("[%d] ACCESS \"%s\" failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, res, op->status);
 		failed(op->child);
 	}
 }
@@ -274,9 +278,9 @@ static void nfs3_mkdir(struct dbench_op *op)
 	nfsstat3 res;
 
 	res = nfsio_mkdir(op->child->private, op->fname);
-	if (res != expected_status(op->status)) {
-		printf("[%d] MKDIR \"%s\" failed (%x) - expected %x\n", 
-		       op->child->line, op->fname, res, expected_status(op->status));
+	if (!check_status(res, op->status)) {
+		printf("[%d] MKDIR \"%s\" failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, res, op->status);
 		failed(op->child);
 	}
 }
@@ -286,9 +290,9 @@ static void nfs3_rmdir(struct dbench_op *op)
 	nfsstat3 res;
 
 	res = nfsio_rmdir(op->child->private, op->fname);
-	if (res != expected_status(op->status)) {
-		printf("[%d] RMDIR \"%s\" failed (%x) - expected %x\n", 
-		       op->child->line, op->fname, res, expected_status(op->status));
+	if (!check_status(res, op->status)) {
+		printf("[%d] RMDIR \"%s\" failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, res, op->status);
 		failed(op->child);
 	}
 }
@@ -298,9 +302,9 @@ static void nfs3_fsstat(struct dbench_op *op)
 	nfsstat3 res;
 
 	res = nfsio_fsstat(op->child->private);
-	if (res != expected_status(op->status)) {
-		printf("[%d] FSSTAT failed (%x) - expected %x\n", 
-		       op->child->line, res, expected_status(op->status));
+	if (!check_status(res, op->status)) {
+		printf("[%d] FSSTAT failed (%x) - expected %s\n", 
+		       op->child->line, res, op->status);
 		failed(op->child);
 	}
 }
@@ -310,9 +314,9 @@ static void nfs3_fsinfo(struct dbench_op *op)
 	nfsstat3 res;
 
 	res = nfsio_fsinfo(op->child->private);
-	if (res != expected_status(op->status)) {
-		printf("[%d] FSINFO failed (%x) - expected %x\n", 
-		       op->child->line, res, expected_status(op->status));
+	if (!check_status(res, op->status)) {
+		printf("[%d] FSINFO failed (%x) - expected %s\n", 
+		       op->child->line, res, op->status);
 		failed(op->child);
 	}
 }
@@ -322,10 +326,10 @@ static void nfs3_symlink(struct dbench_op *op)
 	nfsstat3 res;
 
 	res = nfsio_symlink(op->child->private, op->fname, op->fname2);
-	if (res != expected_status(op->status)) {
-		printf("[%d] SYMLINK \"%s\"->\"%s\" failed (%x) - expected %x\n", 
+	if (!check_status(res, op->status)) {
+		printf("[%d] SYMLINK \"%s\"->\"%s\" failed (%x) - expected %s\n", 
 		       op->child->line, op->fname, op->fname2,
-		       res, expected_status(op->status));
+		       res, op->status);
 		failed(op->child);
 	}
 }
@@ -335,9 +339,9 @@ static void nfs3_remove(struct dbench_op *op)
 	nfsstat3 res;
 
 	res = nfsio_remove(op->child->private, op->fname);
-	if (res != expected_status(op->status)) {
-		printf("[%d] REMOVE \"%s\" failed (%x) - expected %x\n", 
-		       op->child->line, op->fname, res, expected_status(op->status));
+	if (!check_status(res, op->status)) {
+		printf("[%d] REMOVE \"%s\" failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, res, op->status);
 		failed(op->child);
 	}
 }
@@ -347,9 +351,9 @@ static void nfs3_readdirplus(struct dbench_op *op)
 	nfsstat3 res;
 
 	res = nfsio_readdirplus(op->child->private, op->fname, NULL, NULL);
-	if (res != expected_status(op->status)) {
-		printf("[%d] READDIRPLUS \"%s\" failed (%x) - expected %x\n", 
-		       op->child->line, op->fname, res, expected_status(op->status));
+	if (!check_status(res, op->status)) {
+		printf("[%d] READDIRPLUS \"%s\" failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, res, op->status);
 		failed(op->child);
 	}
 }
@@ -359,10 +363,10 @@ static void nfs3_link(struct dbench_op *op)
 	nfsstat3 res;
 
 	res = nfsio_link(op->child->private, op->fname, op->fname2);
-	if (res != expected_status(op->status)) {
-		printf("[%d] LINK \"%s\"->\"%s\" failed (%x) - expected %x\n", 
+	if (!check_status(res, op->status)) {
+		printf("[%d] LINK \"%s\"->\"%s\" failed (%x) - expected %s\n", 
 		       op->child->line, op->fname, op->fname2,
-		       res, expected_status(op->status));
+		       res, op->status);
 		failed(op->child);
 	}
 }
@@ -372,10 +376,10 @@ static void nfs3_rename(struct dbench_op *op)
 	nfsstat3 res;
 
 	res = nfsio_rename(op->child->private, op->fname, op->fname2);
-	if (res != expected_status(op->status)) {
-		printf("[%d] RENAME \"%s\"->\"%s\" failed (%x) - expected %x\n", 
+	if (!check_status(res, op->status)) {
+		printf("[%d] RENAME \"%s\"->\"%s\" failed (%x) - expected %s\n", 
 		       op->child->line, op->fname, op->fname2,
-		       res, expected_status(op->status));
+		       res, op->status);
 		failed(op->child);
 	}
 }

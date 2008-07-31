@@ -203,7 +203,8 @@ again:
 		}
 
 		if (strncmp(params[i-1], "NT_STATUS_", 10) != 0 &&
-		    strncmp(params[i-1], "0x", 2) != 0) {
+		    strncmp(params[i-1], "0x", 2) != 0 &&
+		    strncmp(params[i-1], "*", 1) != 0) {
 			printf("Badly formed status at line %d\n", child->line);
 			continue;
 		}
