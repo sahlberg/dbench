@@ -44,6 +44,7 @@ struct options options = {
 	.server              = "localhost",
 	.export		     = "/tmp",
 	.protocol	     = "tcp",
+	.run_once            = 0,
 };
 
 static struct timeval tv_start;
@@ -379,12 +380,14 @@ static void process_opts(int argc, const char **argv)
 		  "skip cleanup operations", NULL },
 		{ "per-client-results", 0, POPT_ARG_NONE, &options.per_client_results, 0, 
 		  "show results per client", NULL },
-		{ "server",  'S', POPT_ARG_STRING, &options.server, 0, 
+		{ "server",  0, POPT_ARG_STRING, &options.server, 0, 
 		  "server", NULL },
-		{ "export",  'E', POPT_ARG_STRING, &options.export, 0, 
+		{ "export",  0, POPT_ARG_STRING, &options.export, 0, 
 		  "export", NULL },
-		{ "protocol",  'P', POPT_ARG_STRING, &options.protocol, 0, 
+		{ "protocol",  0, POPT_ARG_STRING, &options.protocol, 0, 
 		  "protocol", NULL },
+		{ "run-once", 0, POPT_ARG_NONE, &options.run_once, 0,
+		  "Stop once reaching the end of the loadfile", NULL},
 		POPT_TABLEEND
 	};
 	poptContext pc;

@@ -236,6 +236,10 @@ again:
 		}
 	}
 
+	if (options.run_once) {
+		goto done;
+	}
+
 	rewind(f);
 	goto again;
 
