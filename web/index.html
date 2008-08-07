@@ -1,0 +1,61 @@
+<!--#set var="TITLE" value="DBENCH" -->
+<!--#include virtual="header.html" -->
+
+<H2 align="center">Welcome to the DBENCH web pages</H2>
+
+DBENCH is a tool to generate I/O workloads to either a filesystem or to a
+networked NFS server. DBENCH can be used to stress a filesystem or a server
+to see which workload it becomes saturated and can also be used for preditcion
+analysis to determine "How many concurrent clients/applications performing
+this workload can my server handle before response starts to lag?"
+
+<p>DBENCH provides a similar benchmarking and client emulation that is
+implemented in SMBTORTURE using the BENCH-NBENCH test for CIFS, but DBENCH
+can play these loadfiles onto a local filesystem instead of to a CIFS server.
+Using a different type of loadfiles DBENCH can also generate and measure
+latency for NFS. </p>
+
+
+<p>Features include:
+<ul>
+<li>Reading SMBTORTURE BENCH-NBENCH loadfiles and emulating this workload
+as posix calls to a local filesystem
+<li>NFS style loadfiles which allows DBENCH to mimic the i/o pattern of a real application doing real i/o to a real server.
+</ul>
+
+<h2>Loadfiles</h2>
+
+<p>
+At the heart of DBENCH is the concept of a "loadfile". A loadfile is
+essentially a sequence of operations to be performed once statement at a time.
+This could be operations such as "Open file XYZ", "Read 5 bytes from offset ABC", "Close the file", etc etc.
+</p>
+
+<p>
+By carefully crafting a loadfile it is possible to describe an I/O pattern
+that almost exactly matches what a particular application performs. While 
+cumbersome to produce such a loadfile it does allow you to describe exactly
+how/what an application performs and "replay" this sequence of operations
+any time you want.
+</p>
+
+<p>
+DBENCH loadfiles also contain a timestamp for each operation so that while
+DBENCH is emulating the workload it also tries to keep the same rate of 
+operations as the original application that we created the loadfile from.
+This is very useful since this does allow to perform accurate scalability
+predictions based on the exact application we are interested in and not an
+artificial benchmark which may or may not be relevant to our particular
+applications workload pattern.
+</p>
+
+
+<hr>
+<h2>Developers</h2>
+<ul>
+<li><a href="http://samba.org/~tridge/">Andrew Tridgell</a><br>
+<li>Ronnie Sahlberg<br>
+<li>and a lot of others ...
+</ul>
+
+<!--#include virtual="footer.html" -->

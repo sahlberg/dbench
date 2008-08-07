@@ -1,0 +1,264 @@
+<!--#set var="TITLE" value="NFS loadfiles" -->
+<!--#include virtual="header.html" -->
+
+<h1>NFS Loadfiles</h1>
+
+<p>
+This will illustrate how to create and run an NFS loadfile using DBENCH.
+This example is based on that you do start the session with a completely empty
+share and add all the files and data as part of the actual process of running
+the application/job. It is possible to create loadfiles that use
+pregenerated/preexisting data as well but that is a much more complex 
+scenario.
+</p>
+
+<h2>Network trace</h2>
+
+<p>
+First we need to take a network trace to capture the sequence of operations
+that the NFS client generates.
+</p>
+
+<p>
+We do this by using the tshark tool from the <a href="http://www.wireshark.org">wireshark</a> package.
+We will, as of this writing, later need the very latest version of wireshark
+so unless you already use the development version of wireshark, download the
+source and compile up a brand new version...
+</p>
+
+<p>
+Once you are ready, start a network trace on the client and capture all
+the traffic to/from the server. Note, you MUST start the trace before
+the client even mounts the share since we must have the actual
+MOUNT operations present in the network trace. It is also important that we 
+filter the trace to only contain the traffic to/from the server in order
+to keep the trace as small as possible.
+</p>
+
+<pre>
+tshark -i eth0 -s 0 -w <a href="nfs.cap">nfs.cap</a> host 10.0.0.21
+</pre>
+
+<p>
+This example network trace was taken when I mapped a share and did 
+some file operations.
+
+<h2>Processing step 1</h2>
+
+<p>
+Once we have a network trace we need to do some initial processing on the trace
+to create the start of what will become our loadfile.
+Download, edit and run this script that converts a trace into a loadfile:
+</p>
+
+<pre>
+<a href="nfsloadfile.sh">nfsloadfile.sh</a> <a href="nfs.cap">nfs.cap</a> > nfs.loadfile
+</pre>
+
+<p>
+This should generate an initial loadfile that would look something like this :
+</p>
+
+<pre>
+XXX unknown packet 14   0.001604   10.1.1.101 -> 10.0.0.21    NFS V3 NULL Call  frame.time_relative == 0.001604000  nfs.procedure_v3 == 0  rpc.msgtyp == 0  rpc.xid == 0x2318b639
+XXX unknown packet 16   0.001998    10.0.0.21 -> 10.1.1.101   NFS V3 NULL Reply (Call In 14)  frame.time_relative == 0.001998000  nfs.procedure_v3 == 0  rpc.msgtyp == 1  rpc.xid == 0x2318b639
+XXX unknown packet 54   0.012970   10.1.1.101 -> 10.0.0.21    NFS V3 NULL Call  frame.time_relative == 0.012970000  nfs.procedure_v3 == 0  rpc.msgtyp == 0  rpc.xid == 0x3645ff3b
+XXX unknown packet 56   0.013270    10.0.0.21 -> 10.1.1.101   NFS V3 NULL Reply (Call In 54)  frame.time_relative == 0.013270000  nfs.procedure_v3 == 0  rpc.msgtyp == 1  rpc.xid == 0x3645ff3b
+0.013381000 FSINFO3 0x00000000
+0.013903000 GETATTR3 "10.0.0.21:/gpfs/nfsshare" 0x00000000
+0.014291000 FSINFO3 0x00000000
+0.014720000 GETATTR3 "10.0.0.21:/gpfs/nfsshare" 0x00000000
+1.027163000 ACCESS3 "10.0.0.21:/gpfs/nfsshare" 0 0 0x00000000
+5.726435000 ACCESS3 "10.0.0.21:/gpfs/nfsshare" 0 0 0x00000000
+6.799179000 GETATTR3 "10.0.0.21:/gpfs/nfsshare" 0x00000000
+6.799669000 READDIRPLUS3 "10.0.0.21:/gpfs/nfsshare" 0x00000000
+8.347222000 GETATTR3 "10.0.0.21:/gpfs/nfsshare" 0x00000000
+35.087310000 LOOKUP3 "10.0.0.21:/gpfs/nfsshare/small-file" 0x00000002
+35.087938000 CREATE3 "10.0.0.21:/gpfs/nfsshare/small-file" 0 0x00000000
+35.102625000 WRITE3 "10.0.0.21:/gpfs/nfsshare/small-file" 0 10240 2 0x00000000
+35.104245000 GETATTR3 "10.0.0.21:/gpfs/nfsshare/small-file" 0x00000000
+41.827776000 GETATTR3 "10.0.0.21:/gpfs/nfsshare" 0x00000000
+41.828343000 READDIRPLUS3 "10.0.0.21:/gpfs/nfsshare" 0x00000000
+41.828880000 LOOKUP3 "10.0.0.21:/gpfs/nfsshare/small-file" 0x00000000
+45.548004000 GETATTR3 "10.0.0.21:/gpfs/nfsshare" 0x00000000
+49.805150000 GETATTR3 "10.0.0.21:/gpfs/nfsshare" 0x00000000
+49.806402000 GETATTR3 "10.0.0.21:/gpfs/nfsshare/small-file" 0x00000000
+52.777193000 GETATTR3 "10.0.0.21:/gpfs/nfsshare/small-file" 0x00000000
+52.778562000 ACCESS3 "10.0.0.21:/gpfs/nfsshare/small-file" 0 0 0x00000000
+52.779051000 READ3 "10.0.0.21:/gpfs/nfsshare/small-file" 0 10240 0x00000000
+</pre>
+
+<h2>Processing step 2</h2>
+
+<p>
+Some lines are marked with XXX and this means that the generator does not yet
+know how to implement this call into a loadfile. When this happens there are
+a few options, we can either refine the generator and teach it about this
+new command (patches welcome) or we can try to manually adjust it in the
+loadfile by substituting it with a similar operation.
+In this example these are just NULL procedures which we dont care about so we just delete them.
+</p>
+
+<p> Now we need to process the file and re-target the directory where we want
+to replay this loadfile. In our example we used the server 10.0.0.21 and the nfs export /gpfs/nfsshare. To do this conversion we now replace the server/share
+string "10.0.0.21:/gpfs/nfsshare" with the string "/clients/client1".
+</p>
+
+<p>
+"/clients/client1" is in DBENCH a "magic" path we use. This special path is
+inside DBENCH substituted into "/clients/client$CLIENTID" which allows us to
+run multiple clients in parallell, with each client process using its own
+dedicated directory to do I/O to. That is a pretty neat feature in DBENCH.
+</p>
+
+<p>
+We should then end up with something that would look something like this:
+</p>
+
+<pre>
+0.013381000 FSINFO3 0x00000000
+0.013903000 GETATTR3 "/clients/client1" 0x00000000
+0.014291000 FSINFO3 0x00000000
+0.014720000 GETATTR3 "/clients/client1" 0x00000000
+1.027163000 ACCESS3 "/clients/client1" 0 0 0x00000000
+5.726435000 ACCESS3 "/clients/client1" 0 0 0x00000000
+6.799179000 GETATTR3 "/clients/client1" 0x00000000
+6.799669000 READDIRPLUS3 "/clients/client1" 0x00000000
+8.347222000 GETATTR3 "/clients/client1" 0x00000000
+35.087310000 LOOKUP3 "/clients/client1/small-file" 0x00000002
+35.087938000 CREATE3 "/clients/client1/small-file" 0 0x00000000
+35.102625000 WRITE3 "/clients/client1/small-file" 0 10240 2 0x00000000
+35.104245000 GETATTR3 "/clients/client1/small-file" 0x00000000
+41.827776000 GETATTR3 "/clients/client1" 0x00000000
+41.828343000 READDIRPLUS3 "/clients/client1" 0x00000000
+41.828880000 LOOKUP3 "/clients/client1/small-file" 0x00000000
+45.548004000 GETATTR3 "/clients/client1" 0x00000000
+49.805150000 GETATTR3 "/clients/client1" 0x00000000
+49.806402000 GETATTR3 "/clients/client1/small-file" 0x00000000
+52.777193000 GETATTR3 "/clients/client1/small-file" 0x00000000
+52.778562000 ACCESS3 "/clients/client1/small-file" 0 0 0x00000000
+52.779051000 READ3 "/clients/client1/small-file" 0 10240 0x00000000
+</pre>
+
+
+
+<h2>Processing step 3</h2>
+
+<p>
+Finally we need a little header that will cleanup and delete the client
+directory everytime the loadfile wraps.
+This is done by adding a header such as this to the file :
+</p>
+
+<pre>
+# DELTREE if we want to delete the client directory everytime we restart 
+# the script. Remove these two lines if the script is only "read-only"
+# reading from pre-existing files in the /clients/clientX/ tree
+0.000 Deltree "/clients/client1" 0x00000000
+#
+# Make sure these directories exist. We specify * as the status code
+# since these directories might already exist and in which case
+# we dont care that the command returned an error.
+0.000 MKDIR3 "/clients" *
+0.000 MKDIR3 "/clients/client1" *
+</pre>
+
+<p>
+I also change all timestamps in this example to 0.000 just to make it run a bit faster.
+And we should end up with a loadfile looking like this
+</p>
+
+<pre>
+# DELTREE if we want to delete the client directory everytime we restart 
+# the script. Remove these two lines if the script is only "read-only"
+# reading from pre-existing files in the /clients/clientX/ tree
+0.000 Deltree "/clients/client1" 0x00000000
+#
+# Make sure these directories exist. We specify * as the status code
+# since these directories might already exist and in which case
+# we dont care that the command returned an error.
+0.000 MKDIR3 "/clients" *
+0.000 MKDIR3 "/clients/client1" *
+0.000 FSINFO3 0x00000000
+0.000 GETATTR3 "/clients/client1" 0x00000000
+0.000 FSINFO3 0x00000000
+0.000 GETATTR3 "/clients/client1" 0x00000000
+0.000 ACCESS3 "/clients/client1" 0 0 0x00000000
+0.000 ACCESS3 "/clients/client1" 0 0 0x00000000
+0.000 GETATTR3 "/clients/client1" 0x00000000
+0.000 READDIRPLUS3 "/clients/client1" 0x00000000
+0.000 GETATTR3 "/clients/client1" 0x00000000
+0.000 LOOKUP3 "/clients/client1/small-file" 0x00000002
+0.000 CREATE3 "/clients/client1/small-file" 0 0x00000000
+0.000 WRITE3 "/clients/client1/small-file" 0 10240 2 0x00000000
+0.000 GETATTR3 "/clients/client1/small-file" 0x00000000
+0.000 GETATTR3 "/clients/client1" 0x00000000
+0.000 READDIRPLUS3 "/clients/client1" 0x00000000
+0.000 LOOKUP3 "/clients/client1/small-file" 0x00000000
+0.000 GETATTR3 "/clients/client1" 0x00000000
+0.000 GETATTR3 "/clients/client1" 0x00000000
+0.000 GETATTR3 "/clients/client1/small-file" 0x00000000
+0.000 GETATTR3 "/clients/client1/small-file" 0x00000000
+0.000 ACCESS3 "/clients/client1/small-file" 0 0 0x00000000
+0.000 READ3 "/clients/client1/small-file" 0 10240 0x00000000
+</pre>
+
+<h2>Running the loadfile</h2>
+
+<p>
+Now to run this loadfile for 10 seconds using 3 concurrent clients we can use :
+</p>
+
+<pre>
+./dbench -B nfs --server=10.0.0.21 --export=/gpfs/nfsshare --protocol=tcp -c tmp.loadfile  -t 20 3 2>/dev/null
+</pre>
+
+
+<p>
+Which should result in output similar to :
+</p>
+<pre>
+dbench version 4.00 - Copyright Andrew Tridgell 1999-2004
+
+Running for 10 seconds with load 'tmp.loadfile' and minimum warmup 2 secs
+0 of 3 processes prepared for launch   0 sec
+3 of 3 processes prepared for launch   0 sec
+releasing clients
+   3      2041     3.88 MB/sec  warmup   1 sec  latency 4.695 ms
+   3      6120     3.93 MB/sec  execute   1 sec  latency 8.853 ms
+   3      8192     3.94 MB/sec  execute   2 sec  latency 14.410 ms
+   3     10085     3.84 MB/sec  execute   3 sec  latency 12.082 ms
+   3     12002     3.79 MB/sec  execute   4 sec  latency 4.949 ms
+   3     13097     3.46 MB/sec  execute   5 sec  latency 437.859 ms
+   3     15156     3.53 MB/sec  execute   6 sec  latency 6.671 ms
+   3     17219     3.59 MB/sec  execute   7 sec  latency 5.066 ms
+   3     19223     3.62 MB/sec  execute   8 sec  latency 6.746 ms
+   3     21103     3.62 MB/sec  execute   9 sec  latency 11.987 ms
+   3  cleanup  10 sec
+   0  cleanup  10 sec
+
+ Operation                Count    AvgLat    MaxLat
+ --------------------------------------------------
+ Deltree                   1667     4.652   701.966
+ GETATTR3                 16646     0.460     7.096
+ LOOKUP3                   3329     0.482    12.073
+ CREATE3                   1665     0.671     4.390
+ WRITE3                    1665     1.274    14.404
+ READ3                     1665     0.865     4.789
+ ACCESS3                   4993     0.458     9.187
+ MKDIR3                    3328     0.743   435.178
+ FSINFO3                   3328     0.446     7.927
+ READDIRPLUS3              3329     0.534     3.474
+
+Throughput 3.62071 MB/sec  3 clients  3 procs  max_latency=437.859 ms
+</pre>
+
+<p>
+Dont worry about the low throughput. This loadfile does virtually no
+reads/writes at all. We can now also scale this up to 10 clients  or 20
+clients ... and compare how the server response times are affected.
+</p>
+
+
+<!--#include virtual="footer.html" -->
+
