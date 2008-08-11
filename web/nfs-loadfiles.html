@@ -1,7 +1,7 @@
 <!--#set var="TITLE" value="NFS loadfiles" -->
 <!--#include virtual="header.html" -->
 
-<H2 align="center">NFS Loadfiles</h2>
+<H1 align="center">NFS Loadfiles</h1>
 
 <p>
 This will illustrate how to create and run an NFS loadfile using DBENCH.
@@ -12,7 +12,7 @@ pregenerated/preexisting data as well but that is a much more complex
 scenario.
 </p>
 
-<H2 align="center">Network trace</h2>
+<H2>Network trace</h2>
 
 <p>
 First we need to take a network trace to capture the sequence of operations
@@ -43,7 +43,7 @@ tshark -i eth0 -s 0 -w <a href="nfs.cap">nfs.cap</a> host 10.0.0.21
 This example network trace was taken when I mapped a share and did 
 some file operations.
 
-<H2 align="center">Processing step 1</h2>
+<H2>Processing step 1</h2>
 
 <p>
 Once we have a network trace we need to do some initial processing on the trace
@@ -88,7 +88,7 @@ XXX unknown packet 56   0.013270    10.0.0.21 -> 10.1.1.101   NFS V3 NULL Reply 
 52.779051000 READ3 "10.0.0.21:/gpfs/nfsshare/small-file" 0 10240 0x00000000
 </pre>
 
-<H2 align="center">Processing step 2</h2>
+<H2>Processing step 2</h2>
 
 <p>
 Some lines are marked with XXX and this means that the generator does not yet
@@ -142,7 +142,7 @@ We should then end up with something that would look something like this:
 
 
 
-<H2 align="center">Processing step 3</h2>
+<H2>Processing step 3</h2>
 
 <p>
 Finally we need a little header that will cleanup and delete the client
@@ -203,7 +203,7 @@ And we should end up with a loadfile looking like this
 0.000 READ3 "/clients/client1/small-file" 0 10240 0x00000000
 </pre>
 
-<H2 align="center">Running the loadfile</h2>
+<H2>Running the loadfile</h2>
 
 <p>
 Now to run this loadfile for 10 seconds using 3 concurrent clients we can use :
