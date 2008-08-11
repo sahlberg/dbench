@@ -27,24 +27,24 @@ as posix calls to a local filesystem
 
 <p>
 At the heart of DBENCH is the concept of a "loadfile". A loadfile is
-essentially a sequence of operations to be performed once statement at a time.
+a sequence of operations to be performed once statement at a time.
 This could be operations such as "Open file XYZ", "Read 5 bytes from offset ABC", "Close the file", etc etc.
 </p>
 
 <p>
 By carefully crafting a loadfile it is possible to describe an I/O pattern
 that almost exactly matches what a particular application performs. While 
-cumbersome to produce such a loadfile it does allow you to describe exactly
+cumbersome to produce, such a loadfile it does allow you to describe exactly
 how/what an application performs and "replay" this sequence of operations
 any time you want.
 </p>
 
 <p>
-DBENCH loadfiles also contain a timestamp for each operation so that while
-DBENCH is emulating the workload it also tries to keep the same rate of 
-operations as the original application that we created the loadfile from.
-This is very useful since this does allow to perform accurate scalability
-predictions based on the exact application we are interested in and not an
+Each line in the DBENCH loadfile contain a timestamp for the operation.
+This is used by DBENCH to try to keep the same rate of operations as the
+original application.
+This is very useful since this allows to perform accurate scalability
+predictions based on the exact application we are interested in. and not an
 artificial benchmark which may or may not be relevant to our particular
 applications workload pattern.
 </p>
