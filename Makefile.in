@@ -8,6 +8,7 @@ exec_prefix=@exec_prefix@
 bindir=@bindir@
 mandir=@mandir@
 datadir=@datadir@
+XSLTPROC = /usr/bin/xsltproc
 INSTALLCMD=@INSTALL@
 LIBS=@LIBS@ -lpopt
 
@@ -20,7 +21,7 @@ LIBNFS_OBJ = libnfs.o mount_client.o nfs_client.o mount_xdr.o nfs_xdr.o
 DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o sockio.o nfsio.o libnfs.a socklib.o
 SRV_OBJS = util.o tbench_srv.o socklib.o
 
-all: dbench tbench nfsbench tbench_srv
+all: dbench tbench nfsbench tbench_srv doc
 
 dbench: $(DB_OBJS)
 	$(CC) -o $@ $(DB_OBJS) $(LIBS)
@@ -87,6 +88,13 @@ nfs_client.c: nfs.x
 	@echo Generating $@
 	rpcgen -l nfs.x > nfs_client.c
 
+doc/dbench.1.html: doc/dbench.1.xml
+	-test -z "$(XSLTPROC)" || $(XSLTPROC) -o $@ http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl $<
+
+doc/dbench.1: doc/dbench.1.xml
+	-test -z "$(XSLTPROC)" || $(XSLTPROC) -o $@ http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
+
+doc: doc/dbench.1 doc/dbench.1.html
 
 # Careful here: don't install client.txt over itself.
 install: all
