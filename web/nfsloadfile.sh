@@ -97,6 +97,9 @@ rm -rf $DBDIR
 mkdir -p $DBDIR
 
 $TSHARK -n -r $1 -R "nfs" \
+	-o "nfs.file_name_snooping:TRUE" \
+	-o "nfs.file_full_name_snooping:TRUE" \
+	-o "nfs.fhandle_find_both_reqrep:TRUE" \
 	-z "proto,colinfo,rpc.xid,rpc.xid" \
 	-z "proto,colinfo,rpc.msgtyp,rpc.msgtyp" \
 	-z "proto,colinfo,nfs.nfsstat3,nfs.nfsstat3" \
