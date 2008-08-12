@@ -1,0 +1,57 @@
+<!--#set var="TITLE" value="Download" -->
+<!--#include virtual="header.html" -->
+
+<H1 align="center">Getting DBENCH</h1>
+
+<p>
+DBENCH is hosted as a git repository at samba.org so you must make sure you
+have the git tool installed.
+</p>
+
+<h2>Download</h2>
+
+<p>
+Use git to create a local branch of the official git repository for git
+and download the tree. 
+
+<pre>
+git clone git://git.samba.org/tridge/dbench.git dbench
+</pre>
+
+<p>
+This creates a local subdirectory "dbench" which is a branch of the master
+repository.
+</p>
+
+
+<p>
+Later when you want to update your branch and resynchronize with the official
+branch you can use a "git pull" to download all the changes since you branched
+and re-synchronize your local branch with the latest versions of the sources.
+</p>
+
+<pre>
+git pull
+</pre>
+
+<h2>Compiling</h2>
+
+<p>
+Now you need to compile and install DBENCH.
+</p>
+
+<pre>
+cd dbench
+./autogen.sh
+./configure
+make
+make install
+</pre>
+
+<p>
+And that should be it. You should now have dbench installed on your system.
+</p>
+
+
+<!--#include virtual="footer.html" -->
+
