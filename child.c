@@ -130,10 +130,11 @@ static void child_op(struct child_struct *child, const char *opname,
 
 
 /* run a test that simulates an approximate netbench client load */
+#define MAX_PARM_LEN 1024
 void child_run(struct child_struct *child0, const char *loadfile)
 {
 	int i;
-	char line[1024], fname[1024], fname2[1024];
+	char line[MAX_PARM_LEN], fname[MAX_PARM_LEN], fname2[MAX_PARM_LEN];
 	char **sparams, **params;
 	char *p;
 	const char *status;
@@ -149,7 +150,7 @@ void child_run(struct child_struct *child0, const char *loadfile)
 
 	sparams = calloc(20, sizeof(char *));
 	for (i=0;i<20;i++) {
-		sparams[i] = malloc(100);
+		sparams[i] = malloc(MAX_PARM_LEN);
 	}
 
 	f = fopen(loadfile, "r");
