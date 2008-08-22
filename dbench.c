@@ -45,6 +45,7 @@ struct options options = {
 	.export		     = "/tmp",
 	.protocol	     = "tcp",
 	.run_once            = 0,
+	.trunc_io            = 0,
 };
 
 static struct timeval tv_start;
@@ -370,6 +371,8 @@ static void process_opts(int argc, const char **argv)
 		  "disable name resolution simulation", NULL },
 		{ "clients-per-process", 0, POPT_ARG_INT, &options.clients_per_process, 0, 
 		  "number of clients per process", NULL },
+		{ "trunc-io", 0, POPT_ARG_INT, &options.trunc_io, 0, 
+		  "truncate all io to this size", NULL },
 		{ "one-byte-write-fix", 0, POPT_ARG_NONE, &options.one_byte_write_fix, 0, 
 		  "try to fix 1 byte writes", NULL },
 		{ "stat-check", 0, POPT_ARG_NONE, &options.stat_check, 0, 

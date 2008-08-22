@@ -222,6 +222,10 @@ static void nfs3_write(struct dbench_op *op)
 	int stable = op->params[2];
 	nfsstat3 res;
 
+	if ((options.trunc_io > 0) && (len > options.trunc_io)) {
+		len = options.trunc_io;
+	}
+
 	res = nfsio_write(op->child->private, op->fname, rw_buf, offset, len, stable);
 	if (!check_status(res, op->status)) {
 		printf("[%d] WRITE \"%s\" failed (%x) - expected %s\n", 
@@ -250,6 +254,10 @@ static void nfs3_read(struct dbench_op *op)
 	int offset = op->params[0];
 	int len = op->params[1];
 	nfsstat3 res = 0;
+
+	if ((options.trunc_io > 0) && (len > options.trunc_io)) {
+		len = options.trunc_io;
+	}
 
 	res = nfsio_read(op->child->private, op->fname, rw_buf, offset, len, NULL, NULL);
 	if (!check_status(res, op->status)) {

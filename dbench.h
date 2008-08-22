@@ -151,6 +151,7 @@ struct options {
 	const char *export;
 	const char *protocol;
 	int run_once;
+	int trunc_io;
 };
 
 
