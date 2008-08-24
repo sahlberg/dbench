@@ -800,9 +800,10 @@ nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf, uint32 off
 	if (eof) {
 		*eof = READ3res->READ3res_u.resok.eof;
 	}
-	memcpy(buf, &READ3res->READ3res_u.resok.data.data_val,
-				READ3res->READ3res_u.resok.count);
-
+	if (buf) {
+		memcpy(buf, &READ3res->READ3res_u.resok.data.data_val,
+			READ3res->READ3res_u.resok.count);
+	}
 
 finished:
 	return ret;

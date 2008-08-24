@@ -259,7 +259,7 @@ static void nfs3_read(struct dbench_op *op)
 		len = options.trunc_io;
 	}
 
-	res = nfsio_read(op->child->private, op->fname, rw_buf, offset, len, NULL, NULL);
+	res = nfsio_read(op->child->private, op->fname, NULL, offset, len, NULL, NULL);
 	if (!check_status(res, op->status)) {
 		printf("[%d] READ \"%s\" failed (%x) - expected %s\n", 
 		       op->child->line, op->fname,
