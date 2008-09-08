@@ -72,6 +72,48 @@ static tree_t *find_fhandle(tree_t *tree, const char *key)
 	return find_fhandle(tree->right, key);
 }
 
+static data_t *recursive_lookup_fhandle(struct nfsio *nfsio, const char *name)
+{
+	tree_t *t;
+	char *strp;
+	char *tmpname;
+	nfsstat3 ret;
+	
+	while (name[0] == '.') name++;
+
+	if (name[0] == 0) {
+		return NULL;
+	}
+
+	tmpname = strdup(name);
+	strp = rindex(tmpname, '/');
+	if (strp == NULL) {
+		free(tmpname);
+		return NULL;
+	}
+	*strp = 0;
+
+	recursive_lookup_fhandle(nfsio, tmpname);
+	free(tmpname);
+
+	t = find_fhandle(nfsio->fhandles, name);
+	if (t != NULL) {
+		return &t->fh;
+	}
+
+	ret = nfsio_lookup(nfsio, name, NULL);
+	if (ret != 0) {
+		return NULL;
+	}
+
+	t = find_fhandle(nfsio->fhandles, name);
+	if (t != NULL) {
+		return &t->fh;
+	}
+
+	return ;
+}
+
 static data_t *lookup_fhandle(struct nfsio *nfsio, const char *name)
 {
 	tree_t *t;
@@ -84,7 +126,7 @@ static data_t *lookup_fhandle(struct nfsio *nfsio, const char *name)
 
 	t = find_fhandle(nfsio->fhandles, name);
 	if (t == NULL) {
-		return NULL;
+		return recursive_lookup_fhandle(nfsio, name);
 	}
 
 	return &t->fh;
