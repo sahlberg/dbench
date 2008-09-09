@@ -151,6 +151,7 @@ void child_run(struct child_struct *child0, const char *loadfile)
 	sparams = calloc(20, sizeof(char *));
 	for (i=0;i<20;i++) {
 		sparams[i] = malloc(MAX_PARM_LEN);
+		memset(sparams[i], 0, MAX_PARM_LEN);
 	}
 
 	f = fopen(loadfile, "r");
