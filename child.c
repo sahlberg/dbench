@@ -143,6 +143,12 @@ void child_run(struct child_struct *child0, const char *loadfile)
 	double targett;
 	struct child_struct *child;
 
+	f = fopen(loadfile, "r");
+	if (f == NULL) {
+		perror(loadfile);
+		exit(1);
+	}
+
 	for (child=child0;child<child0+options.clients_per_process;child++) {
 		child->line = 0;
 		asprintf(&child->cname,"client%d", child->id);
@@ -152,12 +158,6 @@ void child_run(struct child_struct *child0, const char *loadfile)
 	for (i=0;i<20;i++) {
 		sparams[i] = malloc(MAX_PARM_LEN);
 		memset(sparams[i], 0, MAX_PARM_LEN);
-	}
-
-	f = fopen(loadfile, "r");
-	if (f == NULL) {
-		perror(loadfile);
-		exit(1);
 	}
 
 again:
@@ -255,5 +255,9 @@ done:
 			nb_ops->cleanup(child);
 		}
 		child->cleanup_finished = 1;
+		if(child->cname){
+			free(child->cname);
+			child->cname = NULL;
+		}
 	}
 }
