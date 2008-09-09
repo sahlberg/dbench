@@ -571,6 +571,8 @@ nfsstat3 nfsio_lookup(struct nfsio *nfsio, const char *name, fattr3 *attributes)
 			LOOKUP3res->LOOKUP3res_u.resok.object.data.data_val,
 			LOOKUP3res->LOOKUP3res_u.resok.object.data.data_len);
 
+	free(LOOKUP3res->LOOKUP3res_u.resok.object.data.data_val);
+
 	if (attributes) {
 		memcpy(attributes, &LOOKUP3res->LOOKUP3res_u.resok.obj_attributes.post_op_attr_u.attributes, sizeof(fattr3));
 	}
