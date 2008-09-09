@@ -848,6 +848,8 @@ nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf, uint32 off
 		memcpy(buf, &READ3res->READ3res_u.resok.data.data_val,
 			READ3res->READ3res_u.resok.count);
 	}
+	free(READ3res->READ3res_u.resok.data.data_val);
+	READ3res->READ3res_u.resok.data.data_val = NULL;
 
 finished:
 	return ret;
