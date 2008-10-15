@@ -152,6 +152,7 @@ struct options {
 	const char *protocol;
 	int run_once;
 	int trunc_io;
+	const char *scsi_dev;
 };
 
 

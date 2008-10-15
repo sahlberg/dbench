@@ -391,6 +391,8 @@ static void process_opts(int argc, const char **argv)
 		  "protocol", NULL },
 		{ "run-once", 0, POPT_ARG_NONE, &options.run_once, 0,
 		  "Stop once reaching the end of the loadfile", NULL},
+		{ "scsi",  0, POPT_ARG_STRING, &options.scsi_dev, 0, 
+		  "scsi device", NULL },
 		POPT_TABLEEND
 	};
 	poptContext pc;
@@ -453,6 +455,8 @@ static void process_opts(int argc, const char **argv)
 		options.backend = "sockio";
 	} else if (strstr(argv[0], "nfsbench")) {
 		options.backend = "nfs";
+	} else if (strstr(argv[0], "scsibench")) {
+		options.backend = "scsi";
 	}
 
 	process_opts(argc, argv);
@@ -466,6 +470,11 @@ static void process_opts(int argc, const char **argv)
 	} else if (strcmp(options.backend, "nfs") == 0) {
 		extern struct nb_operations nfs_ops;
 		nb_ops = &nfs_ops;
+#ifdef HAVE_LINUX_SCSI_SG
+	} else if (strcmp(options.backend, "scsi") == 0) {
+		extern struct nb_operations scsi_ops;
+		nb_ops = &scsi_ops;
+#endif /* HAVE_LINUX_SCSI_SG */
 	} else {
 		printf("Unknown backend '%s'\n", options.backend);
 		exit(1);

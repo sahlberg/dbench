@@ -18,7 +18,7 @@ EXEEXT=@EXEEXT@
 
 LIBNFS_OBJ = libnfs.o mount_client.o nfs_client.o mount_xdr.o nfs_xdr.o
 
-DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o sockio.o nfsio.o libnfs.a socklib.o
+DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o sockio.o nfsio.o libnfs.a socklib.o linux_scsi.o
 SRV_OBJS = util.o tbench_srv.o socklib.o
 
 all: dbench tbench nfsbench tbench_srv doc

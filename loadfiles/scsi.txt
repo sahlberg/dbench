@@ -1,0 +1,13 @@
+# Example loadfile for SCSI
+# last value is sense or *
+#
+# timestamp TESTUNITREADY sense
+0.000 TESTUNITREADY 0x00
+#
+# timestamp READ10 offset #blocks sense
+0.000 READ10    0 256 0x00
+0.000 READ10 1000 256 0x00
+0.000 READ10 2000 256 0x00
+0.000 READ10 5000 256 0x00
+
+
