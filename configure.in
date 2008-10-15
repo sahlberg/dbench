@@ -75,5 +75,56 @@ if test x"$dbench_cv_HAVE___VA_COPY" = x"yes"; then
 fi
 fi
 
+#
+# Check whether we have access to Linux SCSI Generic ioctl()
+#
+AC_MSG_CHECKING(whether Linux SCSI Generic is available)
+ac_save_CFLAGS="$CFLAGS"
+ac_save_LIBS="$LIBS"
+CFLAGS="$CFLAGS $GLIB_CFLAGS"
+LIBS="$GLIB_LIBS $LIBS"
+AC_TRY_RUN([
+/* We can only check that this program compiles. We cant check whether the
+   actual ioctl works since opening the device and doing i/o can only be
+   done by root.
+*/
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <scsi/sg.h>
+
+int main(int argc, char *argv[])
+{
+	const char *dev="/dev/sda";
+	int fd, vers;
+
+	if((fd=open(dev, O_RDWR))<0){
+		return 0;
+	}
+	if ((ioctl(fd, SG_GET_VERSION_NUM, &vers) < 0) || (vers < 30000)) {
+		close(fd);
+		return 0;
+	}
+	close(fd);
+
+	return 0;
+}
+], ac_cv_linux_scsi_sg=yes, ac_cv_linux_scsi_sg=no,
+   [echo $ac_n "cross compiling; assumed OK... $ac_c"
+    ac_cv_linux_scsi_sg=yes])
+CFLAGS="$ac_save_CFLAGS"
+LIBS="$ac_save_LIBS"
+if test "$ac_cv_linux_scsi_sg" = yes ; then
+  AC_MSG_RESULT(yes)
+  have_linux_scsi_sg=yes
+else
+  AC_MSG_RESULT(no)
+  have_linux_scsi_sg=no
+fi
+if test x$have_linux_scsi_sg = xyes
+then
+  AC_DEFINE(HAVE_LINUX_SCSI_SG, 1, [Define if Linux SCSI Generic is enabled])
+fi
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
