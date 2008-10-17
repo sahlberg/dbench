@@ -31,6 +31,7 @@
 		<arg choice="opt">-T --tcp-options=&lt;string&gt;</arg>
 		<arg choice="opt">--run-once</arg>
 		<arg choice="opt">--fake-io</arg>
+		<arg choice="opt">--scsi=&lt;scsi-device&gt;</arg>
 		<arg choice="opt">--server=&lt;hostname&gt;</arg>
 		<arg choice="opt">--export=&lt;string&gt;</arg>
 		<arg choice="opt">--protocol=&lt;string&gt;</arg>
@@ -66,7 +67,7 @@
       </para>
 
       <para>
-      There are currently three types of backends : "fileio", "sockio" and "nfs". The default is "fileio" which uses a CIFS style loadfile.
+      There are currently four types of backends : "fileio", "sockio", "nfs" and "scsi". The default is "fileio" which uses a CIFS style loadfile.
       </para>
     </refsect2>
 
@@ -281,6 +282,23 @@
       </para>
     </refsect2>
   </refsect1>
+
+  <refsect1> <title>SCSI OPTIONS</title>
+    <refsect2><title>--scsi=&lt;scsi-device&gt;</title>
+      <para>
+      This option only apply to the "scsi" backend.
+      </para>
+
+      <para>
+      This option is mandatory when the "scsi" backend is used.
+      </para>
+
+      <para>
+      This specifies the device node of the scsi-device we want to run the loadfile on. Example: --scsi=/dev/sda
+      </para>
+    </refsect2>
+  </refsect1>
+
 
   <refsect1><title>COPYRIGHT/LICENSE</title>
 <literallayout>

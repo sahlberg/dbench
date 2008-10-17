@@ -1,116 +1,129 @@
 .\"     Title: dbench
 .\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.71.0 <http://docbook.sf.net/>
-.\"      Date: 08/19/2008
+.\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
+.\"      Date: 10/17/2008
 .\"    Manual: 
 .\"    Source: 
 .\"
-.TH "DBENCH" "1" "08/19/2008" "" ""
+.TH "DBENCH" "1" "10/17/2008" "" ""
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
 .ad l
 .SH "NAME"
-dbench \- a benchmark tool
+dbench - a benchmark tool
 .SH "SYNOPSIS"
 .HP 29
 \fBdbench [OPTIONS] <num\-procs>\fR
 .HP 7
-\fBdbench\fR [\-B\ \-\-backend=<dbench\ backend>] [\-c\ \-\-loadfile=<filename>] [\-D\ \-\-directory=<string>] [\-F\ \-\-fsync] [\-R\ \-\-target\-rate=<double>] [\-s\ \-\-sync] [\-S\ \-\-sync\-dir] [\-t\ \-\-timelimit=<integer>] [\-T\ \-\-tcp\-options=<string>] [\-\-run\-once] [\-\-fake\-io] [\-\-server=<hostname>] [\-\-export=<string>] [\-\-protocol=<string>] [\-\-clients\-per\-process=<integer>] [\-\-stat\-check] [\-\-skip\-cleanup] [\-\-per\-client\-results] [\-?\ \-\-help] [\-\-usage]
+\fBdbench\fR [\-B\ \-\-backend=<dbench\ backend>] [\-c\ \-\-loadfile=<filename>] [\-D\ \-\-directory=<string>] [\-F\ \-\-fsync] [\-R\ \-\-target\-rate=<double>] [\-s\ \-\-sync] [\-S\ \-\-sync\-dir] [\-t\ \-\-timelimit=<integer>] [\-T\ \-\-tcp\-options=<string>] [\-\-run\-once] [\-\-fake\-io] [\-\-scsi=<scsi\-device>] [\-\-server=<hostname>] [\-\-export=<string>] [\-\-protocol=<string>] [\-\-clients\-per\-process=<integer>] [\-\-trunc\-io=<integer>] [\-\-stat\-check] [\-\-skip\-cleanup] [\-\-per\-client\-results] [\-?\ \-\-help] [\-\-usage]
 .SH "DESCRIPTION"
 .PP
-dbench is a utility to benchmark a system based on client workload profiles.
+dbench is a utility to benchmark a system based on client workload profiles\.
 .SH "STANDARD OPTIONS"
 .SS "\-B \-\-backend=<dbench backend>"
 .PP
-The backend type specifies which kind of commandset and what kind of tests that dbench will perform. The backend type specifies which kind of loadfile that can be used.
+The backend type specifies which kind of commandset and what kind of tests that dbench will perform\. The backend type specifies which kind of loadfile that can be used\.
 .PP
-There are currently three types of backends : "fileio", "sockio" and "nfs". The default is "fileio" which uses a CIFS style loadfile.
+There are currently four types of backends : "fileio", "sockio", "nfs" and "scsi"\. The default is "fileio" which uses a CIFS style loadfile\.
 .SS "\-c \-\-loadfile=<filename>"
 .PP
-This specifies the name of the loadfile to use. The loadfile describes the sequence and timing of operations that dbench will issue.
+This specifies the name of the loadfile to use\. The loadfile describes the sequence and timing of operations that dbench will issue\.
 .SS "\-D \-\-directory=<string>"
 .PP
-This controls which directory that dbench will use as the root for when running the loadfile. This defaults to "." which refers to the current directory for the "fileio" and "sockio" backends and the root of the export for the "nfs" backend.
+This controls which directory that dbench will use as the root for when running the loadfile\. This defaults to "\." which refers to the current directory for the "fileio" and "sockio" backends and the root of the export for the "nfs" backend\.
 .SS "\-R \-\-target\-rate=<double>"
 .PP
-By default dbench will try to replay the loadfile and keep the same rate as the original application the loadfile was captured from. Using this option it is possible to run the load file faster/slower than in the original capture.
+By default dbench will try to replay the loadfile and keep the same rate as the original application the loadfile was captured from\. Using this option it is possible to run the load file faster/slower than in the original capture\.
 .PP
-The argument is specified in MByte/second. dbench tries to match this target rate by dynamically increasing/decreasing the delays beteen the inidvidual opertaions in the loadfile. These calculations only take the READ and WRITE operations of the loadfile into account so this may not work reliable for loadfiles with very few READ/WRITE operations.
+The argument is specified in MByte/second\. dbench tries to match this target rate by dynamically increasing/decreasing the delays beteen the inidvidual opertaions in the loadfile\. These calculations only take the READ and WRITE operations of the loadfile into account so this may not work reliable for loadfiles with very few READ/WRITE operations\.
 .PP
-By setting this limit to something very large, such as 999999.99 you can effectively tell dbench to "run this loadfile as fast as possible".
+By setting this limit to something very large, such as 999999\.99 you can effectively tell dbench to "run this loadfile as fast as possible"\.
 .SS "\-t \-\-timelimit=<integer>"
 .PP
-How long to run the test for.
+How long to run the test for\.
 .SS "\-\-run\-once"
 .PP
-Only run the loadfile once and stop when the end of the loadfile is reached.
+Only run the loadfile once and stop when the end of the loadfile is reached\.
 .PP
-The default for dbench is to wrap the loadfile when the end is reached and continue running the loadfile over and over until the timelimit is reached.
+The default for dbench is to wrap the loadfile when the end is reached and continue running the loadfile over and over until the timelimit is reached\.
 .SS "\-\-clients\-per\-process=<integer>"
 .PP
-By default dbench will fork one child process for each client emulated. Using this option dbench will run multiple emulated clients inside each process.
+By default dbench will fork one child process for each client emulated\. Using this option dbench will run multiple emulated clients inside each process\.
 .PP
-This is useful for testing how performance differs between the case of n processes with one thread of I/O each and one process with n threads of I/O.
+This is useful for testing how performance differs between the case of n processes with one thread of I/O each and one process with n threads of I/O\.
 .SS "\-\-skip\-cleanup"
 .PP
-Do not cleanup and delete all temporary files in the clients work directory when the test ends.
+Do not cleanup and delete all temporary files in the clients work directory when the test ends\.
 .SS "\-\-per\-client\-results"
 .PP
-When the test is finished print a latency report for each inidvidual client in addition to the aggregated report over all clients.
+When the test is finished print a latency report for each inidvidual client in addition to the aggregated report over all clients\.
 .SH "FILEIO OPTIONS"
 .SS "\-F \-\-fsync"
 .PP
-This option only apply to the "fileio" backend.
+This option only apply to the "fileio" backend\.
 .PP
-This will make dbench perform a fsync() to the file after each write operation.
+This will make dbench perform a fsync() to the file after each write operation\.
 .SS "\-s \-\-sync\-open"
 .PP
-This option only apply to the "fileio" backend.
+This option only apply to the "fileio" backend\.
 .PP
-This makes dbench override the loadfile and use O_SYNC for all file open operations.
+This makes dbench override the loadfile and use O_SYNC for all file open operations\.
 .SS "\-S \-\-sync\-dir"
 .PP
-This option only apply to the "fileio" backend.
+This option only apply to the "fileio" backend\.
 .PP
-Call fsync() on the directory after each "unlink", "rmdir" or "rename" operation. This emulates how the linux kernel nfs daemon syncs directories after performing directory modifying operations.
+Call fsync() on the directory after each "unlink", "rmdir" or "rename" operation\. This emulates how the linux kernel nfs daemon syncs directories after performing directory modifying operations\.
 .SS "\-\-fake\-io"
 .PP
-This option only apply to the "fileio" backend.
+This option only apply to the "fileio" backend\.
 .PP
-Do not do any file read/write operations at all.
+Do not do any file read/write operations at all\.
 .SS "\-\-stat\-check"
 .PP
-This option only apply to the "fileio" backend.
+This option only apply to the "fileio" backend\.
 .PP
-After each create/mkdir/rmdir/rename operation, immediately try to stat() the object affected and verify that the return code from stat() is correct. I.e. Verify that immediately after we have created an object that stat() will succeed and that immediately after we have deleted an object that stat() will fail.
+After each create/mkdir/rmdir/rename operation, immediately try to stat() the object affected and verify that the return code from stat() is correct\. I\.e\. Verify that immediately after we have created an object that stat() will succeed and that immediately after we have deleted an object that stat() will fail\.
 .SH "SOCKIO OPTIONS"
 .SS "\-T \-\-tcp\-options=<string>"
 .PP
-This option only apply to the "sockio" backend.
+This option only apply to the "sockio" backend\.
 .SH "NFS OPTIONS"
 .SS "\-\-server=<hostname>"
 .PP
-This option only apply to the "nfs" backend.
+This option only apply to the "nfs" backend\.
 .PP
-This option is mandatory when the "nfs" backend is used.
+This option is mandatory when the "nfs" backend is used\.
 .PP
-This specifies the host\-name or ip\-address of the server to test.
+This specifies the host\-name or ip\-address of the server to test\.
 .SS "\-\-export=<string>"
 .PP
-This option only apply to the "nfs" backend.
+This option only apply to the "nfs" backend\.
 .PP
-This option is mandatory when the "nfs" backend is used.
+This option is mandatory when the "nfs" backend is used\.
 .PP
-This specifies the nfs\-export on the server to do i/o to.
+This specifies the nfs\-export on the server to do i/o to\.
 .SS "\-\-protocol=<string>"
 .PP
-This option only apply to the "nfs" backend.
+This option only apply to the "nfs" backend\.
 .PP
-This specifies whether "tcp" or "udp" is to be used. Default is "tcp".
+This specifies whether "tcp" or "udp" is to be used\. Default is "tcp"\.
+.SS "\-\-trunc\-io=<integer>"
+.PP
+This option only apply to the "nfs" backend\.
+.PP
+Some NFS server may have limitations on how large READ/WRITE I/Os they accept preventing some loadfiles from running\. Using this option will override the length specified in the loadfile and make dbench never issuing any READ/WRITE operations larger than this\.
+.SH "SCSI OPTIONS"
+.SS "\-\-scsi=<scsi\-device>"
+.PP
+This option only apply to the "scsi" backend\.
+.PP
+This option is mandatory when the "scsi" backend is used\.
+.PP
+This specifies the device node of the scsi\-device we want to run the loadfile on\. Example: \-\-scsi=/dev/sda
 .SH "COPYRIGHT/LICENSE"
 .sp
-.RS 3n
+.RS 4
 .nf
 Copyright (C) Andrew Tridgell 2008
 Copyright (C) Ronnie Sahlberg 2008
@@ -118,14 +131,14 @@ Copyright (C) Ronnie Sahlberg 2008
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 3 of the License, or (at
-your option) any later version.
+your option) any later version\.
 
 This program is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE\.  See the GNU
+General Public License for more details\.
 
 You should have received a copy of the GNU General Public License
-along with this program; if not, see http://www.gnu.org/licenses/.
+along with this program; if not, see http://www\.gnu\.org/licenses/\.
 .fi
 .RE
