@@ -4,10 +4,18 @@
 # timestamp TESTUNITREADY sense
 0.000 TESTUNITREADY 0x00
 #
-# timestamp READ10 offset #blocks sense
-0.000 READ10    0 256 0x00
-0.000 READ10 1000 256 0x00
-0.000 READ10 2000 256 0x00
-0.000 READ10 5000 256 0x00
+# timestamp READ10 lba #xferlen rd grp sense
+# rd is :
+# 3 bits     0xe0 : RDPROTECT
+# 1 bit      0x10 : DPO
+# 1 bit      0x08 : FUA
+# 1 bit      0x02 : FUA_NV
+0.000 READ10    0 256 0 0 0x00
+0.000 READ10 1000 256 0 0 0x00
+0.000 READ10 2000 256 0 0 0x00
+0.000 READ10 5000 256 0 0 0x00
+#
+# timestamp READCAPACITY10 lba pmi(0/1) sense
+0.000 READCAPACITY10 0 0 0x00
 
 

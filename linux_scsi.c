@@ -187,17 +187,23 @@ static void scsi_read10(struct dbench_op *op)
 	int res;
 	int lba = op->params[0];
 	int xferlen = op->params[1];
+	int rd = op->params[2];
+	int grp = op->params[3];
 	unsigned int data_size=1024*1024;
 	char data[data_size];
 	unsigned char sc;
+
+	cdb[1] = rd;
 
 	cdb[2] = (lba>>24)&0xff;
 	cdb[3] = (lba>>16)&0xff;
 	cdb[4] = (lba>> 8)&0xff;
 	cdb[5] = (lba    )&0xff;
 
-	cdb[7]=(xferlen>>8)&0xff;
-	cdb[8]=xferlen&0xff;
+	cdb[6] = grp&0x1f;
+
+	cdb[7] = (xferlen>>8)&0xff;
+	cdb[8] = xferlen&0xff;
 	data_size = xferlen*512;
 
 	sd = op->child->private;
@@ -216,9 +222,42 @@ static void scsi_read10(struct dbench_op *op)
 	op->child->bytes += xferlen*512;
 }
 
+static void scsi_readcapacity10(struct dbench_op *op)
+{
+	struct scsi_device *sd;
+	unsigned char cdb[]={0x25,0,0,0,0,0,0,0,0,0};
+	int res;
+	int lba = op->params[0];
+	int pmi = op->params[1];
+	unsigned int data_size=8;
+	char data[data_size];
+	unsigned char sc;
+
+	cdb[2] = (lba>>24)&0xff;
+	cdb[3] = (lba>>16)&0xff;
+	cdb[4] = (lba>> 8)&0xff;
+	cdb[5] = (lba    )&0xff;
+
+	cdb[8] = (pmi?1:0);
+
+	sd = op->child->private;
+
+	res=scsi_io(sd->fd, cdb, sizeof(cdb), SG_DXFER_FROM_DEV, &data_size, data, &sc);
+	if(res){
+		printf("SCSI_IO failed\n");
+		failed(op->child);
+	}
+	if (!check_sense(sc, op->status)) {
+		printf("[%d] READCAPACITY10 \"%s\" failed (0x%02x) - expected %s\n", 
+		       op->child->line, op->fname, sc, op->status);
+		failed(op->child);
+	}
+}
+
 static struct backend_op ops[] = {
-	{ "TESTUNITREADY",    scsi_testunitready },
 	{ "READ10",           scsi_read10 },
+	{ "READCAPACITY10",   scsi_readcapacity10 },
+	{ "TESTUNITREADY",    scsi_testunitready },
 	{ NULL, NULL}
 };
 
