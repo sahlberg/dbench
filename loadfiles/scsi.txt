@@ -4,6 +4,9 @@
 # timestamp TESTUNITREADY sense
 0.000 TESTUNITREADY 0x00
 #
+# timestamp READ6 lba #xferlen sense
+0.000 READ6    0 1 0x00
+#
 # timestamp READ10 lba #xferlen rd grp sense
 # rd is :
 # 3 bits     0xe0 : RDPROTECT
