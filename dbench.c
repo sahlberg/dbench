@@ -393,6 +393,8 @@ static void process_opts(int argc, const char **argv)
 		  "Stop once reaching the end of the loadfile", NULL},
 		{ "scsi",  0, POPT_ARG_STRING, &options.scsi_dev, 0, 
 		  "scsi device", NULL },
+		{ "warmup", 0, POPT_ARG_INT, &options.warmup, 0, 
+		  "How meny seconds of warmup to run", NULL },
 		POPT_TABLEEND
 	};
 	poptContext pc;
