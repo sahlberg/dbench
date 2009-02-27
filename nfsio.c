@@ -153,7 +153,7 @@ static void nfs3_deltree(struct dbench_op *op)
 
 	res = nfsio_lookup(cbd->nfsio, cbd->dirname, NULL);
 	if (res != NFS3ERR_NOENT) {
-		printf("Directory \"%s\" not empty. Aborting\n");
+		printf("Directory \"%s\" not empty. Aborting\n", cbd->dirname);
 		free(cbd);
 		exit(10);
 	}
