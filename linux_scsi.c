@@ -26,14 +26,45 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <scsi/sg.h>
+#include <stdint.h>
 
 #define SCSI_TIMEOUT 5000 /* ms */
 
 #define discard_const(ptr) ((void *)((intptr_t)(ptr)))
 
 struct scsi_device {
-       int fd;
+	int fd;
+	uint32_t blocks;
 };
+
+static int check_sense(unsigned char sc, const char *expected);
+static int scsi_io(int fd, unsigned char *cdb, unsigned char cdb_size, int xfer_dir, unsigned int *data_size, char *data, unsigned char *sc);
+
+static void num_device_blocks(struct scsi_device *sd)
+{
+	unsigned char cdb[]={0x25,0,0,0,0,0,0,0,0,0};
+	int res;
+	unsigned int data_size=8;
+	char data[data_size];
+	unsigned char sc;
+
+	res=scsi_io(sd->fd, cdb, sizeof(cdb), SG_DXFER_FROM_DEV, &data_size, data, &sc);
+	if(res){
+		printf("SCSI_IO failed when reading disk capacity\n");
+		exit(10);
+	}
+	if (!check_sense(sc, "0x00")) {
+		printf("READCAPACITY10 failed (0x%02x) - expected 0x00\n", sc);
+		exit(10);
+	}
+
+	sd->blocks = (0xff & data[0]);
+	sd->blocks = (sd->blocks<<8) | (0xff & data[1]);
+	sd->blocks = (sd->blocks<<8) | (0xff & data[2]);
+	sd->blocks = (sd->blocks<<8) | (0xff & data[3]);
+
+	sd->blocks++;
+}
 
 static void scsi_setup(struct child_struct *child)
 {
@@ -48,7 +79,7 @@ static void scsi_setup(struct child_struct *child)
 	child->private=sd;
 	if((sd->fd=open(options.scsi_dev, O_RDWR))<0){
 		printf("Failed to open scsi device node : %s\n", options.scsi_dev);
-		free(sd);
+ 		free(sd);
 		exit(10);
 	}
 	if ((ioctl(sd->fd, SG_GET_VERSION_NUM, &vers) < 0) || (vers < 30000)) {
@@ -57,6 +88,9 @@ static void scsi_setup(struct child_struct *child)
 		free(sd);
 		exit(10);
 	}
+
+	/* read disk capacity */
+	num_device_blocks(sd);
 }
 
 static void scsi_cleanup(struct child_struct *child)
@@ -182,14 +216,29 @@ static void scsi_testunitready(struct dbench_op *op)
 
 static void scsi_read6(struct dbench_op *op)
 {
-	struct scsi_device *sd;
+	struct scsi_device *sd=op->child->private;
 	unsigned char cdb[]={0x08,0,0,0,0,0};
 	int res;
-	int lba = op->params[0];
-	int xferlen = op->params[1];
+	uint32_t lba = op->params[0];
+	uint32_t xferlen = op->params[1];
 	unsigned int data_size=1024*1024;
 	char data[data_size];
 	unsigned char sc;
+
+	/* we only have 24 bit addresses in read 6 */
+	if (lba > 0x00ffffff) {
+		lba &= 0x00ffffff;
+	}
+
+	/* make sure we wrap properly instead of failing if the loadfile
+	   is bigger than our device
+	*/
+	if (sd->blocks <= lba) {
+		lba = lba%sd->blocks;
+	}
+	if (sd->blocks <= lba+xferlen) {
+		xferlen=1;
+	}
 
 	cdb[1] = (lba>>16)&0x1f;
 	cdb[2] = (lba>> 8)&0xff;
@@ -197,8 +246,6 @@ static void scsi_read6(struct dbench_op *op)
 
 	cdb[4] = xferlen&0xff;
 	data_size = xferlen*512;
-
-	sd = op->child->private;
 
 	res=scsi_io(sd->fd, cdb, sizeof(cdb), SG_DXFER_FROM_DEV, &data_size, data, &sc);
 	if(res){
@@ -216,16 +263,26 @@ static void scsi_read6(struct dbench_op *op)
 
 static void scsi_read10(struct dbench_op *op)
 {
-	struct scsi_device *sd;
+	struct scsi_device *sd=op->child->private;
 	unsigned char cdb[]={0x28,0,0,0,0,0,0,0,0,0};
 	int res;
-	int lba = op->params[0];
-	int xferlen = op->params[1];
+	uint32_t lba = op->params[0];
+	uint32_t xferlen = op->params[1];
 	int rd = op->params[2];
 	int grp = op->params[3];
 	unsigned int data_size=1024*1024;
 	char data[data_size];
 	unsigned char sc;
+
+	/* make sure we wrap properly instead of failing if the loadfile
+	   is bigger than our device
+	*/
+	if (sd->blocks <= lba) {
+		lba = lba%sd->blocks;
+	}
+	if (sd->blocks <= lba+xferlen) {
+		xferlen=1;
+	}
 
 	cdb[1] = rd;
 
@@ -240,9 +297,62 @@ static void scsi_read10(struct dbench_op *op)
 	cdb[8] = xferlen&0xff;
 	data_size = xferlen*512;
 
-	sd = op->child->private;
-
 	res=scsi_io(sd->fd, cdb, sizeof(cdb), SG_DXFER_FROM_DEV, &data_size, data, &sc);
+	if(res){
+		printf("SCSI_IO failed\n");
+		failed(op->child);
+	}
+	if (!check_sense(sc, op->status)) {
+		printf("[%d] READ10 \"%s\" failed (0x%02x) - expected %s\n", 
+		       op->child->line, op->fname, sc, op->status);
+		failed(op->child);
+	}
+
+	op->child->bytes += xferlen*512;
+}
+
+static void scsi_write10(struct dbench_op *op)
+{
+	struct scsi_device *sd=op->child->private;
+	unsigned char cdb[]={0x2a,0,0,0,0,0,0,0,0,0};
+	int res;
+	uint32_t lba = op->params[0];
+	uint32_t xferlen = op->params[1];
+	int rd = op->params[2];
+	int fua = op->params[3];
+	unsigned int data_size=1024*1024;
+	char data[data_size];
+	unsigned char sc;
+
+	if (!options.allow_scsi_writes) {
+		printf("Ignoring SCSI write\n");
+		return;
+	}
+
+	/* make sure we wrap properly instead of failing if the loadfile
+	   is bigger than our device
+	*/
+	if (sd->blocks <= lba) {
+		lba = lba%sd->blocks;
+	}
+	if (sd->blocks <= lba+xferlen) {
+		xferlen=1;
+	}
+
+	cdb[1] = rd;
+
+	cdb[2] = (lba>>24)&0xff;
+	cdb[3] = (lba>>16)&0xff;
+	cdb[4] = (lba>> 8)&0xff;
+	cdb[5] = (lba    )&0xff;
+
+	cdb[6] = fua;
+
+	cdb[7] = (xferlen>>8)&0xff;
+	cdb[8] = xferlen&0xff;
+	data_size = xferlen*512;
+
+	res=scsi_io(sd->fd, cdb, sizeof(cdb), SG_DXFER_TO_DEV, &data_size, data, &sc);
 	if(res){
 		printf("SCSI_IO failed\n");
 		failed(op->child);
@@ -293,6 +403,7 @@ static struct backend_op ops[] = {
 	{ "READ10",           scsi_read10 },
 	{ "READCAPACITY10",   scsi_readcapacity10 },
 	{ "TESTUNITREADY",    scsi_testunitready },
+	{ "WRITE10",          scsi_write10 },
 	{ NULL, NULL}
 };
 

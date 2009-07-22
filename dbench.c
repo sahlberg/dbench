@@ -45,6 +45,7 @@ struct options options = {
 	.export		     = "/tmp",
 	.protocol	     = "tcp",
 	.run_once            = 0,
+	.allow_scsi_writes   = 0,
 	.trunc_io            = 0,
 };
 
@@ -393,6 +394,8 @@ static void process_opts(int argc, const char **argv)
 		  "Stop once reaching the end of the loadfile", NULL},
 		{ "scsi",  0, POPT_ARG_STRING, &options.scsi_dev, 0, 
 		  "scsi device", NULL },
+		{ "allow-scsi-writes", 0, POPT_ARG_NONE, &options.allow_scsi_writes, 0,
+		  "Allow SCSI write command to the device", NULL},
 		{ "warmup", 0, POPT_ARG_INT, &options.warmup, 0, 
 		  "How meny seconds of warmup to run", NULL },
 		POPT_TABLEEND

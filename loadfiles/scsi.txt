@@ -20,5 +20,12 @@
 #
 # timestamp READCAPACITY10 lba pmi(0/1) sense
 0.000 READCAPACITY10 0 0 0x00
+#
+# timestamp WRITE10 lba #xferlen FUAbits
+#   FUAbits are cdb byte#1 in SBC:
+#     a value of 0x06 will force the data to be written to the medium
+#     a value of 0x00 allow the device to only write to nv-ram and not medium
+#   WRITES are ignored by default and must be activated using --allow-scsi-writes
+0.000 WRITE10 5000 1 0x06 0 0x00
 
 

@@ -151,6 +151,7 @@ struct options {
 	const char *export;
 	const char *protocol;
 	int run_once;
+	int allow_scsi_writes;
 	int trunc_io;
 	const char *scsi_dev;
 };
