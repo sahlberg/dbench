@@ -276,6 +276,7 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 			int j;
 
 			setlinebuf(stdout);
+			srandom(getpid() ^ time(NULL));
 
 			for (j=0;j<options.clients_per_process;j++) {
 				nb_ops->setup(&children[i*options.clients_per_process + j]);

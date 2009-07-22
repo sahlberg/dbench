@@ -225,6 +225,10 @@ static void scsi_read6(struct dbench_op *op)
 	char data[data_size];
 	unsigned char sc;
 
+	if (lba == 0xffffffff) {
+		lba = random();
+	}
+
 	/* we only have 24 bit addresses in read 6 */
 	if (lba > 0x00ffffff) {
 		lba &= 0x00ffffff;
@@ -273,6 +277,10 @@ static void scsi_read10(struct dbench_op *op)
 	unsigned int data_size=1024*1024;
 	char data[data_size];
 	unsigned char sc;
+
+	if (lba == 0xffffffff) {
+		lba = random();
+	}
 
 	/* make sure we wrap properly instead of failing if the loadfile
 	   is bigger than our device
@@ -327,6 +335,10 @@ static void scsi_write10(struct dbench_op *op)
 	if (!options.allow_scsi_writes) {
 		printf("Ignoring SCSI write\n");
 		return;
+	}
+
+	if (lba == 0xffffffff) {
+		lba = random();
 	}
 
 	/* make sure we wrap properly instead of failing if the loadfile
