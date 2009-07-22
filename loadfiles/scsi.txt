@@ -1,6 +1,16 @@
 # Example loadfile for SCSI
 # last value is sense or *
 #
+# The SCSI backend will read the device capacity during initialization
+# and will make all READ/WRITE command LBAs wrap.
+# This means that a loadfile will still work if replayed against a smaller
+# device.
+# For all READ/WRITE CDBs a LBS that is specified as 0xffffffff will be treated
+# as "use a random LBA".
+#
+#
+# COMMANDS:
+#
 # timestamp TESTUNITREADY sense
 0.000 TESTUNITREADY 0x00
 #
