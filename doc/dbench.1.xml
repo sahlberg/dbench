@@ -32,7 +32,6 @@
 		<arg choice="opt">--run-once</arg>
 		<arg choice="opt">--fake-io</arg>
 		<arg choice="opt">--scsi=&lt;scsi-device&gt;</arg>
-		<arg choice="opt">--allow-scsi-writes</arg>
 		<arg choice="opt">--server=&lt;hostname&gt;</arg>
 		<arg choice="opt">--export=&lt;string&gt;</arg>
 		<arg choice="opt">--protocol=&lt;string&gt;</arg>
@@ -297,16 +296,6 @@
       <para>
       This specifies the device node of the scsi-device we want to run the loadfile on. Example: --scsi=/dev/sda
       </para>
-    </refsect2>
-    <refsect2><title>--allow-scsi-writes</title>
-      <para>
-      This option only apply to the "scsi" backend.
-      </para>
-
-      <para>
-	By default the SCSI backend will ignore any WRITE commands in the loadfile. If you do want to performance test using real SCSI WRITE CDBs you must activate it with this argument. This WILL destroy all data on the disk!
-      </para>
-
     </refsect2>
   </refsect1>
 

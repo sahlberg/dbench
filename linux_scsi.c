@@ -227,6 +227,7 @@ static void scsi_read6(struct dbench_op *op)
 
 	if (lba == 0xffffffff) {
 		lba = random();
+		lba = (lba / xferlen) * xferlen;
 	}
 
 	/* we only have 24 bit addresses in read 6 */
@@ -280,6 +281,7 @@ static void scsi_read10(struct dbench_op *op)
 
 	if (lba == 0xffffffff) {
 		lba = random();
+		lba = (lba / xferlen) * xferlen;
 	}
 
 	/* make sure we wrap properly instead of failing if the loadfile
@@ -339,6 +341,7 @@ static void scsi_write10(struct dbench_op *op)
 
 	if (lba == 0xffffffff) {
 		lba = random();
+		lba = (lba / xferlen) * xferlen;
 	}
 
 	/* make sure we wrap properly instead of failing if the loadfile

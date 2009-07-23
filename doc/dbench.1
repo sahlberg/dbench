@@ -1,11 +1,11 @@
 .\"     Title: dbench
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
-.\"      Date: 07/22/2009
+.\"      Date: 10/17/2008
 .\"    Manual: 
 .\"    Source: 
 .\"
-.TH "DBENCH" "1" "07/22/2009" "" ""
+.TH "DBENCH" "1" "10/17/2008" "" ""
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
@@ -16,7 +16,7 @@ dbench - a benchmark tool
 .HP 29
 \fBdbench [OPTIONS] <num\-procs>\fR
 .HP 7
-\fBdbench\fR [\-B\ \-\-backend=<dbench\ backend>] [\-c\ \-\-loadfile=<filename>] [\-D\ \-\-directory=<string>] [\-F\ \-\-fsync] [\-R\ \-\-target\-rate=<double>] [\-s\ \-\-sync] [\-S\ \-\-sync\-dir] [\-t\ \-\-timelimit=<integer>] [\-T\ \-\-tcp\-options=<string>] [\-\-run\-once] [\-\-fake\-io] [\-\-scsi=<scsi\-device>] [\-\-allow\-scsi\-writes] [\-\-server=<hostname>] [\-\-export=<string>] [\-\-protocol=<string>] [\-\-clients\-per\-process=<integer>] [\-\-trunc\-io=<integer>] [\-\-stat\-check] [\-\-skip\-cleanup] [\-\-per\-client\-results] [\-?\ \-\-help] [\-\-usage]
+\fBdbench\fR [\-B\ \-\-backend=<dbench\ backend>] [\-c\ \-\-loadfile=<filename>] [\-D\ \-\-directory=<string>] [\-F\ \-\-fsync] [\-R\ \-\-target\-rate=<double>] [\-s\ \-\-sync] [\-S\ \-\-sync\-dir] [\-t\ \-\-timelimit=<integer>] [\-T\ \-\-tcp\-options=<string>] [\-\-run\-once] [\-\-fake\-io] [\-\-scsi=<scsi\-device>] [\-\-server=<hostname>] [\-\-export=<string>] [\-\-protocol=<string>] [\-\-clients\-per\-process=<integer>] [\-\-trunc\-io=<integer>] [\-\-stat\-check] [\-\-skip\-cleanup] [\-\-per\-client\-results] [\-?\ \-\-help] [\-\-usage]
 .SH "DESCRIPTION"
 .PP
 dbench is a utility to benchmark a system based on client workload profiles\.
@@ -121,11 +121,6 @@ This option only apply to the "scsi" backend\.
 This option is mandatory when the "scsi" backend is used\.
 .PP
 This specifies the device node of the scsi\-device we want to run the loadfile on\. Example: \-\-scsi=/dev/sda
-.SS "\-\-allow\-scsi\-writes"
-.PP
-This option only apply to the "scsi" backend\.
-.PP
-By default the SCSI backend will ignore any WRITE commands in the loadfile\. If you do want to performance test using real SCSI WRITE CDBs you must activate it with this argument\. This WILL destroy all data on the disk!
 .SH "COPYRIGHT/LICENSE"
 .sp
 .RS 4

@@ -1,21 +1,21 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>dbench</title><meta name="generator" content="DocBook XSL Stylesheets V1.73.2"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="dbench.1"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>dbench &#8212; a benchmark tool</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">dbench [OPTIONS] &lt;num-procs&gt;</code> </p></div><div class="cmdsynopsis"><p><code class="command">dbench</code>  [-B --backend=&lt;dbench backend&gt;] [-c --loadfile=&lt;filename&gt;] [-D --directory=&lt;string&gt;] [-F --fsync] [-R --target-rate=&lt;double&gt;] [-s --sync] [-S --sync-dir] [-t --timelimit=&lt;integer&gt;] [-T --tcp-options=&lt;string&gt;] [--run-once] [--fake-io] [--scsi=&lt;scsi-device&gt;] [--allow-scsi-writes] [--server=&lt;hostname&gt;] [--export=&lt;string&gt;] [--protocol=&lt;string&gt;] [--clients-per-process=&lt;integer&gt;] [--trunc-io=&lt;integer&gt;] [--stat-check] [--skip-cleanup] [--per-client-results] [-? --help] [--usage]</p></div></div><div class="refsect1" lang="en"><a name="id2478376"></a><h2>DESCRIPTION</h2><p>
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>dbench</title><meta name="generator" content="DocBook XSL Stylesheets V1.73.2"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" lang="en"><a name="dbench.1"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>dbench &#8212; a benchmark tool</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">dbench [OPTIONS] &lt;num-procs&gt;</code> </p></div><div class="cmdsynopsis"><p><code class="command">dbench</code>  [-B --backend=&lt;dbench backend&gt;] [-c --loadfile=&lt;filename&gt;] [-D --directory=&lt;string&gt;] [-F --fsync] [-R --target-rate=&lt;double&gt;] [-s --sync] [-S --sync-dir] [-t --timelimit=&lt;integer&gt;] [-T --tcp-options=&lt;string&gt;] [--run-once] [--fake-io] [--scsi=&lt;scsi-device&gt;] [--server=&lt;hostname&gt;] [--export=&lt;string&gt;] [--protocol=&lt;string&gt;] [--clients-per-process=&lt;integer&gt;] [--trunc-io=&lt;integer&gt;] [--stat-check] [--skip-cleanup] [--per-client-results] [-? --help] [--usage]</p></div></div><div class="refsect1" lang="en"><a name="id2479642"></a><h2>DESCRIPTION</h2><p>
       dbench is a utility to benchmark a system based on client workload
       profiles.
-    </p></div><div class="refsect1" lang="en"><a name="id2478386"></a><h2>STANDARD OPTIONS</h2><div class="refsect2" lang="en"><a name="id2478392"></a><h3>-B --backend=&lt;dbench backend&gt;</h3><p>
+    </p></div><div class="refsect1" lang="en"><a name="id2479653"></a><h2>STANDARD OPTIONS</h2><div class="refsect2" lang="en"><a name="id2479658"></a><h3>-B --backend=&lt;dbench backend&gt;</h3><p>
       The backend type specifies which kind of commandset and what kind of
       tests that dbench will perform. The backend type specifies which
       kind of loadfile that can be used.
       </p><p>
       There are currently four types of backends : "fileio", "sockio", "nfs" and "scsi". The default is "fileio" which uses a CIFS style loadfile.
-      </p></div><div class="refsect2" lang="en"><a name="id2478410"></a><h3>-c --loadfile=&lt;filename&gt;</h3><p>
+      </p></div><div class="refsect2" lang="en"><a name="id2479677"></a><h3>-c --loadfile=&lt;filename&gt;</h3><p>
       This specifies the name of the loadfile to use. The loadfile describes
       the sequence and timing of operations that dbench will issue.
-      </p></div><div class="refsect2" lang="en"><a name="id2478422"></a><h3>-D --directory=&lt;string&gt;</h3><p>
+      </p></div><div class="refsect2" lang="en"><a name="id2479689"></a><h3>-D --directory=&lt;string&gt;</h3><p>
       This controls which directory that dbench will use as the root for when
       running the loadfile. This defaults to "." which refers to the current
       directory for the "fileio" and "sockio" backends and the root of the
       export for the "nfs" backend.
-      </p></div><div class="refsect2" lang="en"><a name="id2478628"></a><h3>-R --target-rate=&lt;double&gt;</h3><p>
+      </p></div><div class="refsect2" lang="en"><a name="id2479702"></a><h3>-R --target-rate=&lt;double&gt;</h3><p>
       By default dbench will try to replay the loadfile and keep the same
       rate as the original application the loadfile was captured from.
       Using this option it is possible to run the load file faster/slower
@@ -30,16 +30,16 @@
       </p><p>
       By setting this limit to something very large, such as 999999.99 you can
       effectively tell dbench to "run this loadfile as fast as possible".
-      </p></div><div class="refsect2" lang="en"><a name="id2478656"></a><h3>-t --timelimit=&lt;integer&gt;</h3><p>
+      </p></div><div class="refsect2" lang="en"><a name="id2479732"></a><h3>-t --timelimit=&lt;integer&gt;</h3><p>
       How long to run the test for.
-      </p></div><div class="refsect2" lang="en"><a name="id2478665"></a><h3>--run-once</h3><p>
+      </p></div><div class="refsect2" lang="en"><a name="id2479741"></a><h3>--run-once</h3><p>
       Only run the loadfile once and stop when the end of the loadfile is
       reached.
       </p><p>
       The default for dbench is to wrap the loadfile when the end is
       reached and continue running the loadfile over and over until the
       timelimit is reached.
-      </p></div><div class="refsect2" lang="en"><a name="id2478682"></a><h3>--clients-per-process=&lt;integer&gt;</h3><p>
+      </p></div><div class="refsect2" lang="en"><a name="id2479758"></a><h3>--clients-per-process=&lt;integer&gt;</h3><p>
       By default dbench will fork one child process for each client emulated.
       Using this option dbench will run multiple emulated clients inside
       each process.
@@ -47,33 +47,33 @@
       This is useful for testing how performance differs between the case
       of n processes with one thread of I/O each and one process with n threads
       of I/O.
-      </p></div><div class="refsect2" lang="en"><a name="id2478701"></a><h3>--skip-cleanup</h3><p>
+      </p></div><div class="refsect2" lang="en"><a name="id2479777"></a><h3>--skip-cleanup</h3><p>
       Do not cleanup and delete all temporary files in the clients work
       directory when the test ends.
-      </p></div><div class="refsect2" lang="en"><a name="id2478712"></a><h3>--per-client-results</h3><p>
+      </p></div><div class="refsect2" lang="en"><a name="id2479788"></a><h3>--per-client-results</h3><p>
       When the test is finished print a latency report for each inidvidual
       client in addition to the aggregated report over all clients.
-      </p></div></div><div class="refsect1" lang="en"><a name="id2478724"></a><h2>FILEIO OPTIONS</h2><div class="refsect2" lang="en"><a name="id2478730"></a><h3>-F --fsync</h3><p>
+      </p></div></div><div class="refsect1" lang="en"><a name="id2479800"></a><h2>FILEIO OPTIONS</h2><div class="refsect2" lang="en"><a name="id2479806"></a><h3>-F --fsync</h3><p>
       This option only apply to the "fileio" backend.
       </p><p>
       This will make dbench perform a fsync() to the file after each write
       operation.
-      </p></div><div class="refsect2" lang="en"><a name="id2478744"></a><h3>-s --sync-open</h3><p>
+      </p></div><div class="refsect2" lang="en"><a name="id2479821"></a><h3>-s --sync-open</h3><p>
       This option only apply to the "fileio" backend.
       </p><p>
       This makes dbench override the loadfile and use O_SYNC for all 
       file open operations.
-      </p></div><div class="refsect2" lang="en"><a name="id2478760"></a><h3>-S --sync-dir</h3><p>
+      </p></div><div class="refsect2" lang="en"><a name="id2479836"></a><h3>-S --sync-dir</h3><p>
       This option only apply to the "fileio" backend.
       </p><p>
       Call fsync() on the directory after each "unlink", "rmdir" or "rename"
       operation. This emulates how the linux kernel nfs daemon syncs
       directories after performing directory modifying operations.
-      </p></div><div class="refsect2" lang="en"><a name="id2478777"></a><h3>--fake-io</h3><p>
+      </p></div><div class="refsect2" lang="en"><a name="id2528501"></a><h3>--fake-io</h3><p>
       This option only apply to the "fileio" backend.
       </p><p>
       Do not do any file read/write operations at all.
-      </p></div><div class="refsect2" lang="en"><a name="id2478791"></a><h3>--stat-check</h3><p>
+      </p></div><div class="refsect2" lang="en"><a name="id2528515"></a><h3>--stat-check</h3><p>
       This option only apply to the "fileio" backend.
       </p><p>
       After each create/mkdir/rmdir/rename operation, immediately try to
@@ -81,42 +81,38 @@
       is correct. I.e. Verify that immediately after we have created an
       object that stat() will succeed and that immediately after we have
       deleted an object that stat() will fail.
-      </p></div></div><div class="refsect1" lang="en"><a name="id2478812"></a><h2>SOCKIO OPTIONS</h2><div class="refsect2" lang="en"><a name="id2478817"></a><h3>-T --tcp-options=&lt;string&gt;</h3><p>
+      </p></div></div><div class="refsect1" lang="en"><a name="id2528535"></a><h2>SOCKIO OPTIONS</h2><div class="refsect2" lang="en"><a name="id2528541"></a><h3>-T --tcp-options=&lt;string&gt;</h3><p>
       This option only apply to the "sockio" backend.
-      </p></div></div><div class="refsect1" lang="en"><a name="id2478829"></a><h2>NFS OPTIONS</h2><div class="refsect2" lang="en"><a name="id2478835"></a><h3>--server=&lt;hostname&gt;</h3><p>
+      </p></div></div><div class="refsect1" lang="en"><a name="id2528553"></a><h2>NFS OPTIONS</h2><div class="refsect2" lang="en"><a name="id2528558"></a><h3>--server=&lt;hostname&gt;</h3><p>
       This option only apply to the "nfs" backend.
       </p><p>
       This option is mandatory when the "nfs" backend is used.
       </p><p>
       This specifies the host-name or ip-address of the server to test.
-      </p></div><div class="refsect2" lang="en"><a name="id2478854"></a><h3>--export=&lt;string&gt;</h3><p>
+      </p></div><div class="refsect2" lang="en"><a name="id2528578"></a><h3>--export=&lt;string&gt;</h3><p>
       This option only apply to the "nfs" backend.
       </p><p>
       This option is mandatory when the "nfs" backend is used.
       </p><p>
       This specifies the nfs-export on the server to do i/o to.
-      </p></div><div class="refsect2" lang="en"><a name="id2478873"></a><h3>--protocol=&lt;string&gt;</h3><p>
+      </p></div><div class="refsect2" lang="en"><a name="id2528597"></a><h3>--protocol=&lt;string&gt;</h3><p>
       This option only apply to the "nfs" backend.
       </p><p>
       This specifies whether "tcp" or "udp" is to be used. Default is "tcp".
-      </p></div><div class="refsect2" lang="en"><a name="id2478888"></a><h3>--trunc-io=&lt;integer&gt;</h3><p>
+      </p></div><div class="refsect2" lang="en"><a name="id2528612"></a><h3>--trunc-io=&lt;integer&gt;</h3><p>
       This option only apply to the "nfs" backend.
       </p><p>
       Some NFS server may have limitations on how large READ/WRITE I/Os they
       accept preventing some loadfiles from running. Using this option will
       override the length specified in the loadfile and make dbench never
       issuing any READ/WRITE operations larger than this.
-      </p></div></div><div class="refsect1" lang="en"><a name="id2528498"></a><h2>SCSI OPTIONS</h2><div class="refsect2" lang="en"><a name="id2528504"></a><h3>--scsi=&lt;scsi-device&gt;</h3><p>
+      </p></div></div><div class="refsect1" lang="en"><a name="id2528631"></a><h2>SCSI OPTIONS</h2><div class="refsect2" lang="en"><a name="id2528637"></a><h3>--scsi=&lt;scsi-device&gt;</h3><p>
       This option only apply to the "scsi" backend.
       </p><p>
       This option is mandatory when the "scsi" backend is used.
       </p><p>
       This specifies the device node of the scsi-device we want to run the loadfile on. Example: --scsi=/dev/sda
-      </p></div><div class="refsect2" lang="en"><a name="id2528524"></a><h3>--allow-scsi-writes</h3><p>
-      This option only apply to the "scsi" backend.
-      </p><p>
-	By default the SCSI backend will ignore any WRITE commands in the loadfile. If you do want to performance test using real SCSI WRITE CDBs you must activate it with this argument. This WILL destroy all data on the disk!
-      </p></div></div><div class="refsect1" lang="en"><a name="id2528542"></a><h2>COPYRIGHT/LICENSE</h2><div class="literallayout"><p><br>
+      </p></div></div><div class="refsect1" lang="en"><a name="id2528659"></a><h2>COPYRIGHT/LICENSE</h2><div class="literallayout"><p><br>
 Copyright (C) Andrew Tridgell 2008<br>
 Copyright (C) Ronnie Sahlberg 2008<br>
 <br>
