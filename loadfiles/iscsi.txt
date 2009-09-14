@@ -1,0 +1,18 @@
+0.000 TESTUNITREADY 0x00
+#
+#
+# timestamp READ10 lba #xferlen rd grp sense
+#   if lba is 0xffffffff this means to use a random lba
+#
+#   rd is :
+#     3 bits     0xe0 : RDPROTECT
+#     1 bit      0x10 : DPO
+#     1 bit      0x08 : FUA
+#     1 bit      0x02 : FUA_NV
+0.000 READ10    0 2 0 0 0x00
+0.000 READ10    2 2 0 0 0x00
+0.000 READ10    4 2 0 0 0x00
+0.000 READ10    6 2 0 0 0x00
+#
+# timestamp READCAPACITY10 lba pmi(0/1) sense
+0.000 READCAPACITY10 0 0 0x00
