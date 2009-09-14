@@ -1,0 +1,671 @@
+/* 
+   Copyright (C) by Ronnie Sahlberg <ronniesahlberg@gmail.com> 2009
+   
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
+   
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, see <http://www.gnu.org/licenses/>.
+*/
+
+#define _GNU_SOURCE
+#include <stdio.h>
+#undef _GNU_SOURCE
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <stdint.h>
+#include "dbench.h"
+
+#define discard_const(ptr) ((void *)((intptr_t)(ptr)))
+
+#ifndef SG_DXFER_NONE
+#define SG_DXFER_NONE -1
+#endif
+#ifndef SG_DXFER_TO_DEV
+#define SG_DXFER_TO_DEV -2
+#endif
+#ifndef SG_DXFER_FROM_DEV
+#define SG_DXFER_FROM_DEV -3
+#endif
+
+struct iscsi_device {
+       const char *portal;
+       const char *target;
+       int s;
+       uint64_t isid;
+       uint64_t blocks;
+       uint32_t itt;
+       uint32_t cmd_sn;
+       uint32_t exp_stat_sn;
+};
+
+
+void set_nonblocking(int fd)
+{
+	unsigned v;
+	v = fcntl(fd, F_GETFL, 0);
+        fcntl(fd, F_SETFL, v | O_NONBLOCK);
+}
+
+
+struct login_param {
+       struct login_param *next;
+       char *arg;
+       char *value;
+};
+struct login_param *login_params;
+
+static void add_login_param(char *arg, char *value)
+{
+	struct login_param *new_param;
+
+	new_param = malloc(sizeof(struct login_param));
+	if (new_param == NULL) {
+		printf("Failed to allocate login param struct\n");
+		exit(10);
+	}
+	new_param->arg   = strdup(arg);
+	new_param->value = strdup(value);
+	new_param->next  = login_params;
+	login_params     = new_param;
+}
+
+static int send_iscsi_pdu(struct iscsi_device *sd, char *ish, char *data, int len)
+{
+	char *buf, *ptr;
+	ssize_t remaining, count;
+
+	/* itt */
+	ish[16] = (sd->itt>>24)&0xff;
+	ish[17] = (sd->itt>>16)&0xff;
+	ish[18] = (sd->itt>> 8)&0xff;
+	ish[19] = (sd->itt    )&0xff;
+
+	/* command sequence number */
+	ish[24]  = (sd->cmd_sn>>24)&0xff;
+	ish[25]  = (sd->cmd_sn>>16)&0xff;
+	ish[26]  = (sd->cmd_sn>> 8)&0xff;
+	ish[27]  = (sd->cmd_sn    )&0xff;
+
+	/* expected stat sequence number */
+	ish[28]  = (sd->exp_stat_sn>>24)&0xff;
+	ish[29]  = (sd->exp_stat_sn>>16)&0xff;
+	ish[30]  = (sd->exp_stat_sn>> 8)&0xff;
+	ish[31]  = (sd->exp_stat_sn    )&0xff;
+
+	buf=malloc(48+len+4);
+	if (buf == NULL) {
+		printf("Failed to allocate buffer for PDU of size %d bytes\n", 48+len);
+		return -1;
+	}
+
+	memcpy(buf, ish, 48);
+	if (len > 0) {
+		memcpy(buf+48, data, len);
+	}
+	remaining = 48 + len;
+	remaining = (remaining+3)&0xfffffc;
+	ptr = buf;
+	while(remaining > 0) {
+		count = write(sd->s, ptr, remaining);
+		if (count == -1) {
+			printf("Write to socket failed with errno %d(%s)\n", errno, strerror(errno));
+			free(buf);
+			return -1;
+		}
+		remaining-= count;
+	}
+
+	free(buf);
+	return 0;
+}
+
+static int wait_for_pdu(struct iscsi_device *sd, char *ish, char *data, unsigned int *data_size)
+{
+	char *buf, *ptr;
+	ssize_t total, remaining, count;
+	unsigned int itt, dsl;
+	uint32_t ecsn, ssn;
+
+	remaining = 48;
+	ptr = ish;
+	while (remaining > 0) {
+		count = read(sd->s, ptr, remaining);
+		if (count == -1) {
+			printf("Read from socket failed with errno %d(%s)\n", errno, strerror(errno));
+			return -1;
+		}
+		remaining-= count;
+	}
+
+	/* verify the itt */
+	itt  = (ish[16]&0xff)<<24;
+	itt |= (ish[17]&0xff)<<16;
+	itt |= (ish[18]&0xff)<< 8;
+	itt |= (ish[19]&0xff);
+	if (itt != sd->itt) {
+		printf("Wrong ITT in PDU. Expected 0x%08x, got 0x%08x\n", sd->itt, itt);
+		exit(10);
+	} 
+
+	/* data segment length */
+	dsl  = (ish[5]&0xff)<<16;
+	dsl |= (ish[6]&0xff)<<8;
+	dsl |= (ish[7]&0xff);
+
+	total = (dsl+3)&0xfffffffc;
+	remaining = total;
+	buf = malloc(remaining);
+	if (buf == NULL) {
+		printf("Failed to alloc buf to read data into\n");
+		return -1;
+	}
+	ptr = buf;
+	while (remaining > 0) {
+		count = read(sd->s, ptr, remaining);
+		if (count == -1) {
+			printf("Read from socket failed with errno %d(%s)\n", errno, strerror(errno));
+			return -1;
+		}
+		remaining-= count;
+	}
+
+	/* stat sequence number */
+	ssn  = (ish[24]&0xff)<<24;
+	ssn |= (ish[25]&0xff)<<16;
+	ssn |= (ish[26]&0xff)<<8;
+	ssn |= (ish[27]&0xff);
+	sd->exp_stat_sn = ssn+1;
+
+	/* expected command sequence number */
+	ecsn  = (ish[28]&0xff)<<24;
+	ecsn |= (ish[29]&0xff)<<16;
+	ecsn |= (ish[30]&0xff)<<8;
+	ecsn |= (ish[31]&0xff);
+	sd->cmd_sn = ecsn;
+
+	if (data_size && *data_size > 0) {
+		if (*data_size > total) {
+			*data_size = total;
+		}
+		if (data) {
+			memcpy(data, buf, *data_size);
+		}
+	}
+
+	sd->itt++;
+	free(buf);
+	return 0;
+}
+
+static int iscsi_login(struct child_struct *child, struct iscsi_device *sd)
+{
+	char name[256];
+	char alias[256];
+	char ish[48];
+	int len;
+	struct login_param *login_param;
+	char *data, *ptr;
+
+	add_login_param("SessionType", "Normal");
+	add_login_param("HeaderDigest", "None");
+	add_login_param("DataDigest", "None");
+	add_login_param("DefaultTime2Wait", "0");
+	add_login_param("DefaultTime2Retain", "0");
+	add_login_param("InitialR2T", "Yes");
+	add_login_param("ImmediateData", "Yes");
+	add_login_param("MaxBurstLength", "16776192");
+	add_login_param("FirstBurstLength", "16776192");
+	add_login_param("MaxOutstandingR2T", "1");
+	add_login_param("MaxRecvDataSegmentLength", "16776192");
+	add_login_param("DataPDUInOrder", "Yes");
+	add_login_param("MaxConnections", "1");
+	add_login_param("TargetName", sd->target);
+	sprintf(alias, "dbench:%d", child->id);
+	add_login_param("InitiatorAlias", alias);
+	sprintf(name, "iqn.2009-09.dbench:%d", child->id);
+	add_login_param("InitiatorName", name);
+
+
+	bzero(ish, 48);
+	/* opcode : LOGIN REQUEST (I) */
+	ish[0] = 0x43;
+
+	/* T CSG:op NSG:full feature */
+	ish[1] = 0x87;
+
+	/* data segment length */
+	for(login_param=login_params, len=0; login_param; login_param=login_param->next) {
+		len += strlen(login_param->arg);
+		len += 1;
+		len += strlen(login_param->value);
+		len += 1;
+	}
+	/* data segment length */
+	ish[5] = (len>>16)&0xff;
+	ish[6] = (len>> 8)&0xff;
+	ish[7] = (len    )&0xff;
+
+
+	/* isid */
+	ish[8] = (sd->isid>>40)&0xff;
+	ish[9] = (sd->isid>>32)&0xff;
+	ish[10] = (sd->isid>>24)&0xff;
+	ish[11] = (sd->isid>>16)&0xff;
+	ish[12] = (sd->isid>> 8)&0xff;
+	ish[13] = (sd->isid    )&0xff;
+	
+	data = malloc(len);
+	for(login_param=login_params, ptr=data; login_param; login_param=login_param->next) {
+		strcpy(ptr,login_param->arg);
+		ptr+=strlen(login_param->arg);
+		*ptr='=';
+		ptr++;
+		strcpy(ptr,login_param->value);
+		ptr+=strlen(login_param->value);
+		*ptr=0;
+		ptr++;
+	}
+
+	if (send_iscsi_pdu(sd, ish, data, len) != 0) {
+	   	printf("Failed to send iscsi pdu\n");
+		return -1;
+	}
+
+	if (wait_for_pdu(sd, ish, NULL, NULL) != 0) {
+	   	printf("Failed to send iscsi pdu\n");
+		return -1;
+	}
+
+
+
+	free(data);
+	return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+/* XXX merge with scsi.c */
+static int check_sense(unsigned char sc, const char *expected)
+{
+	if (strcmp(expected, "*") == 0){
+		return 1;
+	}
+	if (strncmp(expected, "0x", 2) == 0) {
+		return sc == strtol(expected, NULL, 16);
+	}
+	return 0;
+}
+static void failed(struct child_struct *child)
+{
+	child->failed = 1;
+	printf("ERROR: child %d failed at line %d\n", child->id, child->line);
+	exit(1);
+}
+
+
+
+static int do_iscsi_io(struct iscsi_device *sd, unsigned char *cdb, unsigned char cdb_size, int xfer_dir, unsigned int *data_size, char *data, unsigned char *sc)
+{
+	char ish[48];
+	int data_in_len, data_out_len;
+	char *buf;
+
+	bzero(ish, 48);
+
+	/* opcode : SCSI command */
+	ish[0] = 0x01;
+
+	/* flags */
+	ish[1] = 0x81; /* F + SIMPLE */
+	if (xfer_dir == SG_DXFER_FROM_DEV) {
+		ish[1] |= 0x40;
+		data_in_len=*data_size;
+		data_out_len=0;
+	}
+	if (xfer_dir == SG_DXFER_TO_DEV) {
+		ish[1] |= 0x20;
+
+		/* data segment length */
+		ish[5] = ((*data_size)>>16)&0xff;
+		ish[6] = ((*data_size)>> 8)&0xff;
+		ish[7] = ((*data_size)    )&0xff;
+
+		data_in_len=0;
+		data_out_len=*data_size;
+	}
+
+	/* lun */
+	ish[9] = options.iscsi_lun;
+
+	/* expected data xfer len */
+	ish[20]  = ((*data_size)>>24)&0xff;
+	ish[21]  = ((*data_size)>>16)&0xff;
+	ish[22]  = ((*data_size)>> 8)&0xff;
+	ish[23]  = ((*data_size)    )&0xff;
+
+	/* cdb */
+	memcpy(ish+32, cdb, cdb_size);
+
+	*data_size=data_out_len;
+	if (send_iscsi_pdu(sd, ish, data, *data_size) != 0) {
+	   	printf("Failed to send iscsi pdu\n");
+		return -1;
+	}
+
+	*data_size=data_in_len;
+	if (wait_for_pdu(sd, ish, data, data_size) != 0) {
+	   	printf("Failed to send iscsi pdu\n");
+		return -1;
+	}
+
+	switch (ish[0]&0x3f) {
+	case 0x21: /* SCSI response */
+		if (ish[2] != 0) {
+			printf("SCSI Response %d\n", ish[2]);
+			return -1;
+		}
+		if (ish[3] == 0) {
+			*sc = 0;
+			return 0;
+		}
+		if (ish[3] == 2) {
+			*sc = 2;
+			return 0;
+		}
+		break;
+	case 0x25: /* SCSI Data-In */
+		if (ish[1]&0x01) {
+			*sc = ish[3];
+			return 0;
+		}
+		printf("Got Data-IN without S bit. Exit\n");
+		return -1;
+		break;
+	default:
+		printf("got unsupported PDU:0x%02x\n", ish[0]&0x3f);
+	}
+
+	*sc = 0;
+	return 0;
+}
+
+static void iscsi_testunitready(struct dbench_op *op)
+{
+	struct iscsi_device *sd;
+	unsigned char cdb[]={0,0,0,0,0,0};
+	int res;
+	unsigned char sc;
+	unsigned int data_size=0;
+
+	sd = op->child->private;
+
+	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_NONE, &data_size, NULL, &sc);
+	if(res){
+		printf("SCSI_IO failed\n");
+		failed(op->child);
+	}
+	if (!check_sense(sc, op->status)) {
+		printf("[%d] TESTUNITREADY \"%s\" failed (0x%02x) - expected %s\n", 
+		       op->child->line, op->fname, sc, op->status);
+		failed(op->child);
+	}
+	return;
+}
+
+static void iscsi_read10(struct dbench_op *op)
+{
+	struct iscsi_device *sd=op->child->private;
+	unsigned char cdb[]={0x28,0,0,0,0,0,0,0,0,0};
+	int res;
+	uint32_t lba = op->params[0];
+	uint32_t xferlen = op->params[1];
+	int rd = op->params[2];
+	int grp = op->params[3];
+	unsigned int data_size=1024*1024;
+	char data[data_size];
+	unsigned char sc;
+
+	if (lba == 0xffffffff) {
+		lba = random();
+		lba = (lba / xferlen) * xferlen;
+	}
+
+	/* make sure we wrap properly instead of failing if the loadfile
+	   is bigger than our device
+	*/
+	if (sd->blocks <= lba) {
+		lba = lba%sd->blocks;
+	}
+	if (sd->blocks <= lba+xferlen) {
+		xferlen=1;
+	}
+
+	cdb[1] = rd;
+
+	cdb[2] = (lba>>24)&0xff;
+	cdb[3] = (lba>>16)&0xff;
+	cdb[4] = (lba>> 8)&0xff;
+	cdb[5] = (lba    )&0xff;
+
+	cdb[6] = grp&0x1f;
+
+	cdb[7] = (xferlen>>8)&0xff;
+	cdb[8] = xferlen&0xff;
+	data_size = xferlen*512;
+
+	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_FROM_DEV, &data_size, data, &sc);
+	if(res){
+		printf("SCSI_IO failed\n");
+		failed(op->child);
+	}
+	if (!check_sense(sc, op->status)) {
+		printf("[%d] READ10 \"%s\" failed (0x%02x) - expected %s\n", 
+		       op->child->line, op->fname, sc, op->status);
+		failed(op->child);
+	}
+
+	op->child->bytes += xferlen*512;
+}
+
+
+
+static void local_iscsi_readcapacity10(struct dbench_op *op, uint64_t *blocks)
+{
+	struct iscsi_device *sd;
+	unsigned char cdb[]={0x25,0,0,0,0,0,0,0,0,0};
+	int res;
+	int lba = op->params[0];
+	int pmi = op->params[1];
+	unsigned int data_size=8;
+	char data[data_size];
+	unsigned char sc;
+
+	cdb[2] = (lba>>24)&0xff;
+	cdb[3] = (lba>>16)&0xff;
+	cdb[4] = (lba>> 8)&0xff;
+	cdb[5] = (lba    )&0xff;
+
+	cdb[8] = (pmi?1:0);
+
+	sd = op->child->private;
+
+	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_FROM_DEV, &data_size, data, &sc);
+	if(res){
+		printf("SCSI_IO failed\n");
+		failed(op->child);
+	}
+	if (!check_sense(sc, op->status)) {
+		printf("[%d] READCAPACITY10 \"%s\" failed (0x%02x) - expected %s\n", 
+		       op->child->line, op->fname, sc, op->status);
+		failed(op->child);
+	}
+
+	if (blocks) {
+		*blocks  = (data[0]&0xff)<<24;
+		*blocks |= (data[1]&0xff)<<16;
+		*blocks |= (data[2]&0xff)<<8;
+		*blocks |= (data[3]&0xff);
+	}
+}
+
+static void iscsi_readcapacity10(struct dbench_op *op)
+{
+	return local_iscsi_readcapacity10(op, NULL);
+}
+
+static void iscsi_setup(struct child_struct *child)
+{
+	struct iscsi_device *sd;
+	struct sockaddr_in sin;
+	struct dbench_op fake_op;
+
+	sd = malloc(sizeof(struct iscsi_device));
+	if (sd == NULL) {
+		printf("Failed to allocate iscsi device structure\n");
+		exit(10);
+	}
+	child->private=sd;
+
+	sd->portal=options.iscsi_portal;
+	sd->target=options.iscsi_target;
+	sd->isid  =0x0000800000000000ULL | child->id; 
+	sd->s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sd->s == -1) {
+		printf("could not open socket() errno:%d(%s)\n", errno, strerror(errno));
+		exit(10);
+	}
+
+	sin.sin_family      = AF_INET;
+	sin.sin_port        = htons(3260);
+	if (inet_pton(AF_INET, sd->portal, &sin.sin_addr) != 1) {
+		printf("Failed to convert \"%s\" into an address\n", sd->portal);
+		exit(10);
+	}
+
+	if (connect(sd->s, (struct sockaddr *)&sin, sizeof(sin)) != 0) {
+		printf("connect failed with errno:%d(%s)\n", errno, strerror(errno));
+		exit(10);
+	}
+
+	sd->itt=0x000a0000;
+	sd->cmd_sn=0;
+	sd->exp_stat_sn=0;
+	if (iscsi_login(child, sd) != 0) {
+		printf("Failed to log in to target.\n");
+		exit(10);
+	}
+
+	fake_op.child=child;
+	fake_op.status="*";
+	iscsi_testunitready(&fake_op);
+
+	fake_op.params[0]=0;
+	fake_op.params[1]=0;
+	fake_op.status="*";
+	local_iscsi_readcapacity10(&fake_op, &sd->blocks);
+}
+
+       
+static void iscsi_cleanup(struct child_struct *child)
+{
+	struct iscsi_device *sd;
+
+	sd=child->private;
+	close(sd->s);
+	sd->s=-1;
+	free(sd);
+}
+
+static int iscsi_init(void)
+{
+	struct iscsi_device *sd;
+	struct sockaddr_in sin;
+	struct dbench_op fake_op;
+	struct child_struct child;
+
+	sd = malloc(sizeof(struct iscsi_device));
+	if (sd == NULL) {
+		printf("Failed to allocate iscsi device structure\n");
+		return 1;
+	}
+	child.private=sd;
+	child.id=99999;
+
+	sd->portal=options.iscsi_portal;
+	sd->target=options.iscsi_target;
+	sd->isid  =0x0000800000000000ULL | child.id; 
+	sd->s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sd->s == -1) {
+		printf("could not open socket() errno:%d(%s)\n", errno, strerror(errno));
+		return 1;
+	}
+
+	sin.sin_family      = AF_INET;
+	sin.sin_port        = htons(3260);
+	if (inet_pton(AF_INET, sd->portal, &sin.sin_addr) != 1) {
+		printf("Failed to convert \"%s\" into an address\n", sd->portal);
+		return 1;
+	}
+
+	if (connect(sd->s, (struct sockaddr *)&sin, sizeof(sin)) != 0) {
+		printf("connect failed with errno:%d(%s)\n", errno, strerror(errno));
+		return 1;
+	}
+
+	sd->itt=0x000a0000;
+	sd->cmd_sn=0;
+	sd->exp_stat_sn=0;
+	if (iscsi_login(&child, sd) != 0) {
+		printf("Failed to log in to target.\n");
+		return 1;
+	}
+
+	fake_op.child=&child;
+	fake_op.status="*";
+	iscsi_testunitready(&fake_op);
+
+	fake_op.params[0]=0;
+	fake_op.params[1]=0;
+	fake_op.status="*";
+	local_iscsi_readcapacity10(&fake_op, &sd->blocks);
+
+	close(sd->s);
+	free(sd);
+
+	return 0;
+}
+
+
+static struct backend_op ops[] = {
+	{ "TESTUNITREADY",    iscsi_testunitready },
+	{ "READ10",           iscsi_read10 },
+	{ "READCAPACITY10",   iscsi_readcapacity10 },
+	{ NULL, NULL}
+};
+
+struct nb_operations iscsi_ops = {
+	.backend_name = "iscsibench",
+	.init	      = iscsi_init,
+	.setup 	      = iscsi_setup,
+	.cleanup      = iscsi_cleanup,
+	.ops          = ops
+};
+
+

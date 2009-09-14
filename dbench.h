@@ -154,6 +154,9 @@ struct options {
 	int allow_scsi_writes;
 	int trunc_io;
 	const char *scsi_dev;
+	const char *iscsi_portal;
+	const char *iscsi_target;
+	int iscsi_lun;
 };
 
 
@@ -174,6 +177,7 @@ struct backend_op {
 struct nb_operations {
 	const char *backend_name;	
 	struct backend_op *ops;
+	int (*init)(void);
 	void (*setup)(struct child_struct *child);
 	void (*cleanup)(struct child_struct *child);
 };

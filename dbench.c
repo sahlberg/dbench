@@ -397,6 +397,12 @@ static void process_opts(int argc, const char **argv)
 		  "scsi device", NULL },
 		{ "allow-scsi-writes", 0, POPT_ARG_NONE, &options.allow_scsi_writes, 0,
 		  "Allow SCSI write command to the device", NULL},
+		{ "iscsi-lun", 0, POPT_ARG_INT, &options.iscsi_lun, 0, 
+		  "iSCSI LUN to send I/O to", NULL },
+		{ "iscsi-portal",  0, POPT_ARG_STRING, &options.iscsi_portal, 0, 
+		  "ip address of iscsi target", NULL },
+		{ "iscsi-target",  0, POPT_ARG_STRING, &options.iscsi_target, 0, 
+		  "iscsi IQN name of target", NULL },
 		{ "warmup", 0, POPT_ARG_INT, &options.warmup, 0, 
 		  "How meny seconds of warmup to run", NULL },
 		POPT_TABLEEND
@@ -463,6 +469,8 @@ static void process_opts(int argc, const char **argv)
 		options.backend = "nfs";
 	} else if (strstr(argv[0], "scsibench")) {
 		options.backend = "scsi";
+	} else if (strstr(argv[0], "iscsibench")) {
+		options.backend = "iscsi";
 	}
 
 	process_opts(argc, argv);
@@ -481,6 +489,9 @@ static void process_opts(int argc, const char **argv)
 		extern struct nb_operations scsi_ops;
 		nb_ops = &scsi_ops;
 #endif /* HAVE_LINUX_SCSI_SG */
+	} else if (strcmp(options.backend, "iscsi") == 0) {
+		extern struct nb_operations iscsi_ops;
+		nb_ops = &iscsi_ops;
 	} else {
 		printf("Unknown backend '%s'\n", options.backend);
 		exit(1);
@@ -488,6 +499,13 @@ static void process_opts(int argc, const char **argv)
 
 	if (options.warmup == -1) {
 		options.warmup = options.timelimit / 5;
+	}
+
+	if (nb_ops->init) {
+		if (nb_ops->init() != 0) {
+			printf("Failed to initialize dbench\n");
+			exit(10);
+		}
 	}
 
         printf("Running for %d seconds with load '%s' and minimum warmup %d secs\n", 
