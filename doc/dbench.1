@@ -1,11 +1,11 @@
 .\"     Title: dbench
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
-.\"      Date: 10/17/2008
+.\"      Date: 09/15/2009
 .\"    Manual: 
 .\"    Source: 
 .\"
-.TH "DBENCH" "1" "10/17/2008" "" ""
+.TH "DBENCH" "1" "09/15/2009" "" ""
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
@@ -16,7 +16,7 @@ dbench - a benchmark tool
 .HP 29
 \fBdbench [OPTIONS] <num\-procs>\fR
 .HP 7
-\fBdbench\fR [\-B\ \-\-backend=<dbench\ backend>] [\-c\ \-\-loadfile=<filename>] [\-D\ \-\-directory=<string>] [\-F\ \-\-fsync] [\-R\ \-\-target\-rate=<double>] [\-s\ \-\-sync] [\-S\ \-\-sync\-dir] [\-t\ \-\-timelimit=<integer>] [\-T\ \-\-tcp\-options=<string>] [\-\-run\-once] [\-\-fake\-io] [\-\-scsi=<scsi\-device>] [\-\-server=<hostname>] [\-\-export=<string>] [\-\-protocol=<string>] [\-\-clients\-per\-process=<integer>] [\-\-trunc\-io=<integer>] [\-\-stat\-check] [\-\-skip\-cleanup] [\-\-per\-client\-results] [\-?\ \-\-help] [\-\-usage]
+\fBdbench\fR [\-B\ \-\-backend=<dbench\ backend>] [\-c\ \-\-loadfile=<filename>] [\-D\ \-\-directory=<string>] [\-F\ \-\-fsync] [\-R\ \-\-target\-rate=<double>] [\-s\ \-\-sync] [\-S\ \-\-sync\-dir] [\-t\ \-\-timelimit=<integer>] [\-T\ \-\-tcp\-options=<string>] [\-\-run\-once] [\-\-fake\-io] [\-\-scsi=<scsi\-device>] [\-\-server=<hostname>] [\-\-export=<string>] [\-\-protocol=<string>] [\-\-clients\-per\-process=<integer>] [\-\-trunc\-io=<integer>] [\-\-stat\-check] [\-\-skip\-cleanup] [\-\-per\-client\-results] [\-\-iscsi\-portal=<ip\-address>] [\-\-iscsi\-target=<iqn\ name>] [\-\-iscsi\-lun=<LUN>] [\-?\ \-\-help] [\-\-usage]
 .SH "DESCRIPTION"
 .PP
 dbench is a utility to benchmark a system based on client workload profiles\.
@@ -121,6 +121,24 @@ This option only apply to the "scsi" backend\.
 This option is mandatory when the "scsi" backend is used\.
 .PP
 This specifies the device node of the scsi\-device we want to run the loadfile on\. Example: \-\-scsi=/dev/sda
+.SH "ISCSI OPTIONS"
+.PP
+Dbench contains a primitive iSCSI initiator, allowing it to perform I/O to some iSCSI targets\.
+.SS "\-\-iscsi\-portal=<ip\-address>"
+.PP
+This option is mandatory when the "iscsi" backend is used\.
+.PP
+This specifies the host\-name or ip\-address of the target to test\.
+.SS "\-\-iscsi\-target=<iqn name>"
+.PP
+This option is mandatory when the "iscsi" backend is used\.
+.PP
+This specifies the iscsi iqn name of the target to test\.
+.SS "\-\-iscsi\-lun=<LUN>"
+.PP
+This option is mandatory when the "iscsi" backend is used\.
+.PP
+This specifies the LUN of the target to test\.
 .SH "COPYRIGHT/LICENSE"
 .sp
 .RS 4
