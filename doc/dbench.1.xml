@@ -70,7 +70,7 @@
       </para>
 
       <para>
-      There are currently four types of backends : "fileio", "sockio", "nfs" and "scsi". The default is "fileio" which uses a CIFS style loadfile.
+      There are currently five types of backends : "fileio", "sockio", "nfs", "scsi"and "iscsi". The default is "fileio" which uses a CIFS style loadfile.
       </para>
     </refsect2>
 
@@ -309,6 +309,10 @@
     </para>
     <refsect2><title>--iscsi-portal=&lt;ip-address&gt;</title>
       <para>
+      This option only apply to the "iscsi" backend.
+      </para>
+
+      <para>
       This option is mandatory when the "iscsi" backend is used.
       </para>
 
@@ -319,6 +323,10 @@
 
     <refsect2><title>--iscsi-target=&lt;iqn name&gt;</title>
       <para>
+      This option only apply to the "iscsi" backend.
+      </para>
+
+      <para>
       This option is mandatory when the "iscsi" backend is used.
       </para>
 
@@ -328,6 +336,10 @@
     </refsect2>
 
     <refsect2><title>--iscsi-lun=&lt;LUN&gt;</title>
+      <para>
+      This option only apply to the "iscsi" backend.
+      </para>
+
       <para>
       This option is mandatory when the "iscsi" backend is used.
       </para>

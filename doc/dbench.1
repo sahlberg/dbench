@@ -25,7 +25,7 @@ dbench is a utility to benchmark a system based on client workload profiles\.
 .PP
 The backend type specifies which kind of commandset and what kind of tests that dbench will perform\. The backend type specifies which kind of loadfile that can be used\.
 .PP
-There are currently four types of backends : "fileio", "sockio", "nfs" and "scsi"\. The default is "fileio" which uses a CIFS style loadfile\.
+There are currently five types of backends : "fileio", "sockio", "nfs", "scsi"and "iscsi"\. The default is "fileio" which uses a CIFS style loadfile\.
 .SS "\-c \-\-loadfile=<filename>"
 .PP
 This specifies the name of the loadfile to use\. The loadfile describes the sequence and timing of operations that dbench will issue\.
@@ -126,15 +126,21 @@ This specifies the device node of the scsi\-device we want to run the loadfile o
 Dbench contains a primitive iSCSI initiator, allowing it to perform I/O to some iSCSI targets\.
 .SS "\-\-iscsi\-portal=<ip\-address>"
 .PP
+This option only apply to the "iscsi" backend\.
+.PP
 This option is mandatory when the "iscsi" backend is used\.
 .PP
 This specifies the host\-name or ip\-address of the target to test\.
 .SS "\-\-iscsi\-target=<iqn name>"
 .PP
+This option only apply to the "iscsi" backend\.
+.PP
 This option is mandatory when the "iscsi" backend is used\.
 .PP
 This specifies the iscsi iqn name of the target to test\.
 .SS "\-\-iscsi\-lun=<LUN>"
+.PP
+This option only apply to the "iscsi" backend\.
 .PP
 This option is mandatory when the "iscsi" backend is used\.
 .PP
