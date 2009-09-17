@@ -47,6 +47,7 @@ struct options options = {
 	.run_once            = 0,
 	.allow_scsi_writes   = 0,
 	.trunc_io            = 0,
+	.iscsi_lun           = 3260,
 };
 
 static struct timeval tv_start;
@@ -401,6 +402,8 @@ static void process_opts(int argc, const char **argv)
 		  "iSCSI LUN to send I/O to", NULL },
 		{ "iscsi-portal",  0, POPT_ARG_STRING, &options.iscsi_portal, 0, 
 		  "ip address of iscsi target", NULL },
+		{ "iscsi-port", 0, POPT_ARG_INT, &options.iscsi_port, 0, 
+		  "iSCSI tcp port to connect to", NULL },
 		{ "iscsi-target",  0, POPT_ARG_STRING, &options.iscsi_target, 0, 
 		  "iscsi IQN name of target", NULL },
 		{ "warmup", 0, POPT_ARG_INT, &options.warmup, 0, 

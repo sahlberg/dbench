@@ -157,6 +157,7 @@ struct options {
 	const char *iscsi_portal;
 	const char *iscsi_target;
 	int iscsi_lun;
+	int iscsi_port;
 };
 
 

@@ -553,7 +553,7 @@ static void iscsi_setup(struct child_struct *child)
 	}
 
 	sin.sin_family      = AF_INET;
-	sin.sin_port        = htons(3260);
+	sin.sin_port        = htons(options.iscsi_port);
 	if (inet_pton(AF_INET, sd->portal, &sin.sin_addr) != 1) {
 		printf("Failed to convert \"%s\" into an address\n", sd->portal);
 		exit(10);
@@ -618,7 +618,7 @@ static int iscsi_init(void)
 	}
 
 	sin.sin_family      = AF_INET;
-	sin.sin_port        = htons(3260);
+	sin.sin_port        = htons(options.iscsi_port);
 	if (inet_pton(AF_INET, sd->portal, &sin.sin_addr) != 1) {
 		printf("Failed to convert \"%s\" into an address\n", sd->portal);
 		return 1;
