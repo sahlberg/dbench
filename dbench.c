@@ -47,7 +47,8 @@ struct options options = {
 	.run_once            = 0,
 	.allow_scsi_writes   = 0,
 	.trunc_io            = 0,
-	.iscsi_lun           = 3260,
+	.iscsi_lun           = 1,
+	.iscsi_port          = 3260,
 };
 
 static struct timeval tv_start;
