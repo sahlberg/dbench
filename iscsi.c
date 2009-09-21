@@ -193,7 +193,7 @@ static int wait_for_pdu(struct iscsi_device *sd, char *ish, char *data, unsigned
 	sd->cmd_sn = ecsn;
 
 	if (data_size && *data_size > 0) {
-		if (*data_size > total) {
+		if ((ssize_t)*data_size > total) {
 			*data_size = total;
 		}
 		if (data) {
@@ -228,7 +228,7 @@ static int iscsi_login(struct child_struct *child, struct iscsi_device *sd)
 	add_login_param("MaxRecvDataSegmentLength", "16776192");
 	add_login_param("DataPDUInOrder", "Yes");
 	add_login_param("MaxConnections", "1");
-	add_login_param("TargetName", sd->target);
+	add_login_param("TargetName", discard_const(sd->target));
 	sprintf(alias, "dbench:%d", child->id);
 	add_login_param("InitiatorAlias", alias);
 	sprintf(name, "iqn.2009-09.dbench:%d", child->id);
@@ -324,8 +324,7 @@ static void failed(struct child_struct *child)
 static int do_iscsi_io(struct iscsi_device *sd, unsigned char *cdb, unsigned char cdb_size, int xfer_dir, unsigned int *data_size, char *data, unsigned char *sc)
 {
 	char ish[48];
-	int data_in_len, data_out_len;
-	char *buf;
+	int data_in_len=0, data_out_len=0;
 
 	bzero(ish, 48);
 
@@ -336,7 +335,7 @@ static int do_iscsi_io(struct iscsi_device *sd, unsigned char *cdb, unsigned cha
 	ish[1] = 0x81; /* F + SIMPLE */
 	if (xfer_dir == SG_DXFER_FROM_DEV) {
 		ish[1] |= 0x40;
-		data_in_len=*data_size;
+		data_in_len= *data_size;
 		data_out_len=0;
 	}
 	if (xfer_dir == SG_DXFER_TO_DEV) {
@@ -442,10 +441,7 @@ static void iscsi_read10(struct dbench_op *op)
 	char data[data_size];
 	unsigned char sc;
 
-	if (lba == 0xffffffff) {
-		lba = random();
-		lba = (lba / xferlen) * xferlen;
-	}
+	lba = (lba / xferlen) * xferlen;
 
 	/* make sure we wrap properly instead of failing if the loadfile
 	   is bigger than our device

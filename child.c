@@ -108,7 +108,11 @@ static void child_op(struct child_struct *child, const char *opname,
 	op.fname2 = fname2;
 	op.status = status;
 	for (i=0;i<sizeof(op.params)/sizeof(op.params[0]);i++) {
-		op.params[i] = params[i]?ival(params[i]):0;
+		if (!strcmp(params[i], "*")) {
+			op.params[i] = random();
+		} else {
+			op.params[i] = params[i]?ival(params[i]):0;
+		}
 	}
 
 	if (strcasecmp(op.op, "Sleep") == 0) {
