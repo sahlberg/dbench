@@ -1,0 +1,136 @@
+<!--#set var="TITLE" value="NFS loadfiles" -->
+<!--#include virtual="header.html" -->
+
+<H1 align="center">iSCSI support</h1>
+<p>
+DBENCH has a tiny iSCSI initiator built in, which allow it to log in to a iSCSI target and generate i/o.
+</p>
+<p>
+The iSCSI backend to DBENCH is activated with '-B iscsi'.
+</p>
+
+<H2>iSCSI specific arguments</h2>
+<H3>--iscsi-target=&lt;iqn-name&gt;</h3>
+<p>
+This argument specifies the iqn name of the target to connect to.
+</p>
+<H3>--iscsi-portal=&lt;ip address&gt;</h3>
+<p>
+This is the ip address of the target.
+</p>
+<H3>--iscsi-port=&lt;port&gt;</h3>
+<p>
+This is the port of the target. This defaults to 3260 if not specified.
+</p>
+<H3>--iscsi-lun=&lt;lun&gt;</h3>
+<p>
+This specifies which LUN to perform I/O to.
+</p>
+
+
+<H2>iSCSI loadfiles</h2>
+<p>
+The iSCSI loadfiles supports a small subset of all SCSI commands.
+The current list of supported commands, their flags and their use can always
+be found in the file <a href="/loadfiles/iscsi.txt">./loadfiles/iscsi.txt</a>
+</p>
+
+
+<H3>Example loadfile 1</h3>
+<pre>
+# timestamp TESTUNITREADY sense
+0.000 TESTUNITREADY 0x00
+#
+#
+# timestamp READ10 lba #xferlen rd grp sense
+#   if lba is * this means to use a random lba
+#
+#   rd is :
+#     3 bits     0xe0 : RDPROTECT
+#     1 bit      0x10 : DPO
+#     1 bit      0x08 : FUA
+#     1 bit      0x02 : FUA_NV
+0.000 READ10    0 2 0 0 0x00
+0.000 READ10    2 2 0 0 0x00
+0.000 READ10    4 2 0 0 0x00
+0.000 READ10    6 2 0 0 0x00
+0.000 READ10    * 2 0 0 0x00
+#
+# timestamp READCAPACITY10 lba pmi(0/1) sense
+0.000 READCAPACITY10 0 0 0x00
+</pre>
+
+<H3>Example loadfile 2</h3>
+<p>
+This simple loadfile just reads the same 4kb from the target over and over.
+This will result in serving data straight out of page-cache and can be used
+to test how fast the target can push data from page-cache out across the network.
+</p>
+<pre>
+0.000 READ10 0 4 0 0 0x00
+</pre>
+
+<H3>Example loadfile 3</h3>
+<p>
+This simple loadfile reads random 4kb from the target over and over.
+For a large LUN that can not all fit in page-cache, this would almost always generate a cache-miss and can test how fast the target can read data off stable-storeage and push it across the network. This can also measure how many threads of i/o the target has when accessing stable-storage.
+</p>
+<pre>
+0.000 READ10 * 4 0 0 0x00
+</pre>
+
+<H3>Example loadfile 3</h3>
+<p>
+Throughput test. Read the same 1Mbyte from page-cache over and over. To measure how much data the target can push to the network under the most favorable conditions.
+</p>
+<pre>
+0.000 READ10 0 2048 0 0 0x00
+</pre>
+
+
+<H2>Examples</h2>
+
+<H3>Example 1</h3>
+<p>
+Run DBENCH with 1 thread of execution and run the loadfile only once. Terminate the run once the end of the loadfile has been reached.
+</p>
+<pre>
+dbench -B iscsi --loadfile=iscsi.txt --iscsi-lun=1 --iscsi-portal=10.0.0.71 --iscsi-port=3260 --iscsi-target=iqn.2007-03:mptest --warmup=0  --run-once 1
+</pre>
+
+<H3>Example 2</h3>
+<p>
+Run DBENCH for 10 seconds with 5 separate threads of execution. When the end of the loadfile is reached, go back to the start and execute it again until time runs out.
+</p>
+<pre>
+dbench -B iscsi --loadfile=iscsi.txt --iscsi-lun=1 --iscsi-portal=10.0.0.71 --iscsi-port=3260 --iscsi-target=iqn.2007-03:mptest --warmup=0  --timelimit=10 5
+</pre>
+
+<H2>Example output</h2>
+<pre>
+Running for 5 seconds with load 'iscsi.txt' and minimum warmup 0 secs
+0 of 10 processes prepared for launch   0 sec
+10 of 10 processes prepared for launch   0 sec
+releasing clients
+   0         2     0.00 MB/sec  warmup   1 sec  latency 990.887 ms
+   0         2     0.00 MB/sec  warmup   2 sec  latency 1990.978 ms
+   1         2     1.75 MB/sec  warmup   3 sec  latency 2991.106 ms
+   2         2     2.62 MB/sec  warmup   4 sec  latency 3991.251 ms
+   5         3     6.29 MB/sec  warmup   5 sec  latency 4991.359 ms
+   7         4     6.99 MB/sec  warmup   6 sec  latency 5991.386 ms
+   8         5     7.49 MB/sec  warmup   7 sec  latency 6991.471 ms
+   9         5     7.86 MB/sec  warmup   8 sec  latency 7991.582 ms
+   9         5     6.99 MB/sec  warmup   9 sec  latency 8991.672 ms
+  10  cleanup  10 sec
+   7  cleanup  11 sec
+   2  cleanup  12 sec
+   0  cleanup  12 sec
+
+ Operation                Count    AvgLat    MaxLat
+ --------------------------------------------------
+ READ10                      25  4495.180  9349.097
+</pre>
+
+
+<!--#include virtual="footer.html" -->
+
