@@ -1,11 +1,11 @@
 .\"     Title: dbench
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
-.\"      Date: 09/15/2009
+.\"      Date: 09/26/2009
 .\"    Manual: 
 .\"    Source: 
 .\"
-.TH "DBENCH" "1" "09/15/2009" "" ""
+.TH "DBENCH" "1" "09/26/2009" "" ""
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
@@ -16,7 +16,7 @@ dbench - a benchmark tool
 .HP 29
 \fBdbench [OPTIONS] <num\-procs>\fR
 .HP 7
-\fBdbench\fR [\-B\ \-\-backend=<dbench\ backend>] [\-c\ \-\-loadfile=<filename>] [\-D\ \-\-directory=<string>] [\-F\ \-\-fsync] [\-R\ \-\-target\-rate=<double>] [\-s\ \-\-sync] [\-S\ \-\-sync\-dir] [\-t\ \-\-timelimit=<integer>] [\-T\ \-\-tcp\-options=<string>] [\-\-run\-once] [\-\-fake\-io] [\-\-scsi=<scsi\-device>] [\-\-server=<hostname>] [\-\-export=<string>] [\-\-protocol=<string>] [\-\-clients\-per\-process=<integer>] [\-\-trunc\-io=<integer>] [\-\-stat\-check] [\-\-skip\-cleanup] [\-\-per\-client\-results] [\-\-iscsi\-portal=<ip\-address>] [\-\-iscsi\-target=<iqn\ name>] [\-\-iscsi\-lun=<LUN>] [\-?\ \-\-help] [\-\-usage]
+\fBdbench\fR [\-B\ \-\-backend=<dbench\ backend>] [\-c\ \-\-loadfile=<filename>] [\-D\ \-\-directory=<string>] [\-F\ \-\-fsync] [\-R\ \-\-target\-rate=<double>] [\-s\ \-\-sync] [\-S\ \-\-sync\-dir] [\-t\ \-\-timelimit=<integer>] [\-T\ \-\-tcp\-options=<string>] [\-\-run\-once] [\-\-fake\-io] [\-\-scsi=<scsi\-device>] [\-\-server=<hostname>] [\-\-export=<string>] [\-\-protocol=<string>] [\-\-clients\-per\-process=<integer>] [\-\-trunc\-io=<integer>] [\-\-stat\-check] [\-\-skip\-cleanup] [\-\-per\-client\-results] [\-\-iscsi\-portal=<ip\-address>] [\-\-iscsi\-port=<port>] [\-\-iscsi\-target=<iqn\ name>] [\-\-iscsi\-lun=<LUN>] [\-?\ \-\-help] [\-\-usage]
 .SH "DESCRIPTION"
 .PP
 dbench is a utility to benchmark a system based on client workload profiles\.
@@ -131,6 +131,13 @@ This option only apply to the "iscsi" backend\.
 This option is mandatory when the "iscsi" backend is used\.
 .PP
 This specifies the host\-name or ip\-address of the target to test\.
+.SS "\-\-iscsi\-port=<tcp port>"
+.PP
+This option only apply to the "iscsi" backend\.
+.PP
+This option is optional when the "iscsi" backend is used\. If not used the tcp port defaults to 3260\.
+.PP
+This specifies the tcp port to connect to on the target\.
 .SS "\-\-iscsi\-target=<iqn name>"
 .PP
 This option only apply to the "iscsi" backend\.

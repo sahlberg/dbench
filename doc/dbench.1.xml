@@ -41,6 +41,7 @@
 		<arg choice="opt">--skip-cleanup</arg>
 		<arg choice="opt">--per-client-results</arg>
 		<arg choice="opt">--iscsi-portal=&lt;ip-address&gt;</arg>
+		<arg choice="opt">--iscsi-port=&lt;port&gt;</arg>
 		<arg choice="opt">--iscsi-target=&lt;iqn name&gt;</arg>
 		<arg choice="opt">--iscsi-lun=&lt;LUN&gt;</arg>
 
@@ -318,6 +319,20 @@
 
       <para>
       This specifies the host-name or ip-address of the target to test.
+      </para>
+    </refsect2>
+    <refsect2><title>--iscsi-port=&lt;tcp port&gt;</title>
+      <para>
+      This option only apply to the "iscsi" backend.
+      </para>
+
+      <para>
+      This option is optional when the "iscsi" backend is used.
+      If not used the tcp port defaults to 3260.
+      </para>
+
+      <para>
+      This specifies the tcp port to connect to on the target.
       </para>
     </refsect2>
 
