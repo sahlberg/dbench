@@ -144,6 +144,7 @@ static int wait_for_pdu(struct iscsi_device *sd, char *ish, char *data, unsigned
 			return -1;
 		}
 		remaining-= count;
+		ptr += count;
 	}
 
 	/* verify the itt */
@@ -171,11 +172,13 @@ static int wait_for_pdu(struct iscsi_device *sd, char *ish, char *data, unsigned
 	ptr = buf;
 	while (remaining > 0) {
 		count = read(sd->s, ptr, remaining);
+
 		if (count == -1) {
 			printf("Read from socket failed with errno %d(%s)\n", errno, strerror(errno));
 			return -1;
 		}
 		remaining-= count;
+		ptr += count;
 	}
 
 	/* stat sequence number */
@@ -192,16 +195,27 @@ static int wait_for_pdu(struct iscsi_device *sd, char *ish, char *data, unsigned
 	ecsn |= (ish[31]&0xff);
 	sd->cmd_sn = ecsn;
 
-	if (data_size && *data_size > 0) {
-		if ((ssize_t)*data_size > total) {
-			*data_size = total;
-		}
-		if (data) {
-			memcpy(data, buf, *data_size);
+	if (ish[0]&0x3f) {
+		unsigned long int buffer_offset;
+
+		buffer_offset  = (ish[40]&0xff)<<24;
+		buffer_offset |= (ish[41]&0xff)<<16;
+		buffer_offset |= (ish[42]&0xff)<<8;
+		buffer_offset |= (ish[43]&0xff);
+
+		if (buffer_offset == 0) {
+			/* we only return the data from the first data-in pdu */
+			if (data_size && *data_size > 0) {
+				if ((ssize_t)*data_size > total) {
+					*data_size = total;
+				}
+				if (data) {
+					memcpy(data, buf, *data_size);
+				}
+			}
 		}
 	}
 
-	sd->itt++;
 	free(buf);
 	return 0;
 }
@@ -368,9 +382,10 @@ static int do_iscsi_io(struct iscsi_device *sd, unsigned char *cdb, unsigned cha
 		return -1;
 	}
 
+need_more_data:
 	*data_size=data_in_len;
 	if (wait_for_pdu(sd, ish, data, data_size) != 0) {
-	   	printf("Failed to send iscsi pdu\n");
+	   	printf("Failed to receive iscsi pdu\n");
 		return -1;
 	}
 
@@ -378,30 +393,35 @@ static int do_iscsi_io(struct iscsi_device *sd, unsigned char *cdb, unsigned cha
 	case 0x21: /* SCSI response */
 		if (ish[2] != 0) {
 			printf("SCSI Response %d\n", ish[2]);
+			sd->itt++;
 			return -1;
 		}
 		if (ish[3] == 0) {
 			*sc = 0;
+			sd->itt++;
 			return 0;
 		}
 		if (ish[3] == 2) {
 			*sc = 2;
+			sd->itt++;
 			return 0;
 		}
 		break;
 	case 0x25: /* SCSI Data-In */
 		if (ish[1]&0x01) {
 			*sc = ish[3];
+			sd->itt++;
 			return 0;
 		}
-		printf("Got Data-IN without S bit. Exit\n");
-		return -1;
+		/* no sbit, it means there is more data to read */
+		goto need_more_data;
 		break;
 	default:
 		printf("got unsupported PDU:0x%02x\n", ish[0]&0x3f);
 	}
 
 	*sc = 0;
+	sd->itt++;
 	return 0;
 }
 
