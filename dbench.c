@@ -352,7 +352,7 @@ static void process_opts(int argc, const char **argv)
 	struct poptOption popt_options[] = {
 		POPT_AUTOHELP
 		{ "backend", 'B', POPT_ARG_STRING, &options.backend, 0, 
-		  "dbench backend (fileio, sockio, nfs)", "string" },
+		  "dbench backend (fileio, sockio, nfs, scsi, iscsi)", "string" },
 		{ "timelimit", 't', POPT_ARG_INT, &options.timelimit, 0, 
 		  "timelimit", "integer" },
 		{ "loadfile",  'c', POPT_ARG_STRING, &options.loadfile, 0, 
@@ -408,7 +408,7 @@ static void process_opts(int argc, const char **argv)
 		{ "iscsi-target",  0, POPT_ARG_STRING, &options.iscsi_target, 0, 
 		  "iscsi IQN name of target", NULL },
 		{ "warmup", 0, POPT_ARG_INT, &options.warmup, 0, 
-		  "How meny seconds of warmup to run", NULL },
+		  "How many seconds of warmup to run", NULL },
 		POPT_TABLEEND
 	};
 	poptContext pc;
