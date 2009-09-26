@@ -34,6 +34,7 @@ typedef struct _data_t {
 typedef struct _tree_t {
 	data_t key;
 	data_t fh;
+	ssize_t size;
 	struct _tree_t *parent;
 	struct _tree_t *left;
 	struct _tree_t *right;
@@ -114,7 +115,7 @@ static data_t *recursive_lookup_fhandle(struct nfsio *nfsio, const char *name)
 	return ;
 }
 
-static data_t *lookup_fhandle(struct nfsio *nfsio, const char *name)
+static data_t *lookup_fhandle(struct nfsio *nfsio, const char *name, ssize_t *size)
 {
 	tree_t *t;
 
@@ -127,6 +128,10 @@ static data_t *lookup_fhandle(struct nfsio *nfsio, const char *name)
 	t = find_fhandle(nfsio->fhandles, name);
 	if (t == NULL) {
 		return recursive_lookup_fhandle(nfsio, name);
+	}
+
+	if (size) {
+		*size = t->size;
 	}
 
 	return &t->fh;
@@ -227,12 +232,13 @@ static void delete_fhandle(struct nfsio *nfsio, const char *name)
 	return;
 }
 
-static void insert_fhandle(struct nfsio *nfsio, const char *name, const char *fhandle, int length)
+static void insert_fhandle(struct nfsio *nfsio, const char *name, const char *fhandle, int length, ssize_t size)
 {
 	tree_t *tmp_t;
 	tree_t *t;
 	int i;
 
+printf("insert_fhandle:%s size:%d\n", name, size);
 	while (name[0] == '.') name++;
 
 	t = malloc(sizeof(tree_t));
@@ -257,6 +263,8 @@ static void insert_fhandle(struct nfsio *nfsio, const char *name, const char *fh
 	memcpy(discard_const(t->fh.dptr), fhandle, length);
 	t->fh.dsize = length;	
 	
+	t->size   = size;
+
 	t->left   = NULL;
 	t->right  = NULL;
 	t->parent = NULL;
@@ -433,7 +441,10 @@ struct nfsio *nfsio_connect(const char *server, const char *export, const char *
 	}
 
 	fh = &mountres->mountres3_u.mountinfo.fhandle;
-	insert_fhandle(nfsio, "/", fh->fhandle3_val, fh->fhandle3_len);
+	insert_fhandle(nfsio, "/",
+			      fh->fhandle3_val,
+			      fh->fhandle3_len,
+			      0);
 
 
 	/* we dont need the mount client any more */
@@ -487,7 +498,7 @@ nfsstat3 nfsio_getattr(struct nfsio *nfsio, const char *name, fattr3 *attributes
 	struct GETATTR3res *GETATTR3res;
 	data_t *fh;
 
-	fh = lookup_fhandle(nfsio, name);
+	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_getattr\n");
 		return NFS3ERR_SERVERFAULT;
@@ -542,7 +553,7 @@ nfsstat3 nfsio_lookup(struct nfsio *nfsio, const char *name, fattr3 *attributes)
 	*ptr = 0;
 	ptr++;
 
-	fh = lookup_fhandle(nfsio, tmp_name);
+	fh = lookup_fhandle(nfsio, tmp_name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle for '%s' in nfsio_lookup\n", tmp_name);
 		ret = NFS3ERR_SERVERFAULT;
@@ -566,10 +577,10 @@ nfsstat3 nfsio_lookup(struct nfsio *nfsio, const char *name, fattr3 *attributes)
 		goto finished;
 	}
 
-
 	insert_fhandle(nfsio, name, 
 			LOOKUP3res->LOOKUP3res_u.resok.object.data.data_val,
-			LOOKUP3res->LOOKUP3res_u.resok.object.data.data_len);
+			LOOKUP3res->LOOKUP3res_u.resok.object.data.data_len,
+			LOOKUP3res->LOOKUP3res_u.resok.obj_attributes.post_op_attr_u.attributes.size);
 
 	free(LOOKUP3res->LOOKUP3res_u.resok.object.data.data_val);
 
@@ -592,7 +603,7 @@ nfsstat3 nfsio_access(struct nfsio *nfsio, const char *name, uint32 desired, uin
 	struct ACCESS3res *ACCESS3res;
 	data_t *fh;
 
-	fh = lookup_fhandle(nfsio, name);
+	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_access\n");
 		return NFS3ERR_SERVERFAULT;
@@ -651,7 +662,7 @@ nfsstat3 nfsio_create(struct nfsio *nfsio, const char *name)
 	*ptr = 0;
 	ptr++;
 
-	fh = lookup_fhandle(nfsio, tmp_name);
+	fh = lookup_fhandle(nfsio, tmp_name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_create\n");
 		ret = NFS3ERR_SERVERFAULT;
@@ -690,7 +701,9 @@ nfsstat3 nfsio_create(struct nfsio *nfsio, const char *name)
 
 	insert_fhandle(nfsio, name, 
 		CREATE3res->CREATE3res_u.resok.obj.post_op_fh3_u.handle.data.data_val,
-		CREATE3res->CREATE3res_u.resok.obj.post_op_fh3_u.handle.data.data_len);
+		CREATE3res->CREATE3res_u.resok.obj.post_op_fh3_u.handle.data.data_len,
+		0 /*qqq*/
+	);
 
 
 finished:
@@ -727,7 +740,7 @@ nfsstat3 nfsio_remove(struct nfsio *nfsio, const char *name)
 	*ptr = 0;
 	ptr++;
 
-	fh = lookup_fhandle(nfsio, tmp_name);
+	fh = lookup_fhandle(nfsio, tmp_name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_remove\n");
 		ret = NFS3ERR_SERVERFAULT;
@@ -772,7 +785,7 @@ nfsstat3 nfsio_write(struct nfsio *nfsio, const char *name, char *buf, uint32 of
 	int ret = NFS3_OK;
 	data_t *fh;
 
-	fh = lookup_fhandle(nfsio, name);
+	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_write\n");
 		ret = NFS3ERR_SERVERFAULT;
@@ -811,12 +824,20 @@ nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf, uint32 off
 	struct READ3res *READ3res;
 	int ret = NFS3_OK;
 	data_t *fh;
+	ssize_t size;
 
-	fh = lookup_fhandle(nfsio, name);
+	fh = lookup_fhandle(nfsio, name, &size);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_read\n");
 		ret = NFS3ERR_SERVERFAULT;
 		goto finished;
+	}
+
+	if (offset >= size) {
+		offset = offset % size;
+ 	}
+	if (offset+len >= size) {
+		offset = 0;
 	}
 
 	READ3args.file.data.data_len = fh->dsize;
@@ -863,7 +884,7 @@ nfsstat3 nfsio_commit(struct nfsio *nfsio, const char *name)
 	int ret = NFS3_OK;
 	data_t *fh;
 
-	fh = lookup_fhandle(nfsio, name);
+	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_commit\n");
 		ret = NFS3ERR_SERVERFAULT;
@@ -900,7 +921,7 @@ nfsstat3 nfsio_fsinfo(struct nfsio *nfsio)
 	struct FSINFO3res *FSINFO3res;
 	data_t *fh;
 
-	fh = lookup_fhandle(nfsio, "/");
+	fh = lookup_fhandle(nfsio, "/", NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_fsinfo\n");
 		return NFS3ERR_SERVERFAULT;
@@ -931,7 +952,7 @@ nfsstat3 nfsio_fsstat(struct nfsio *nfsio)
 	struct FSSTAT3res *FSSTAT3res;
 	data_t *fh;
 
-	fh = lookup_fhandle(nfsio, "/");
+	fh = lookup_fhandle(nfsio, "/", NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_fsstat\n");
 		return NFS3ERR_SERVERFAULT;
@@ -961,7 +982,7 @@ nfsstat3 nfsio_pathconf(struct nfsio *nfsio, char *name)
 	struct PATHCONF3res *PATHCONF3res;
 	data_t *fh;
 
-	fh = lookup_fhandle(nfsio, name);
+	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_pathconf\n");
 		return NFS3ERR_SERVERFAULT;
@@ -1013,7 +1034,7 @@ nfsstat3 nfsio_symlink(struct nfsio *nfsio, const char *old, const char *new)
 	*ptr = 0;
 	ptr++;
 
-	fh = lookup_fhandle(nfsio, tmp_name);
+	fh = lookup_fhandle(nfsio, tmp_name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_symlink\n");
 		ret = NFS3ERR_SERVERFAULT;
@@ -1054,7 +1075,9 @@ nfsstat3 nfsio_symlink(struct nfsio *nfsio, const char *old, const char *new)
 
 	insert_fhandle(nfsio, old, 
 		SYMLINK3res->SYMLINK3res_u.resok.obj.post_op_fh3_u.handle.data.data_val,
-		SYMLINK3res->SYMLINK3res_u.resok.obj.post_op_fh3_u.handle.data.data_len);
+		SYMLINK3res->SYMLINK3res_u.resok.obj.post_op_fh3_u.handle.data.data_len,
+		0 /*qqq*/
+	);
 
 
 finished:
@@ -1092,7 +1115,7 @@ nfsstat3 nfsio_link(struct nfsio *nfsio, const char *old, const char *new)
 	*ptr = 0;
 	ptr++;
 
-	fh = lookup_fhandle(nfsio, tmp_name);
+	fh = lookup_fhandle(nfsio, tmp_name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_link\n");
 		ret = NFS3ERR_SERVERFAULT;
@@ -1100,7 +1123,7 @@ nfsstat3 nfsio_link(struct nfsio *nfsio, const char *old, const char *new)
 	}
 
 
-	new_fh = lookup_fhandle(nfsio, new);
+	new_fh = lookup_fhandle(nfsio, new, NULL);
 	if (new_fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_link\n");
 		ret = NFS3ERR_SERVERFAULT;
@@ -1151,7 +1174,7 @@ nfsstat3 nfsio_readlink(struct nfsio *nfsio, char *name, char **link_name)
 	struct READLINK3res *READLINK3res;
 	data_t *fh;
 
-	fh = lookup_fhandle(nfsio, name);
+	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_readlink\n");
 		return NFS3ERR_SERVERFAULT;
@@ -1207,7 +1230,7 @@ nfsstat3 nfsio_rmdir(struct nfsio *nfsio, const char *name)
 	*ptr = 0;
 	ptr++;
 
-	fh = lookup_fhandle(nfsio, tmp_name);
+	fh = lookup_fhandle(nfsio, tmp_name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_rmdir\n");
 		ret = NFS3ERR_SERVERFAULT;
@@ -1272,7 +1295,7 @@ nfsstat3 nfsio_mkdir(struct nfsio *nfsio, const char *name)
 	*ptr = 0;
 	ptr++;
 
-	fh = lookup_fhandle(nfsio, tmp_name);
+	fh = lookup_fhandle(nfsio, tmp_name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_mkdir\n");
 		ret = NFS3ERR_SERVERFAULT;
@@ -1309,7 +1332,9 @@ nfsstat3 nfsio_mkdir(struct nfsio *nfsio, const char *name)
 
 	insert_fhandle(nfsio, name, 
 		MKDIR3res->MKDIR3res_u.resok.obj.post_op_fh3_u.handle.data.data_val,
-		MKDIR3res->MKDIR3res_u.resok.obj.post_op_fh3_u.handle.data.data_len);
+		MKDIR3res->MKDIR3res_u.resok.obj.post_op_fh3_u.handle.data.data_len,
+		0 /*qqq*/
+	);
 
 finished:
 	if (tmp_name) {
@@ -1336,7 +1361,7 @@ nfsstat3 nfsio_readdirplus(struct nfsio *nfsio, const char *name, nfs3_dirent_cb
 		dir[strlen(dir)-1] = 0;
 	}
  
-	fh = lookup_fhandle(nfsio, name);
+	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle for '%s' in nfsio_readdirplus\n", name);
 		ret = NFS3ERR_SERVERFAULT;
@@ -1383,7 +1408,9 @@ again:
 		asprintf(&new_name, "%s/%s", dir, e->name);
 		insert_fhandle(nfsio, new_name, 
 			e->name_handle.post_op_fh3_u.handle.data.data_val,
-			e->name_handle.post_op_fh3_u.handle.data.data_len);
+			e->name_handle.post_op_fh3_u.handle.data.data_len,
+			0 /*qqq*/
+		);
 		free(new_name);
 
 		if (cb) {
@@ -1440,7 +1467,7 @@ nfsstat3 nfsio_rename(struct nfsio *nfsio, const char *old, const char *new)
 	*old_ptr = 0;
 	old_ptr++;
 
-	old_fh = lookup_fhandle(nfsio, tmp_old_name);
+	old_fh = lookup_fhandle(nfsio, tmp_old_name, NULL);
 	if (old_fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_rename\n");
 		ret = NFS3ERR_SERVERFAULT;
@@ -1464,7 +1491,7 @@ nfsstat3 nfsio_rename(struct nfsio *nfsio, const char *old, const char *new)
 	*new_ptr = 0;
 	new_ptr++;
 
-	new_fh = lookup_fhandle(nfsio, tmp_new_name);
+	new_fh = lookup_fhandle(nfsio, tmp_new_name, NULL);
 	if (new_fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_rename\n");
 		ret = NFS3ERR_SERVERFAULT;
@@ -1495,7 +1522,7 @@ nfsstat3 nfsio_rename(struct nfsio *nfsio, const char *old, const char *new)
 	}
 
 
-	old_fh = lookup_fhandle(nfsio, old);
+	old_fh = lookup_fhandle(nfsio, old, NULL);
 	if (old_fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_rename\n");
 		ret = NFS3ERR_SERVERFAULT;
@@ -1503,7 +1530,7 @@ nfsstat3 nfsio_rename(struct nfsio *nfsio, const char *old, const char *new)
 	}
 
 
-	insert_fhandle(nfsio, new, old_fh->dptr, old_fh->dsize);
+	insert_fhandle(nfsio, new, old_fh->dptr, old_fh->dsize, 0 /*qqq*/);
 	delete_fhandle(nfsio, old);
 
 
