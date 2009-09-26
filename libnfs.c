@@ -238,7 +238,6 @@ static void insert_fhandle(struct nfsio *nfsio, const char *name, const char *fh
 	tree_t *t;
 	int i;
 
-printf("insert_fhandle:%s size:%d\n", name, size);
 	while (name[0] == '.') name++;
 
 	t = malloc(sizeof(tree_t));

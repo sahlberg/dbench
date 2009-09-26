@@ -392,6 +392,20 @@ static void nfs3_rename(struct dbench_op *op)
 	}
 }
 
+static int nfs3_init(void)
+{
+	void *handle;
+
+	handle = nfsio_connect(options.server, options.export, options.protocol);
+	if (handle == NULL) {
+		printf("Failed to connect to NFS server\n");
+		return 1;
+	}
+
+	nfsio_disconnect(handle);
+	return 0;
+}
+
 static struct backend_op ops[] = {
 	{ "Deltree",  nfs3_deltree },
 	{ "GETATTR3", nfs3_getattr },
@@ -415,6 +429,7 @@ static struct backend_op ops[] = {
 
 struct nb_operations nfs_ops = {
 	.backend_name = "nfsbench",
+	.init	      = nfs3_init,
 	.setup 	      = nfs3_setup,
 	.cleanup      = nfs3_cleanup,
 	.ops          = ops
