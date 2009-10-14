@@ -148,16 +148,34 @@ static void sig_alarm(int sig)
 	}
 
         if (in_warmup) {
-                printf("%4d  %8d  %7.2f MB/sec  warmup %3.0f sec  latency %.03f ms\n", 
+		if (options.machine_readable) {
+                    printf("@W@%d@%d@%.2f@%u@%.03f@\n", 
                        num_active, total_lines/nclients, 
-                       1.0e-6 * total_bytes / t, t, latency*1000);
+			   1.0e-6 * total_bytes / t, (int)t, latency*1000);
+		} else {
+                    printf("%4d  %8d  %7.2f MB/sec  warmup %3.0f sec  latency %.03f ms\n", 
+                       num_active, total_lines/nclients, 
+			   1.0e-6 * total_bytes / t, t, latency*1000);
+		}
         } else if (in_cleanup) {
-                printf("%4d  cleanup %3.0f sec\n", nclients - num_finished, t);
+		if (options.machine_readable) {
+                    printf("@C@%d@%d@%.2f@%u@%.03f@\n", 
+                       num_active, total_lines/nclients, 
+			   1.0e-6 * total_bytes / t, (int)t, latency*1000);
+		} else {
+                    printf("%4d  cleanup %3.0f sec\n", nclients - num_finished, t);
+		}
         } else {
-                printf("%4d  %8d  %7.2f MB/sec  execute %3.0f sec  latency %.03f ms\n", 
+		if (options.machine_readable) {
+                    printf("@R@%d@%d@%.2f@%u@%.03f@\n", 
+                       num_active, total_lines/nclients, 
+			   1.0e-6 * total_bytes / t, (int)t, latency*1000);
+		} else {
+                    printf("%4d  %8d  %7.2f MB/sec  execute %3.0f sec  latency %.03f ms\n", 
                        nclients, total_lines/nclients, 
                        1.0e-6 * total_bytes / t, t, latency*1000);
-		throughput = 1.0e-6 * total_bytes / t;
+	  	       throughput = 1.0e-6 * total_bytes / t;
+		}
         }
 
 	fflush(stdout);
