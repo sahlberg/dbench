@@ -158,6 +158,7 @@ struct options {
 	const char *iscsi_target;
 	int iscsi_lun;
 	int iscsi_port;
+	int machine_readable;
 };
 
 

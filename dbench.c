@@ -49,6 +49,7 @@ struct options options = {
 	.trunc_io            = 0,
 	.iscsi_lun           = 1,
 	.iscsi_port          = 3260,
+	.machine_readable    = 0,
 };
 
 static struct timeval tv_start;
@@ -176,10 +177,17 @@ static void show_one_latency(struct op *ops, struct op *ops_all)
 		op1    = &ops[i];
 		op_all = &ops_all[i];
 		if (op_all->count == 0) continue;
-		printf(" %-22s %7u %9.03f %9.03f\n",
-		       nb_ops->ops[i].name, op1->count, 
-		       1000*op1->total_time/op1->count,
-		       op1->max_latency*1000);
+		if (options.machine_readable) {
+			printf(":%s:%u:%.03f:%.03f:\n",
+				       nb_ops->ops[i].name, op1->count, 
+				       1000*op1->total_time/op1->count,
+				       op1->max_latency*1000);
+		} else {
+			printf(" %-22s %7u %9.03f %9.03f\n",
+				       nb_ops->ops[i].name, op1->count, 
+				       1000*op1->total_time/op1->count,
+				       op1->max_latency*1000);
+		}
 	}
 	printf("\n");
 }
@@ -409,6 +417,8 @@ static void process_opts(int argc, const char **argv)
 		  "iscsi IQN name of target", NULL },
 		{ "warmup", 0, POPT_ARG_INT, &options.warmup, 0, 
 		  "How many seconds of warmup to run", NULL },
+		{ "machine-readable", 0, POPT_ARG_NONE, &options.machine_readable, 0,
+		  "Print data in more machine-readable friendly format", NULL},
 		POPT_TABLEEND
 	};
 	poptContext pc;
@@ -524,11 +534,18 @@ static void process_opts(int argc, const char **argv)
 
 	t = timeval_elapsed2(&tv_start, &tv_end);
 
-	printf("Throughput %g MB/sec%s%s  %d clients  %d procs  max_latency=%.03f ms\n", 
-	       throughput,
-	       options.sync_open ? " (sync open)" : "",
-	       options.sync_dirs ? " (sync dirs)" : "", 
-	       options.nprocs*options.clients_per_process,
-	       options.nprocs, latency*1000);
+	if (options.machine_readable) {
+		printf(";%g;%d;%d;%.03f;\n", 
+			       throughput,
+			       options.nprocs*options.clients_per_process,
+			       options.nprocs, latency*1000);
+	} else {
+		printf("Throughput %g MB/sec%s%s  %d clients  %d procs  max_latency=%.03f ms\n", 
+			       throughput,
+			       options.sync_open ? " (sync open)" : "",
+			       options.sync_dirs ? " (sync dirs)" : "", 
+			       options.nprocs*options.clients_per_process,
+			       options.nprocs, latency*1000);
+	}
 	return 0;
 }
