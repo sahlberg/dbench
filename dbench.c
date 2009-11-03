@@ -25,6 +25,7 @@
 #include "dbench.h"
 #include "popt.h"
 #include <sys/sem.h>
+#include <zlib.h>
 
 struct options options = {
 	.backend             = "fileio",
@@ -58,11 +59,11 @@ static int barrier=-1;
 static double throughput;
 struct nb_operations *nb_ops;
 
-static FILE *open_loadfile(void)
+static gzFile *open_loadfile(void)
 {
-	FILE		*f;
+	gzFile		*f;
 
-	if ((f = fopen(options.loadfile, "rt")) != NULL)
+	if ((f = gzopen(options.loadfile, "rt")) != NULL)
 		return f;
 
 	fprintf(stderr,
@@ -251,7 +252,7 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 	int i, status;
 	int synccount;
 	struct timeval tv;
-	FILE *load;
+	gzFile *load;
 	struct sembuf sbuf;
 	double t;
 

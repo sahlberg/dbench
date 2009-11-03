@@ -26,6 +26,7 @@
 */
 
 #include "dbench.h"
+#include <zlib.h>
 
 #define ival(s) strtol(s, NULL, 0)
 
@@ -142,13 +143,13 @@ void child_run(struct child_struct *child0, const char *loadfile)
 	char **sparams, **params;
 	char *p;
 	const char *status;
-	FILE *f;
+	gzFile *gzf;
 	pid_t parent = getppid();
 	double targett;
 	struct child_struct *child;
 
-	f = fopen(loadfile, "r");
-	if (f == NULL) {
+	gzf = gzopen(loadfile, "r");
+	if (gzf == NULL) {
 		perror(loadfile);
 		exit(1);
 	}
@@ -169,7 +170,7 @@ again:
 		nb_time_reset(child);
 	}
 
-	while (fgets(line, sizeof(line)-1, f)) {
+	while (gzgets(gzf, line, sizeof(line)-1)) {
 		params = sparams;
 
 		if (kill(parent, 0) == -1) {
@@ -247,11 +248,11 @@ again:
 		goto done;
 	}
 
-	rewind(f);
+	gzrewind(gzf);
 	goto again;
 
 done:
-	fclose(f);
+	gzclose(gzf);
 	for (child=child0;child<child0+options.clients_per_process;child++) {
 		child->cleanup = 1;
 		fflush(stdout);
