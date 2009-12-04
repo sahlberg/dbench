@@ -67,7 +67,7 @@ This will result in serving data straight out of page-cache and can be used
 to test how fast the target can push data from page-cache out across the network.
 </p>
 <pre>
-0.000 READ10 0 4 0 0 0x00
+0.000 READ10 0 8 0 0 0x00
 </pre>
 
 <H3>Example loadfile 3</h3>
@@ -76,7 +76,7 @@ This simple loadfile reads random 4kb from the target over and over.
 For a large LUN that can not all fit in page-cache, this would almost always generate a cache-miss and can test how fast the target can read data off stable-storeage and push it across the network. This can also measure how many threads of i/o the target has when accessing stable-storage.
 </p>
 <pre>
-0.000 READ10 * 4 0 0 0x00
+0.000 READ10 * 8 0 0 0x00
 </pre>
 
 <H3>Example loadfile 3</h3>
