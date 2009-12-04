@@ -1,14 +1,19 @@
-# example laodfile for SMB
-# We do not distinguish between different status codes here so we basically
-# treat the status code as a binary. It is either NT_STATUS_OK
-# which means we expect the operation to succeed, or it is something
-# else which means we expect it to fail.
+# example loadfile for SMB
+#
+# We do not distinguish between different error types so the last parameter,
+# the status is 
+#  SUCCESS that the operation must be successful
+#  ERROR that the operation must fail
+#  * which means don't care
 #
 # Filenames in SMB MUST start with '\' or '/'
 #
 #
 # MKDIR
-Mkdir "\foo" NT_STATUS_OK
+MKDIR "\foo" SUCCESS
 #
 # RMDIR
-Rmdir "\foo" NT_STATUS_OK
+RMDIR "\foo" SUCCESS
+RMDIR "\foo" ERROR
+RMDIR "\foo" *
+

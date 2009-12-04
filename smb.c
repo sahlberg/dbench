@@ -35,6 +35,27 @@ struct smb_child {
 	SMBCCTX *ctx;
 };
 
+static void failed(struct child_struct *child)
+{
+	child->failed = 1;
+	printf("ERROR: child %d failed at line %d\n", child->id, child->line);
+	exit(1);
+}
+
+static int check_status(int ret, const char *status)
+{
+	if (!strcmp(status, "*")) {
+		return 0;
+	}
+
+	if ((!strcmp(status, "SUCCESS")) && (ret == 0)) {
+		return 0;
+	}
+
+	return 1;
+}
+
+
 void smb_auth_fn(const char *server, const char *share, char *wrkgrp, int wrkgrplen, char *user, int userlen, char *passwd, int passwdlen)
 {
 	(void)server;
@@ -160,8 +181,12 @@ static void smb_mkdir(struct dbench_op *op)
 	asprintf(&str, "smb://%s/%s/%s", options.smb_server, options.smb_share, dir);
 
 	ret = smbc_mkdir(str, 0777);
-
 	free(str);
+
+	if (check_status(ret, op->status)) {
+		printf("[%d] MKDIR \"%s\" failed - expected %s, got %d\n", op->child->line, dir, op->status, ret);
+		failed(op->child);
+	}
 }
 
 static void smb_rmdir(struct dbench_op *op)
@@ -173,13 +198,18 @@ static void smb_rmdir(struct dbench_op *op)
 	dir = op->fname + 2;
 	asprintf(&str, "smb://%s/%s/%s", options.smb_server, options.smb_share, dir);
 	ret = smbc_rmdir(str);
-
 	free(str);
+
+	if (check_status(ret, op->status)) {
+		printf("[%d] RMDIR \"%s\" failed - expected %s, got %d\n", op->child->line, dir, op->status, ret);
+		failed(op->child);
+	}
 }
 
+
 static struct backend_op ops[] = {
-	{ "Mkdir", smb_mkdir },
-	{ "Rmdir", smb_rmdir },
+	{ "MKDIR", smb_mkdir },
+	{ "RMDIR", smb_rmdir },
 	{ NULL, NULL}
 };
 
