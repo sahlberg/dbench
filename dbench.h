@@ -159,6 +159,9 @@ struct options {
 	int iscsi_lun;
 	int iscsi_port;
 	int machine_readable;
+	const char *smb_server;
+	const char *smb_share;
+	const char *smb_user;
 };
 
 

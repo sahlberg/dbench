@@ -438,6 +438,12 @@ static void process_opts(int argc, const char **argv)
 		  "How many seconds of warmup to run", NULL },
 		{ "machine-readable", 0, POPT_ARG_NONE, &options.machine_readable, 0,
 		  "Print data in more machine-readable friendly format", NULL},
+		{ "smb-server",  0, POPT_ARG_STRING, &options.smb_server, 0, 
+		  "name/ip of SMB server", NULL },
+		{ "smb-share",  0, POPT_ARG_STRING, &options.smb_share, 0, 
+		  "name of SMB share", NULL },
+		{ "smb-user",  0, POPT_ARG_STRING, &options.smb_user, 0, 
+		  "User to authenticate as : [<domain>/]<user>%<password>", NULL },
 		POPT_TABLEEND
 	};
 	poptContext pc;
@@ -525,6 +531,9 @@ static void process_opts(int argc, const char **argv)
 	} else if (strcmp(options.backend, "iscsi") == 0) {
 		extern struct nb_operations iscsi_ops;
 		nb_ops = &iscsi_ops;
+	} else if (strcmp(options.backend, "smb") == 0) {
+		extern struct nb_operations smb_ops;
+		nb_ops = &smb_ops;
 	} else {
 		printf("Unknown backend '%s'\n", options.backend);
 		exit(1);

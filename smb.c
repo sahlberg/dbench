@@ -26,3 +26,46 @@
 
 #define discard_const(ptr) ((void *)((intptr_t)(ptr)))
 
+static int smb_init(void)
+{
+	if (options.smb_server == NULL) {
+		printf("You must specify --smb-server=<server> with the \"smb\" backend.\n");
+		return 1;
+	}
+	if (options.smb_share == NULL) {
+		printf("You must specify --smb-share=<share> with the \"smb\" backend.\n");
+		return 1;
+	}
+	if (options.smb_user == NULL) {
+		printf("You must specify --smb-user=[<domain>/]<user>%<password> with the \"smb\" backend.\n");
+		return 1;
+	}
+
+	printf("smb_init\n");
+
+
+	return 1;
+}
+
+static void smb_setup(struct child_struct *child)
+{
+	printf("smb_setup\n");
+}
+
+static void smb_cleanup(struct child_struct *child)
+{
+	printf("smb_cleanup\n");
+}
+
+
+static struct backend_op ops[] = {
+	{ NULL, NULL}
+};
+
+struct nb_operations smb_ops = {
+	.backend_name = "smbbench",
+	.init	      = smb_init,
+	.setup 	      = smb_setup,
+	.cleanup      = smb_cleanup,
+	.ops          = ops
+};
