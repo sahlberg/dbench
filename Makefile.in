@@ -10,7 +10,7 @@ mandir=@mandir@
 datadir=@datadir@
 XSLTPROC = /usr/bin/xsltproc
 INSTALLCMD=@INSTALL@
-LIBS=@LIBS@ -lpopt -lz
+LIBS=@LIBS@ -lpopt -lz -lsmbclient
 
 CC=@CC@
 CFLAGS=@CFLAGS@ -I. -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(datadir)\"
