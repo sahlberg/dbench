@@ -9,11 +9,48 @@
 # Filenames in SMB MUST start with '\' or '/'
 #
 #
-# MKDIR
-MKDIR "\foo" SUCCESS
+# MKDIR <path> <status>
+MKDIR "/foo" SUCCESS
 #
-# RMDIR
-RMDIR "\foo" SUCCESS
-RMDIR "\foo" ERROR
-RMDIR "\foo" *
+#
+# RMDIR <path> <status>
+RMDIR "/foo" SUCCESS
+RMDIR "/foo" ERROR
+RMDIR "/foo" *
+#
+#
+# Open/Create
+# OPEN <path> <flags> <status>
+# Flags are the combination of these flags, ored together
+#     0x01    O_RDONLY
+#     0x02    O_WRONLY
+#     0x04    O_RDWR
+#
+#     0x08    O_CREAT create the file if it does nto exist
+#     0x10    O_EXCL  fail if the file already exists
+#     0x20    O_TRUNC if the file exists, truncate it
+#     0x40    O_APPEND open in append mode only
+OPEN "/test.txt" 0x1c SUCCESS
+#
+#
+#
+# WRITE <path> <offset> <length> <status>
+WRITE "/test.txt" 0 100 SUCCESS
+WRITE "/test.txt" 0 50 SUCCESS
+WRITE "/test.txt" 50 50 SUCCESS
+#
+#
+#
+# READ <path> <offset> <length> <status>
+READ "/test.txt" 0 100 SUCCESS
+#
+#
+#
+# CLOSE <path> <status>
+CLOSE "/test.txt" SUCCESS
+#
+#
+#
+# UNLINK <path> <status>
+UNLINK "/test.txt" SUCCESS
 

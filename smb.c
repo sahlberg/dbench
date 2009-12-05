@@ -31,6 +31,223 @@ static char *smb_domain;
 static char *smb_user;
 static char *smb_password;
 
+typedef struct _data_t {
+	const char *dptr;
+	int dsize;
+} data_t;
+
+typedef struct _smb_handle_t {
+	int fd;
+} smb_handle_t;
+
+/* a tree to store all open handles, indexed by path */
+typedef struct _tree_t {
+	data_t path;
+	smb_handle_t handle;
+	struct _tree_t *parent;
+	struct _tree_t *left;
+	struct _tree_t *right;
+} tree_t;
+
+static tree_t *open_files;
+
+
+static tree_t *find_path(tree_t *tree, const char *path)
+{
+	int i;
+
+	if (tree == NULL) {
+		return NULL;
+	}
+
+	i = strcmp(path, tree->path.dptr);
+	if (i == 0) {
+		return tree;
+	}
+	if (i < 0) {
+		return find_path(tree->left, path);
+	}
+
+	return find_path(tree->right, path);
+}
+
+static smb_handle_t *lookup_path(const char *path)
+{
+	tree_t *t;
+
+	t = find_path(open_files, path);
+	if (t == NULL) {
+		return NULL;
+	}
+
+	return &t->handle;
+}
+
+static void free_node(tree_t *t)
+{
+	free(discard_const(t->path.dptr));
+	free(t);
+}
+
+static void delete_path(const char *path)
+{
+	tree_t *t;
+
+	t = find_path(open_files, path);
+	if (t == NULL) {
+		return;
+	}
+
+	/* we have a left child */
+	if (t->left) {
+		tree_t *tmp_tree;
+
+		for(tmp_tree=t->left;tmp_tree->right;tmp_tree=tmp_tree->right)
+			;
+		tmp_tree->right = t->right;
+		if (t->right) {
+			t->right->parent = tmp_tree;
+		}
+
+		if (t->parent == NULL) {
+			open_files = tmp_tree;
+			tmp_tree->parent = NULL;
+			free_node(t);
+			return;
+		}
+
+		if (t->parent->left == t) {
+			t->parent->left = t->left;
+			if (t->left) {
+				t->left->parent = t->parent;
+			}
+			free_node(t);
+			return;
+		}
+
+		t->parent->right = t->left;
+		if (t->left) {
+			t->left->parent = t->parent;
+		}
+		free_node(t);
+		return;
+	}
+
+	/* we only have a right child */
+	if (t->right) {
+		tree_t *tmp_tree;
+
+		for(tmp_tree=t->right;tmp_tree->left;tmp_tree=tmp_tree->left)
+			;
+		tmp_tree->left = t->left;
+		if (t->left) {
+			t->left->parent = tmp_tree;
+		}
+
+		if (t->parent == NULL) {
+			open_files = tmp_tree;
+			tmp_tree->parent = NULL;
+			free_node(t);
+			return;
+		}
+
+		if (t->parent->left == t) {
+			t->parent->left = t->right;
+			if (t->right) {
+				t->right->parent = t->parent;
+			}
+			free_node(t);
+			return;
+		}
+
+		t->parent->right = t->right;
+		if (t->right) {
+			t->right->parent = t->parent;
+		}
+		free_node(t);
+		return;
+	}
+
+	/* we are a leaf node */
+	if (t->parent == NULL) {
+		open_files = NULL;
+	} else {
+		if (t->parent->left == t) {
+			t->parent->left = NULL;
+		} else {
+			t->parent->right = NULL;
+		}
+	}
+	free_node(t);
+	return;
+}
+
+static void insert_path(const char *path, smb_handle_t *hnd)
+{
+	tree_t *tmp_t;
+	tree_t *t;
+	int i;
+
+	tmp_t = find_path(open_files, path);
+	if (tmp_t != NULL) {
+		delete_path(path);
+	}
+
+	t = malloc(sizeof(tree_t));
+	if (t == NULL) {
+		fprintf(stderr, "MALLOC failed to allocate tree_t in insert_fhandle\n");
+		exit(10);
+	}
+
+	t->path.dptr = strdup(path);
+	if (t->path.dptr == NULL) {
+		fprintf(stderr, "STRDUP failed to allocate key in insert_fhandle\n");
+		exit(10);
+	}
+	t->path.dsize = strlen(path);
+
+	t->handle = *hnd;
+
+	t->left   = NULL;
+	t->right  = NULL;
+	t->parent = NULL;
+
+	if (open_files == NULL) {
+		open_files = t;
+		return;
+	}
+
+	tmp_t = open_files;
+again:
+	i = strcmp(t->path.dptr, tmp_t->path.dptr);
+	if (i == 0) {
+		tmp_t->handle = t->handle;
+		free(discard_const(t->path.dptr));
+		free(t);
+		return;
+	}
+	if (i < 0) {
+		if (tmp_t->left == NULL) {
+			tmp_t->left = t;
+			t->parent = tmp_t;
+			return;
+		}
+		tmp_t = tmp_t->left;
+		goto again;
+	}
+	if (tmp_t->right == NULL) {
+		tmp_t->right = t;
+		t->parent = tmp_t;
+		return;
+	}
+	tmp_t = tmp_t->right;
+	goto again;
+}
+
+
+
+
+
 struct smb_child {
 	SMBCCTX *ctx;
 };
@@ -38,7 +255,7 @@ struct smb_child {
 static void failed(struct child_struct *child)
 {
 	child->failed = 1;
-	printf("ERROR: child %d failed at line %d\n", child->id, child->line);
+	fprintf(stderr, "ERROR: child %d failed at line %d\n", child->id, child->line);
 	exit(1);
 }
 
@@ -49,6 +266,10 @@ static int check_status(int ret, const char *status)
 	}
 
 	if ((!strcmp(status, "SUCCESS")) && (ret == 0)) {
+		return 0;
+	}
+
+	if ((!strcmp(status, "ERROR")) && (ret != 0)) {
 		return 0;
 	}
 
@@ -76,15 +297,15 @@ static int smb_init(void)
 	char *str;
 
 	if (options.smb_server == NULL) {
-		printf("You must specify --smb-server=<server> with the \"smb\" backend.\n");
+		fprintf(stderr, "You must specify --smb-server=<server> with the \"smb\" backend.\n");
 		return 1;
 	}
 	if (options.smb_share == NULL) {
-		printf("You must specify --smb-share=<share> with the \"smb\" backend.\n");
+		fprintf(stderr, "You must specify --smb-share=<share> with the \"smb\" backend.\n");
 		return 1;
 	}
 	if (options.smb_user == NULL) {
-		printf("You must specify --smb-user=[<domain>/]<user>%%<password> with the \"smb\" backend.\n");
+		fprintf(stderr, "You must specify --smb-user=[<domain>/]<user>%%<password> with the \"smb\" backend.\n");
 		return 1;
 	}
 
@@ -107,7 +328,7 @@ static int smb_init(void)
 
 	ctx = smbc_new_context();
 	if (ctx == NULL) {
-		printf("Could not allocate SMB Context\n");
+		fprintf(stderr, "Could not allocate SMB Context\n");
 		return 1;
 	}
 
@@ -116,7 +337,7 @@ static int smb_init(void)
 
 	if (!smbc_init_context(ctx)) {
 		smbc_free_context(ctx, 0);
-		printf("failed to initialize context\n");
+		fprintf(stderr, "failed to initialize context\n");
 		return 1;
 	}
 	smbc_set_context(ctx);
@@ -126,7 +347,7 @@ static int smb_init(void)
 	free(str);
 
 	if (ret == -1) {
-		printf("Failed to access //%s/%s\n", options.smb_server, options.smb_share);
+		fprintf(stderr, "Failed to access //%s/%s\n", options.smb_server, options.smb_share);
 		return 1;
 	}
 
@@ -140,14 +361,14 @@ static void smb_setup(struct child_struct *child)
 
 	ctx = malloc(sizeof(struct smb_child));
 	if (ctx == NULL) {
-		printf("Failed to malloc child ctx\n");
+		fprintf(stderr, "Failed to malloc child ctx\n");
 		exit(10);
 	}
 	child->private =ctx;
 
 	ctx->ctx = smbc_new_context();
 	if (ctx->ctx == NULL) {
-		printf("Could not allocate SMB Context\n");
+		fprintf(stderr, "Could not allocate SMB Context\n");
 		exit(10);
 	}
 
@@ -156,7 +377,7 @@ static void smb_setup(struct child_struct *child)
 
 	if (!smbc_init_context(ctx->ctx)) {
 		smbc_free_context(ctx->ctx, 0);
-		printf("failed to initialize context\n");
+		fprintf(stderr, "failed to initialize context\n");
 		exit(10);
 	}
 	smbc_set_context(ctx->ctx);
@@ -184,7 +405,7 @@ static void smb_mkdir(struct dbench_op *op)
 	free(str);
 
 	if (check_status(ret, op->status)) {
-		printf("[%d] MKDIR \"%s\" failed - expected %s, got %d\n", op->child->line, dir, op->status, ret);
+		fprintf(stderr, "[%d] MKDIR \"%s\" failed - expected %s, got %d\n", op->child->line, dir, op->status, ret);
 		failed(op->child);
 	}
 }
@@ -201,15 +422,180 @@ static void smb_rmdir(struct dbench_op *op)
 	free(str);
 
 	if (check_status(ret, op->status)) {
-		printf("[%d] RMDIR \"%s\" failed - expected %s, got %d\n", op->child->line, dir, op->status, ret);
+		fprintf(stderr, "[%d] RMDIR \"%s\" failed - expected %s, got %d\n", op->child->line, dir, op->status, ret);
 		failed(op->child);
+	}
+}
+
+static void smb_open(struct dbench_op *op)
+{
+	const char *file;
+	char *str;
+	int flags = 0;
+	smb_handle_t hnd;
+
+	if (op->params[0] & 0x01) {
+		flags |= O_RDONLY;
+	}
+	if (op->params[0] & 0x02) {
+		flags |= O_WRONLY;
+	}
+	if (op->params[0] & 0x04) {
+		flags |= O_RDWR;
+	}
+	if (op->params[0] & 0x08) {
+		flags |= O_CREAT;
+	}
+	if (op->params[0] & 0x10) {
+		flags |= O_EXCL;
+	}
+	if (op->params[0] & 0x20) {
+		flags |= O_TRUNC;
+	}
+	if (op->params[0] & 0x40) {
+		flags |= O_APPEND;
+	}
+
+	file = op->fname + 2;
+	asprintf(&str, "smb://%s/%s/%s", options.smb_server, options.smb_share, file);
+
+	hnd.fd = smbc_open(str, flags, 0777);
+	free(str);
+
+	if (check_status(hnd.fd<0?-1:0, op->status)) {
+		fprintf(stderr, "[%d] OPEN \"%s\" failed\n", op->child->line, file);
+		failed(op->child);
+		return;
+	}
+
+	insert_path(file, &hnd);
+
+}
+
+static void smb_close(struct dbench_op *op)
+{
+	smb_handle_t *hnd;
+	const char *file;
+	int ret;
+
+	file = op->fname + 2;
+
+	hnd = lookup_path(file);
+	if (hnd == NULL) {
+		fprintf(stderr, "[%d] CLOSE \"%s\" failed. This file is not open.\n", op->child->line, file);
+		failed(op->child);
+		return;
+	}
+		
+	ret = smbc_close(hnd->fd);
+	delete_path(file);
+
+	if (check_status(ret, op->status)) {
+		fprintf(stderr, "[%d] CLOSE \"%s\" failed\n", op->child->line, file);
+		failed(op->child);
+		return;
+	}
+}
+
+static void smb_write(struct dbench_op *op)
+{
+	smb_handle_t *hnd;
+	const char *file;
+	int ret;
+	size_t length;
+	off_t offset;
+	char garbage[65536];
+
+	offset = op->params[0];
+	length = op->params[1];
+	if (length > 65536) {
+		length = 65536;
+	}
+
+	file = op->fname + 2;
+
+	hnd = lookup_path(file);
+	if (hnd == NULL) {
+		fprintf(stderr, "[%d] WRITE \"%s\" failed. This file is not open.\n", op->child->line, file);
+		failed(op->child);
+		return;
+	}
+
+
+	smbc_lseek(hnd->fd, offset, SEEK_SET);
+	ret = smbc_write(hnd->fd, garbage, length);
+
+	if (check_status(ret==(int)length?0:-1, op->status)) {
+		fprintf(stderr, "[%d] WRITE \"%s\" failed\n", op->child->line, file);
+		failed(op->child);
+		return;
+	}
+}
+
+static void smb_read(struct dbench_op *op)
+{
+	smb_handle_t *hnd;
+	const char *file;
+	int ret;
+	size_t length;
+	off_t offset;
+	char garbage[65536];
+
+	offset = op->params[0];
+	length = op->params[1];
+	if (length > 65536) {
+		length = 65536;
+	}
+
+	file = op->fname + 2;
+
+	hnd = lookup_path(file);
+	if (hnd == NULL) {
+		fprintf(stderr, "[%d] READ \"%s\" failed. This file is not open.\n", op->child->line, file);
+		failed(op->child);
+		return;
+	}
+
+
+	smbc_lseek(hnd->fd, offset, SEEK_SET);
+	ret = smbc_read(hnd->fd, garbage, length);
+
+	if (check_status(ret==(int)length?0:-1, op->status)) {
+		fprintf(stderr, "[%d] READ \"%s\" failed\n", op->child->line, file);
+		failed(op->child);
+		return;
+	}
+}
+
+
+static void smb_unlink(struct dbench_op *op)
+{
+	const char *path;
+	char *str;
+	int ret;
+
+	path = op->fname + 2;
+	asprintf(&str, "smb://%s/%s/%s", options.smb_server, options.smb_share, path);
+
+	ret = smbc_unlink(str);
+	free(str);
+
+	if (check_status(ret, op->status)) {
+		fprintf(stderr, "[%d] UNLINK \"%s\" failed\n", op->child->line, path);
+		failed(op->child);
+		return;
 	}
 }
 
 
 static struct backend_op ops[] = {
+	{ "CLOSE", smb_close },
 	{ "MKDIR", smb_mkdir },
+	{ "OPEN", smb_open },
+	{ "READ", smb_read },
 	{ "RMDIR", smb_rmdir },
+	{ "UNLINK", smb_unlink },
+	{ "WRITE", smb_write },
 	{ NULL, NULL}
 };
 
