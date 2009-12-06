@@ -380,15 +380,8 @@ static void smb_setup(struct child_struct *child)
 		fprintf(stderr, "failed to initialize context\n");
 		exit(10);
 	}
+	smbc_setOptionUrlEncodeReaddirEntries(ctx->ctx, True);
 	smbc_set_context(ctx->ctx);
-}
-
-static void smb_cleanup(struct child_struct *child)
-{
-	struct smb_child *ctx = child->private;
-
-	smbc_free_context(ctx->ctx, 1);
-	free(ctx);	
 }
 
 static void smb_mkdir(struct dbench_op *op)
@@ -530,6 +523,7 @@ static void smb_write(struct dbench_op *op)
 		failed(op->child);
 		return;
 	}
+	op->child->bytes += length;
 }
 
 static void smb_read(struct dbench_op *op)
@@ -565,6 +559,7 @@ static void smb_read(struct dbench_op *op)
 		failed(op->child);
 		return;
 	}
+	op->child->bytes += length;
 }
 
 
@@ -587,12 +582,93 @@ static void smb_unlink(struct dbench_op *op)
 	}
 }
 
+static void recursive_delete_tree(struct dbench_op *op, const char *url)
+{
+	int dir;
+	struct smbc_dirent *dirent;
 
+	printf("deltree : url:%s\n", url);
+
+	dir = smbc_opendir(url);
+	if (dir < 0) {
+		fprintf(stderr, "[%d] Deltree \"%s\" failed\n", op->child->line, url);
+		failed(op->child);
+	}
+	while((dirent = smbc_readdir(dir))) {
+		char *path;
+
+		asprintf(&path, "%s/%s", url, dirent->name);
+		if (!strcmp(dirent->name, ".")) {
+			continue;
+		}
+		if (!strcmp(dirent->name, "..")) {
+			continue;
+		}
+		if (dirent->smbc_type == SMBC_DIR) {
+			recursive_delete_tree(op, path);
+			smbc_rmdir(path);
+		} else {
+			smbc_unlink(path);
+		}
+		free(path);
+	}
+	smbc_closedir(dir);
+
+	return;
+}
+
+static void smb_readdir(struct dbench_op *op)
+{
+	const char *path;
+	char *url;
+	int dir;
+
+	path = op->fname + 2;
+	asprintf(&url, "smb://%s/%s/%s", options.smb_server, options.smb_share, path);
+
+	dir = smbc_opendir(url);
+	free(url);
+	if (dir < 0) {
+		fprintf(stderr, "[%d] READDIR \"%s\" failed\n", op->child->line, url);
+		failed(op->child);
+	}
+	smbc_closedir(dir);
+}
+
+static void smb_deltree(struct dbench_op *op)
+{
+	const char *path;
+	char *url;
+
+	path = op->fname + 2;
+	asprintf(&url, "smb://%s/%s/%s", options.smb_server, options.smb_share, path);
+	recursive_delete_tree(op, url);
+	free(url);
+}
+
+static void smb_cleanup(struct child_struct *child)
+{
+	struct smb_child *ctx = child->private;
+	char *url;
+	struct dbench_op fake_op;
+
+	asprintf(&url, "smb://%s/%s", options.smb_server, options.smb_share);
+	recursive_delete_tree(&fake_op, url);
+	free(url);
+
+	smbc_free_context(ctx->ctx, 1);
+	free(ctx);	
+}
+
+
+	
 static struct backend_op ops[] = {
+	{ "Deltree",  smb_deltree },
 	{ "CLOSE", smb_close },
 	{ "MKDIR", smb_mkdir },
 	{ "OPEN", smb_open },
 	{ "READ", smb_read },
+	{ "READDIR", smb_readdir },
 	{ "RMDIR", smb_rmdir },
 	{ "UNLINK", smb_unlink },
 	{ "WRITE", smb_write },

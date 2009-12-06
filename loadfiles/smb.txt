@@ -9,6 +9,11 @@
 # Filenames in SMB MUST start with '\' or '/'
 #
 #
+# Delete an entire directory tree.
+#Deltree "/" SUCCESS
+#
+#
+#
 # MKDIR <path> <status>
 MKDIR "/foo" SUCCESS
 #
@@ -53,4 +58,8 @@ CLOSE "/test.txt" SUCCESS
 #
 # UNLINK <path> <status>
 UNLINK "/test.txt" SUCCESS
-
+#
+#
+#
+# READDIR <path> <status>
+READDIR "/" SUCCESS
