@@ -315,7 +315,6 @@ static int smb_init(void)
 	*tmp = '\0';
 	smb_share = tmp+1;		
 
-
 	if (options.smb_user == NULL) {
 		fprintf(stderr, "You must specify --smb-user=[<domain>/]<user>%%<password> with the \"smb\" backend.\n");
 		return 1;
@@ -370,6 +369,8 @@ static int smb_init(void)
 static void smb_setup(struct child_struct *child)
 {
 	struct smb_child *ctx;
+	char *str;
+	int ret;
 
 	ctx = malloc(sizeof(struct smb_child));
 	if (ctx == NULL) {
@@ -394,6 +395,18 @@ static void smb_setup(struct child_struct *child)
 	}
 	smbc_setOptionUrlEncodeReaddirEntries(ctx->ctx, True);
 	smbc_set_context(ctx->ctx);
+
+
+	/* create clients and /clients/client? */
+	asprintf(&str, "smb://%s/%s/clients", smb_server, smb_share);
+	smbc_mkdir(str, 0777);
+	free(str);
+	asprintf(&str, "smb://%s/%s/clients/client%d", smb_server, smb_share, child->id);
+	smbc_mkdir(str, 0777);
+	free(str);
+
+
+	asprintf(&smb_share, "%s/clients/client%d", smb_share, child->id);
 }
 
 static void smb_mkdir(struct dbench_op *op)
