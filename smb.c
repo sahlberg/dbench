@@ -599,8 +599,6 @@ static void recursive_delete_tree(struct dbench_op *op, const char *url)
 	int dir;
 	struct smbc_dirent *dirent;
 
-	printf("deltree : url:%s\n", url);
-
 	dir = smbc_opendir(url);
 	if (dir < 0) {
 		fprintf(stderr, "[%d] Deltree \"%s\" failed\n", op->child->line, url);
