@@ -438,10 +438,8 @@ static void process_opts(int argc, const char **argv)
 		  "How many seconds of warmup to run", NULL },
 		{ "machine-readable", 0, POPT_ARG_NONE, &options.machine_readable, 0,
 		  "Print data in more machine-readable friendly format", NULL},
-		{ "smb-server",  0, POPT_ARG_STRING, &options.smb_server, 0, 
-		  "name/ip of SMB server", NULL },
 		{ "smb-share",  0, POPT_ARG_STRING, &options.smb_share, 0, 
-		  "name of SMB share", NULL },
+		  "//SERVER/SHARE to use", NULL },
 		{ "smb-user",  0, POPT_ARG_STRING, &options.smb_user, 0, 
 		  "User to authenticate as : [<domain>/]<user>%<password>", NULL },
 		POPT_TABLEEND

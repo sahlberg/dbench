@@ -30,6 +30,8 @@
 static char *smb_domain;
 static char *smb_user;
 static char *smb_password;
+static char *smb_server;
+static char *smb_share;
 
 typedef struct _data_t {
 	const char *dptr;
@@ -296,14 +298,24 @@ static int smb_init(void)
 	int ret;
 	char *str;
 
-	if (options.smb_server == NULL) {
-		fprintf(stderr, "You must specify --smb-server=<server> with the \"smb\" backend.\n");
-		return 1;
-	}
 	if (options.smb_share == NULL) {
 		fprintf(stderr, "You must specify --smb-share=<share> with the \"smb\" backend.\n");
 		return 1;
 	}
+	if (options.smb_share[0] != '/' || options.smb_share[1] != '/') {
+		fprintf(stderr, "--smb-share Must be of the form //SERVER/SHARE\n");
+		return 1;
+	}
+	smb_server = strdup(options.smb_share+2);
+	tmp = index(smb_server, '/');
+	if (tmp == NULL) {
+		fprintf(stderr, "--smb-share Must be of the form //SERVER/SHARE\n");
+		return 1;
+	}
+	*tmp = '\0';
+	smb_share = tmp+1;		
+
+
 	if (options.smb_user == NULL) {
 		fprintf(stderr, "You must specify --smb-user=[<domain>/]<user>%%<password> with the \"smb\" backend.\n");
 		return 1;
@@ -342,12 +354,12 @@ static int smb_init(void)
 	}
 	smbc_set_context(ctx);
 
-	asprintf(&str, "smb://%s/%s", options.smb_server, options.smb_share);
+	asprintf(&str, "smb://%s/%s", smb_server, smb_share);
 	ret = smbc_opendir(str);
 	free(str);
 
 	if (ret == -1) {
-		fprintf(stderr, "Failed to access //%s/%s\n", options.smb_server, options.smb_share);
+		fprintf(stderr, "Failed to access //%s/%s\n", smb_server, smb_share);
 		return 1;
 	}
 
@@ -392,7 +404,7 @@ static void smb_mkdir(struct dbench_op *op)
 
 	dir = op->fname + 2;
 
-	asprintf(&str, "smb://%s/%s/%s", options.smb_server, options.smb_share, dir);
+	asprintf(&str, "smb://%s/%s/%s", smb_server, smb_share, dir);
 
 	ret = smbc_mkdir(str, 0777);
 	free(str);
@@ -410,7 +422,7 @@ static void smb_rmdir(struct dbench_op *op)
 	int ret;
 
 	dir = op->fname + 2;
-	asprintf(&str, "smb://%s/%s/%s", options.smb_server, options.smb_share, dir);
+	asprintf(&str, "smb://%s/%s/%s", smb_server, smb_share, dir);
 	ret = smbc_rmdir(str);
 	free(str);
 
@@ -450,7 +462,7 @@ static void smb_open(struct dbench_op *op)
 	}
 
 	file = op->fname + 2;
-	asprintf(&str, "smb://%s/%s/%s", options.smb_server, options.smb_share, file);
+	asprintf(&str, "smb://%s/%s/%s", smb_server, smb_share, file);
 
 	hnd.fd = smbc_open(str, flags, 0777);
 	free(str);
@@ -570,7 +582,7 @@ static void smb_unlink(struct dbench_op *op)
 	int ret;
 
 	path = op->fname + 2;
-	asprintf(&str, "smb://%s/%s/%s", options.smb_server, options.smb_share, path);
+	asprintf(&str, "smb://%s/%s/%s", smb_server, smb_share, path);
 
 	ret = smbc_unlink(str);
 	free(str);
@@ -624,7 +636,7 @@ static void smb_readdir(struct dbench_op *op)
 	int dir;
 
 	path = op->fname + 2;
-	asprintf(&url, "smb://%s/%s/%s", options.smb_server, options.smb_share, path);
+	asprintf(&url, "smb://%s/%s/%s", smb_server, smb_share, path);
 
 	dir = smbc_opendir(url);
 	free(url);
@@ -641,7 +653,7 @@ static void smb_deltree(struct dbench_op *op)
 	char *url;
 
 	path = op->fname + 2;
-	asprintf(&url, "smb://%s/%s/%s", options.smb_server, options.smb_share, path);
+	asprintf(&url, "smb://%s/%s/%s", smb_server, smb_share, path);
 	recursive_delete_tree(op, url);
 	free(url);
 }
@@ -652,7 +664,7 @@ static void smb_cleanup(struct child_struct *child)
 	char *url;
 	struct dbench_op fake_op;
 
-	asprintf(&url, "smb://%s/%s", options.smb_server, options.smb_share);
+	asprintf(&url, "smb://%s/%s", smb_server, smb_share);
 	recursive_delete_tree(&fake_op, url);
 	free(url);
 
