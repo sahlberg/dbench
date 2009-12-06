@@ -303,13 +303,13 @@ static int smb_init(void)
 		return 1;
 	}
 	if (options.smb_share[0] != '/' || options.smb_share[1] != '/') {
-		fprintf(stderr, "--smb-share Must be of the form //SERVER/SHARE\n");
+		fprintf(stderr, "--smb-share Must be of the form //SERVER/SHARE[/PATH]\n");
 		return 1;
 	}
 	smb_server = strdup(options.smb_share+2);
 	tmp = index(smb_server, '/');
 	if (tmp == NULL) {
-		fprintf(stderr, "--smb-share Must be of the form //SERVER/SHARE\n");
+		fprintf(stderr, "--smb-share Must be of the form //SERVER/SHARE[/PATH]\n");
 		return 1;
 	}
 	*tmp = '\0';
