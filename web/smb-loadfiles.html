@@ -1,0 +1,156 @@
+<!--#set var="TITLE" value="SMB loadfiles" -->
+<!--#include virtual="header.html" -->
+
+<H1 align="center">SMB Loadfiles</h1>
+
+<p>
+DBENCH links with libsmbclient and is capable of originating SMB traffic to a remote SMB server, such as Samba or Windows. This is similar to smbtorture/BENCH-NBENCH which also is used in a very similar way to generate SMB workloads.
+Now, while smbtorture is much more powerful, and can be used to aquire much greater control of what is exactly goes across the wire, DBENCH with smb support is much less sophisticated and simpler. This is NOT a replacement for BENCH-NBENCH. See it as BENCH-NBENCH's little brother that is easier to use and get a long with.
+</p>
+
+<h2>Loadfile Syntax</h2>
+<p>
+The DBENCH distribution contains an example loadfile that documents all functions available for the smb backend. While this webpage may sometimes be out-of-date, the example <a href="/loadfiles/smb.txt">SMB loadfile</a> should always be up to date.
+</p>
+
+<h2>Example 1</h2>
+<p>
+Create 5 different files and write 64kbyte to each of them.
+Run the loadfile only once for each thread and leave the data and dont do any cleanup after the loadfile finishes. Leave all files behind.
+</p>
+
+<pre>
+# Create a bunch of files
+# OPEN <path> <flags> <status>
+# Flags are the combination of these flags, ored together
+#     0x01    O_RDONLY
+#     0x02    O_WRONLY
+#     0x04    O_RDWR
+#
+#     0x08    O_CREAT create the file if it does nto exist
+#     0x10    O_EXCL  fail if the file already exists
+#     0x20    O_TRUNC if the file exists, truncate it
+#     0x40    O_APPEND open in append mode only
+OPEN "/file0" 0x1c SUCCESS
+WRITE "/file0" 0 32768 SUCCESS
+WRITE "/file0" 32768 32768 SUCCESS
+CLOSE "/file0" SUCCESS
+#
+OPEN "/file1" 0x1c SUCCESS
+WRITE "/file1" 0 32768 SUCCESS
+WRITE "/file1" 32768 32768 SUCCESS
+CLOSE "/file1" SUCCESS
+#
+OPEN "/file2" 0x1c SUCCESS
+WRITE "/file2" 0 32768 SUCCESS
+WRITE "/file2" 32768 32768 SUCCESS
+CLOSE "/file2" SUCCESS
+#
+OPEN "/file3" 0x1c SUCCESS
+WRITE "/file3" 0 32768 SUCCESS
+WRITE "/file3" 32768 32768 SUCCESS
+CLOSE "/file3" SUCCESS
+#
+OPEN "/file4" 0x1c SUCCESS
+WRITE "/file4" 0 32768 SUCCESS
+WRITE "/file4" 32768 32768 SUCCESS
+CLOSE "/file4" SUCCESS
+</pre>
+
+<pre>
+./dbench -B smb --smb-share=//10.0.0.33/data --smb-user=Administrator%password --loadfile=smb-writefiles.txt --run-once --skip-cleanup 10
+dbench version 4.00 - Copyright Andrew Tridgell 1999-2004
+
+Running for 600 seconds with load 'smb-writefiles.txt' and minimum warmup 120 secs
+0 of 10 processes prepared for launch   0 sec
+7 of 10 processes prepared for launch   0 sec
+10 of 10 processes prepared for launch   0 sec
+releasing clients
+  10        32     2.44 MB/sec  warmup   1 sec  latency 228.466 ms
+  10        37     2.49 MB/sec  warmup   1 sec  latency 512.282 ms
+
+ Operation                Count    AvgLat    MaxLat
+ --------------------------------------------------
+ CLOSE                       50    95.240   221.051
+ OPEN                        50    62.833   240.597
+ WRITE                      100    30.972   250.154
+
+Throughput 0 MB/sec  10 clients  10 procs  max_latency=512.282 ms
+</pre>
+
+
+<h2>Example 2</h2>
+<p>
+The 5 files created by the previous loadfile, just read them all over and over.
+</p>
+
+<pre>
+# OPEN <path> <flags> <status>
+# Flags are the combination of these flags, ored together
+#     0x01    O_RDONLY
+#     0x02    O_WRONLY
+#     0x04    O_RDWR
+#
+#     0x08    O_CREAT create the file if it does nto exist
+#     0x10    O_EXCL  fail if the file already exists
+#     0x20    O_TRUNC if the file exists, truncate it
+#     0x40    O_APPEND open in append mode only
+OPEN "/file0" 0x01 SUCCESS
+READ "/file0" 0 32768 SUCCESS
+READ "/file0" 32768 32768 SUCCESS
+CLOSE "/file0" SUCCESS
+#
+OPEN "/file1" 0x01 SUCCESS
+READ "/file1" 0 32768 SUCCESS
+READ "/file1" 32768 32768 SUCCESS
+CLOSE "/file1" SUCCESS
+#
+OPEN "/file2" 0x01 SUCCESS
+READ "/file2" 0 32768 SUCCESS
+READ "/file2" 32768 32768 SUCCESS
+CLOSE "/file2" SUCCESS
+#
+OPEN "/file3" 0x01 SUCCESS
+READ "/file3" 0 32768 SUCCESS
+READ "/file3" 32768 32768 SUCCESS
+CLOSE "/file3" SUCCESS
+#
+OPEN "/file4" 0x01 SUCCESS
+READ "/file4" 0 32768 SUCCESS
+READ "/file4" 32768 32768 SUCCESS
+CLOSE "/file4" SUCCESS
+</pre>
+
+</pre>
+./dbench -B smb --smb-share=//10.0.0.33/data --smb-user=Administrator%password --loadfile=smb-readfiles.txt --timelimit=10 --skip-cleanup 10
+dbench version 4.00 - Copyright Andrew Tridgell 1999-2004
+
+Running for 10 seconds with load 'smb-readfiles.txt' and minimum warmup 2 secs
+0 of 10 processes prepared for launch   0 sec
+10 of 10 processes prepared for launch   0 sec
+releasing clients
+  10       334    30.89 MB/sec  warmup   1 sec  latency 49.942 ms
+  10       945    28.75 MB/sec  execute   1 sec  latency 109.873 ms
+  10      1232    28.11 MB/sec  execute   2 sec  latency 109.873 ms
+  10      1495    27.10 MB/sec  execute   3 sec  latency 69.919 ms
+  10      1745    26.30 MB/sec  execute   4 sec  latency 137.197 ms
+  10      2062    27.06 MB/sec  execute   5 sec  latency 39.954 ms
+  10      2384    27.71 MB/sec  execute   6 sec  latency 57.968 ms
+  10      2708    28.15 MB/sec  execute   7 sec  latency 40.490 ms
+  10      3013    28.25 MB/sec  execute   8 sec  latency 49.942 ms
+  10      3279    27.94 MB/sec  execute   9 sec  latency 59.931 ms
+  10  cleanup  10 sec
+   0  cleanup  10 sec
+
+ Operation                Count    AvgLat    MaxLat
+ --------------------------------------------------
+ CLOSE                     4275     3.131    83.772
+ OPEN                      4275     1.947    56.299
+ READ                      8555     9.258   137.188
+
+Throughput 27.9426 MB/sec  10 clients  10 procs  max_latency=137.197 ms
+</pre>
+
+
+<!--#include virtual="footer.html" -->
+
