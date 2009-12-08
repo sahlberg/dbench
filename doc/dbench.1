@@ -1,11 +1,11 @@
 .\"     Title: dbench
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
-.\"      Date: 09/26/2009
+.\"      Date: 12/08/2009
 .\"    Manual: 
 .\"    Source: 
 .\"
-.TH "DBENCH" "1" "09/26/2009" "" ""
+.TH "DBENCH" "1" "12/08/2009" "" ""
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
@@ -25,7 +25,7 @@ dbench is a utility to benchmark a system based on client workload profiles\.
 .PP
 The backend type specifies which kind of commandset and what kind of tests that dbench will perform\. The backend type specifies which kind of loadfile that can be used\.
 .PP
-There are currently five types of backends : "fileio", "sockio", "nfs", "scsi"and "iscsi"\. The default is "fileio" which uses a CIFS style loadfile\.
+There are currently six types of backends : "fileio", "sockio", "nfs", "scsi", "iscsi" and "smb"\. The default is "fileio" which uses a smbtorture/BENCH\-NBENCH style loadfile\.
 .SS "\-c \-\-loadfile=<filename>"
 .PP
 This specifies the name of the loadfile to use\. The loadfile describes the sequence and timing of operations that dbench will issue\.
@@ -88,6 +88,25 @@ After each create/mkdir/rmdir/rename operation, immediately try to stat() the ob
 .SS "\-T \-\-tcp\-options=<string>"
 .PP
 This option only apply to the "sockio" backend\.
+.SH "SMB OPTIONS"
+.SS "\-\-smb\-share=//<hostname>/<share>[/<path>]"
+.PP
+This option only apply to the "smb" backend\.
+.PP
+This option is mandatory when the "smb" backend is used\.
+.PP
+This specifies the server and the share to use for the testing\. It also contains an optional path to a directory to use\.
+.PP
+Example: \-\-smb\-share=//MY\-SERVER/DATA
+.SS "\-\-smb\-user=[<domain>/]<user>%<password>"
+.PP
+This option only apply to the "smb" backend\.
+.PP
+This option is mandatory when the "smb" backend is used\.
+.PP
+This specifies the username and password to use when authenticationg to the server\.
+.PP
+Example: \-\-smb\-user=Administrator%Password
 .SH "NFS OPTIONS"
 .SS "\-\-server=<hostname>"
 .PP

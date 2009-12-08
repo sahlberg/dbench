@@ -71,7 +71,7 @@
       </para>
 
       <para>
-      There are currently five types of backends : "fileio", "sockio", "nfs", "scsi"and "iscsi". The default is "fileio" which uses a CIFS style loadfile.
+      There are currently six types of backends : "fileio", "sockio", "nfs", "scsi", "iscsi" and "smb". The default is "fileio" which uses a smbtorture/BENCH-NBENCH style loadfile.
       </para>
     </refsect2>
 
@@ -232,6 +232,42 @@
     </refsect2>
 
 
+  </refsect1>
+
+  <refsect1> <title>SMB OPTIONS</title>
+    <refsect2><title>--smb-share=//&lt;hostname&gt;/&lt;share&gt;[/&lt;path&gt;]</title>
+      <para>
+      This option only apply to the "smb" backend.
+      </para>
+
+      <para>
+      This option is mandatory when the "smb" backend is used.
+      </para>
+
+      <para>
+      This specifies the server and the share to use for the testing. It also contains an optional path to a directory to use.
+      </para>
+      <para>
+	Example: --smb-share=//MY-SERVER/DATA
+      </para>
+    </refsect2>
+
+    <refsect2><title>--smb-user=[&lt;domain&gt;/]&lt;user&gt;%&lt;password&gt;</title>
+      <para>
+      This option only apply to the "smb" backend.
+      </para>
+
+      <para>
+      This option is mandatory when the "smb" backend is used.
+      </para>
+
+      <para>
+      This specifies the username and password to use when authenticationg to the server.
+      </para>
+      <para>
+	Example: --smb-user=Administrator%Password
+      </para>
+    </refsect2>
   </refsect1>
 
   <refsect1> <title>NFS OPTIONS</title>
