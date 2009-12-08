@@ -5,7 +5,7 @@
 
 <p>
 DBENCH links with libsmbclient and is capable of originating SMB traffic to a remote SMB server, such as Samba or Windows. This is similar to smbtorture/BENCH-NBENCH which also is used in a very similar way to generate SMB workloads.
-Now, while smbtorture is much more powerful, and can be used to aquire much greater control of what is exactly goes across the wire, DBENCH with smb support is much less sophisticated and simpler. This is NOT a replacement for BENCH-NBENCH. See it as BENCH-NBENCH's little brother that is easier to use and get a long with.
+Now, while smbtorture is much more powerful, and can be used to aquire much greater control of what is exactly goes across the wire, DBENCH with smb support is much less sophisticated and simpler. This is NOT a replacement for BENCH-NBENCH. See it as BENCH-NBENCH's little brother that is easier to use and get along with.
 </p>
 
 <h2>Loadfile Syntax</h2>
@@ -121,7 +121,7 @@ READ "/file4" 32768 32768 SUCCESS
 CLOSE "/file4" SUCCESS
 </pre>
 
-</pre>
+<pre>
 ./dbench -B smb --smb-share=//10.0.0.33/data --smb-user=Administrator%password --loadfile=smb-readfiles.txt --timelimit=10 --skip-cleanup 10
 dbench version 4.00 - Copyright Andrew Tridgell 1999-2004
 
