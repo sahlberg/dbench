@@ -170,7 +170,7 @@ struct dbench_op {
 	const char *fname;
 	const char *fname2;
 	const char *status;
-	int params[10];
+	int64_t params[10];
 };
 
 struct backend_op {

@@ -16,7 +16,7 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
-
+#define _FILE_OFFSET_BITS 64
 #include "mount.h"
 #include "nfs.h"
 #include "libnfs.h"
@@ -34,7 +34,7 @@ typedef struct _data_t {
 typedef struct _tree_t {
 	data_t key;
 	data_t fh;
-	ssize_t size;
+	off_t  file_size;
 	struct _tree_t *parent;
 	struct _tree_t *left;
 	struct _tree_t *right;
@@ -115,7 +115,7 @@ static data_t *recursive_lookup_fhandle(struct nfsio *nfsio, const char *name)
 	return ;
 }
 
-static data_t *lookup_fhandle(struct nfsio *nfsio, const char *name, ssize_t *size)
+static data_t *lookup_fhandle(struct nfsio *nfsio, const char *name, off_t *off)
 {
 	tree_t *t;
 
@@ -130,8 +130,8 @@ static data_t *lookup_fhandle(struct nfsio *nfsio, const char *name, ssize_t *si
 		return recursive_lookup_fhandle(nfsio, name);
 	}
 
-	if (size) {
-		*size = t->size;
+	if (off) {
+		*off = t->file_size;
 	}
 
 	return &t->fh;
@@ -232,7 +232,7 @@ static void delete_fhandle(struct nfsio *nfsio, const char *name)
 	return;
 }
 
-static void insert_fhandle(struct nfsio *nfsio, const char *name, const char *fhandle, int length, ssize_t size)
+static void insert_fhandle(struct nfsio *nfsio, const char *name, const char *fhandle, int length, off_t off)
 {
 	tree_t *tmp_t;
 	tree_t *t;
@@ -262,8 +262,7 @@ static void insert_fhandle(struct nfsio *nfsio, const char *name, const char *fh
 	memcpy(discard_const(t->fh.dptr), fhandle, length);
 	t->fh.dsize = length;	
 	
-	t->size   = size;
-
+	t->file_size = off;
 	t->left   = NULL;
 	t->right  = NULL;
 	t->parent = NULL;
@@ -817,13 +816,13 @@ finished:
 	return ret;
 }
 
-nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf, uint32 offset, int len, int *count, int *eof)
+nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf, uint64_t offset, int len, int *count, int *eof)
 {
 	struct READ3args READ3args;
 	struct READ3res *READ3res;
 	int ret = NFS3_OK;
 	data_t *fh;
-	ssize_t size;
+	off_t size;
 
 	fh = lookup_fhandle(nfsio, name, &size);
 	if (fh == NULL) {

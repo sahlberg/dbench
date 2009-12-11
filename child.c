@@ -28,7 +28,7 @@
 #include "dbench.h"
 #include <zlib.h>
 
-#define ival(s) strtol(s, NULL, 0)
+#define ival(s) strtoll(s, NULL, 0)
 
 static void nb_sleep(int usec)
 {
@@ -90,6 +90,69 @@ static void finish_op(struct child_struct *child, struct op *op)
 
 #define OP_LATENCY(opname) finish_op(child, &child->op.op_ ## opname)
 
+/* here we parse "special" arguments that start with '*'
+ * '*' itself means a random 64 bit number, but this can be qualified as
+ *
+ * '*'     a random 64 bit number
+ * '...%y' modulo y
+ * '.../y' align the number as an integer multiple of y  (( x = (x/y)*y))
+ * '...+y' add 'y'
+ *
+ * Examples :
+ * '*'       : random 64 bit number
+ * '*%1024'  : random number between 0 and 1023
+ * '* /1024'  : random 64 bit number aligned to n*1024
+ * '*%1024/2 : random even number between 0 and 1023
+ */
+uint64_t parse_special(const char *fmt)
+{
+	char q;
+	uint64_t num;
+	uint64_t val;
+
+	num = random();
+	num = (num <<32) | random();
+
+	fmt++;
+	while (*fmt != '\0') {
+		q = *fmt++;
+		val = strtoll(fmt, NULL, 0);
+		if (val == 0) {
+			printf("Illegal value in random number qualifier. Can not be zero\n");
+			return num;
+		}
+
+		switch (q) {
+		case '/':
+			num = (num/val)*val;
+			break;
+		case '%':
+			num = num%val;
+			break;
+		case '+':
+			num = num+val;
+			break;
+		default:
+			printf("Unknown qualifier '%c' for randum number qualifier\n", q);
+		}
+
+		/* skip until the next token */
+		while (*fmt != '\0') {
+			switch (*fmt) {
+			case '0'...'9':
+			case 'a'...'f':
+			case 'A'...'F':
+			case 'x':
+			case 'X':
+				fmt++;
+				continue;
+			}
+			break;
+		}
+	}
+
+	return num;
+}
 /*
   one child operation
  */
@@ -109,8 +172,8 @@ static void child_op(struct child_struct *child, const char *opname,
 	op.fname2 = fname2;
 	op.status = status;
 	for (i=0;i<sizeof(op.params)/sizeof(op.params[0]);i++) {
-		if (!strcmp(params[i], "*")) {
-			op.params[i] = random();
+		if (params[i][0] == '*') {
+			op.params[i] = parse_special(params[i]);
 		} else {
 			op.params[i] = params[i]?ival(params[i]):0;
 		}

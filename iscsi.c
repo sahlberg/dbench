@@ -22,6 +22,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <stdint.h>
+#include <arpa/inet.h>
 #include "dbench.h"
 
 #define discard_const(ptr) ((void *)((intptr_t)(ptr)))

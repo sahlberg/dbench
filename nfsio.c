@@ -15,6 +15,8 @@
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
+#define _FILE_OFFSET_BITS 64
+
 #define _GNU_SOURCE
 #include <stdio.h>
 #undef _GNU_SOURCE
@@ -217,7 +219,7 @@ static void nfs3_create(struct dbench_op *op)
 
 static void nfs3_write(struct dbench_op *op)
 {
-	int offset = op->params[0];
+	off_t offset = op->params[0];
 	int len = op->params[1];
 	int stable = op->params[2];
 	nfsstat3 res;
@@ -251,7 +253,7 @@ static void nfs3_commit(struct dbench_op *op)
 
 static void nfs3_read(struct dbench_op *op)
 {
-	int offset = op->params[0];
+	off_t offset = op->params[0];
 	int len = op->params[1];
 	nfsstat3 res = 0;
 

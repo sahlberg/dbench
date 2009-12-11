@@ -8,7 +8,7 @@ nfsstat3 nfsio_create(struct nfsio *nfsio, const char *name);
 nfsstat3 nfsio_remove(struct nfsio *nfsio, const char *name);
 nfsstat3 nfsio_write(struct nfsio *nfsio, const char *name, char *buf, uint32 offset, int len, int stable);
 nfsstat3 nfsio_commit(struct nfsio *nfsio, const char *name);
-nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf, uint32 offset, int len, int *count, int *eof);
+nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf, uint64_t offset, int len, int *count, int *eof);
 nfsstat3 nfsio_fsinfo(struct nfsio *nfsio);
 nfsstat3 nfsio_fsstat(struct nfsio *nfsio);
 nfsstat3 nfsio_pathconf(struct nfsio *nfsio, char *name);

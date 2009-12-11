@@ -1,27 +1,64 @@
+# The READ3 command takes an offset. This can be specified eitehr as an absolute
+# number, but also as a simple expression for generation of random I/O
+#
+# Offset is then a string starting with a '*' followed by one or more
+# qualifier :
+# '*'    : Random 64 bit integer
+# '/yyy' : align the number to yyy. This is the same as x = (x/y)*y
+# '%yyy' : modulo yyy. This si teh same as x = x%y
+# '+yyy' : Add y
+#
+# Examples :
+# '*'         A random offset between 0 and 2**64-1
+# '*/0x1000'  A random offset aligned to a page boundary (4096)
+# '*/0x1000%5000000' A random offset between 0 and 500000 aligned to page
+#                    boundary
+#
+# '*%100+25'  A random offset between 25 and 124
+#
+#
+#
+#
 # DELTREE if we want to delete the client directory everytime we restart 
 # the script. Remove these two lines if the script is only "read-only"
 # reading from pre-existing files in the /clients/clientX/ tree
 0.000 Deltree "/clients/client1" 0x00000000
 #
+#
+#
 # Make sure these directories exist. We specify * as the status code
 # since these directories might already exist and in which case
 # we dont care that the command returned an error.
+#
+#
+# MKDIR3 <path> <status>
 0.000 MKDIR3 "/clients" *
 0.000 MKDIR3 "/clients/client1" *
+#
+#
 #
 # This lookup must be performed to pre-load the name to filehandle cache.
 # Othervise we will get errors like this :
 #     failed to fetch handle in nfsio_read
 #
+# LOOKUP3 <path> <status>
 0.000 LOOKUP3 "/clients/client1" 0x00000000
+#
+#
 #
 # Here is where the script starts
 #
+# GETATTR3 <path> <status>
 0.010 GETATTR3 "/clients/client1" 0x00000000
 0.020 GETATTR3 "/clients/client1" 0x00000000
 0.030 GETATTR3 "/clients/client1" 0x00000000
 0.040 CREATE3  "/clients/client1/test.file" 0x00000000
 0.050 CREATE3  "/clients/client1/tmp.file" 0x00000000
+#
+#
+#
+# WRITE3 <path> <offset> <size> <status>
+#
 # second last argument to WRITE is the "stable' field.
 #  0 : UNSTABLE (default for NFS)
 #  1 : DATA STABLE
@@ -30,7 +67,15 @@
 1.010 WRITE3 "/clients/client1/test.file" 1024 1024 0 0x00000000
 1.020 WRITE3 "/clients/client1/test.file" 2048 2048 0 0x00000000
 1.030 COMMIT3 "/clients/client1/test.file" 0x00000000
+#
+#
+#
+# READ <path> <offset> <size> <status>
 1.040 READ3 "/clients/client1/test.file" 2048 2048 0x00000000
+#
+#
+#
+#
 1.050 LOOKUP3 "/clients/client1/test.file" 0x00000000
 1.060 LINK3 "/clients/client1/hard.link" "/clients/client1/test.file" 0x00000000
 1.070 REMOVE3 "/clients/client1/hard.link" 0x00000000
