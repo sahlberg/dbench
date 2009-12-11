@@ -1,5 +1,6 @@
-# The READ3 command takes an offset. This can be specified eitehr as an absolute
-# number, but also as a simple expression for generation of random I/O
+# The READ3/WRITE3 commands takes an offset. This can be specified either as
+# an absolute number, but also as a simple expression for generation of
+# random I/O
 #
 # Offset is then a string starting with a '*' followed by one or more
 # qualifier :

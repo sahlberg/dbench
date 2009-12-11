@@ -776,7 +776,7 @@ finished:
 }
 
 
-nfsstat3 nfsio_write(struct nfsio *nfsio, const char *name, char *buf, uint32 offset, int len, int stable)
+nfsstat3 nfsio_write(struct nfsio *nfsio, const char *name, char *buf, uint64_t offset, int len, int stable)
 {
 	struct WRITE3args WRITE3args;
 	struct WRITE3res *WRITE3res;
