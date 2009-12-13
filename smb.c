@@ -342,9 +342,8 @@ static int smb_init(void)
 		fprintf(stderr, "Could not allocate SMB Context\n");
 		return 1;
 	}
-
-	smbc_setDebug(ctx, 0);
-	smbc_setFunctionAuthData(ctx, smb_auth_fn);
+	ctx->debug = 0;
+	ctx->callbacks.auth_fn = smb_auth_fn;
 
 	if (!smbc_init_context(ctx)) {
 		smbc_free_context(ctx, 0);
@@ -384,16 +383,14 @@ static void smb_setup(struct child_struct *child)
 		fprintf(stderr, "Could not allocate SMB Context\n");
 		exit(10);
 	}
-
-	smbc_setDebug(ctx->ctx, 0);
-	smbc_setFunctionAuthData(ctx->ctx, smb_auth_fn);
+	ctx->ctx->debug = 0;
+	ctx->ctx->callbacks.auth_fn = smb_auth_fn;
 
 	if (!smbc_init_context(ctx->ctx)) {
 		smbc_free_context(ctx->ctx, 0);
 		fprintf(stderr, "failed to initialize context\n");
 		exit(10);
 	}
-	smbc_setOptionUrlEncodeReaddirEntries(ctx->ctx, True);
 	smbc_set_context(ctx->ctx);
 
 
