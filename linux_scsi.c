@@ -14,12 +14,11 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
+#include "dbench.h"
 
 #define _GNU_SOURCE
 #include <stdio.h>
 #undef _GNU_SOURCE
-
-#include "dbench.h"
 
 #ifdef HAVE_LINUX_SCSI_SG
 

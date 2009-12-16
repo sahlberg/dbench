@@ -18,7 +18,6 @@
 
 #include "dbench.h"
 
-
 #ifndef SHM_W
 #define SHM_W 0000200
 #endif

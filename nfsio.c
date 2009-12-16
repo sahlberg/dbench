@@ -15,16 +15,13 @@
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
-#define _FILE_OFFSET_BITS 64
-
-#define _GNU_SOURCE
-#include <stdio.h>
-#undef _GNU_SOURCE
-
-#include "mount.h"
 #include "nfs.h"
-#include "libnfs.h"
 #include "dbench.h"
+
+#include <stdio.h>
+#include "mount.h"
+#include <stdint.h>
+#include "libnfs.h"
 
 #define discard_const(ptr) ((void *)((intptr_t)(ptr)))
 
@@ -64,7 +61,6 @@ static void nfs3_setup(struct child_struct *child)
 
 	srandom(getpid() ^ time(NULL));
 	child->private = nfsio_connect(options.server, options.export, options.protocol);
-
 	if (child->private == NULL) {
 		child->failed = 1;
 		printf("nfsio_connect() failed\n");

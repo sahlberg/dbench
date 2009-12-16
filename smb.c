@@ -14,16 +14,13 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
+#include "dbench.h"
 
-#define _GNU_SOURCE
 #include <stdio.h>
-#undef _GNU_SOURCE
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <stdint.h>
 #include <libsmbclient.h>
-#include "dbench.h"
 
 #define discard_const(ptr) ((void *)((intptr_t)(ptr)))
 
