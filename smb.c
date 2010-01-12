@@ -391,18 +391,6 @@ static void smb_setup(struct child_struct *child)
 		exit(10);
 	}
 	smbc_set_context(ctx->ctx);
-
-
-	/* create clients and /clients/client? */
-	asprintf(&str, "smb://%s/%s/clients", smb_server, smb_share);
-	smbc_mkdir(str, 0777);
-	free(str);
-	asprintf(&str, "smb://%s/%s/clients/client%d", smb_server, smb_share, child->id);
-	smbc_mkdir(str, 0777);
-	free(str);
-
-
-	asprintf(&smb_share, "%s/clients/client%d", smb_share, child->id);
 }
 
 static void smb_mkdir(struct dbench_op *op)
