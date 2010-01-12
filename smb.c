@@ -285,7 +285,9 @@ void smb_auth_fn(const char *server, const char *share, char *wrkgrp, int wrkgrp
 		strncpy(wrkgrp, smb_domain, wrkgrplen - 1); wrkgrp[wrkgrplen - 1] = 0;
 	}
 	strncpy(user, smb_user, userlen - 1); user[userlen - 1] = 0;
-	strncpy(passwd, smb_password, passwdlen - 1); passwd[passwdlen - 1] = 0;
+	if (smb_password != NULL) {
+		strncpy(passwd, smb_password, passwdlen - 1); passwd[passwdlen - 1] = 0;
+	}
 }
 
 static int smb_init(void)
