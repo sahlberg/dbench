@@ -103,12 +103,23 @@ static void finish_op(struct child_struct *child, struct op *op)
  * '*%1024'  : random number between 0 and 1023
  * '* /1024'  : random 64 bit number aligned to n*1024
  * '*%1024/2 : random even number between 0 and 1023
+ *
+ *
+ * a special case is when the format starts with a '+' and is followed by
+ * a number, in which case we reuse the number from the previous line in the
+ * loadfile and add <number> to it :
+ * '+1024' : add 1024 to the value from the previous line in the loadfile
  */
-uint64_t parse_special(const char *fmt)
+static uint64_t parse_special(const char *fmt, uint64_t prev_val)
 {
 	char q;
 	uint64_t num;
 	uint64_t val;
+
+	if (*fmt == '+') {
+		val = strtoll(fmt+1, NULL, 0);
+		return prev_val + val;
+	}
 
 	num = random();
 	num = (num <<32) | random();
@@ -160,6 +171,7 @@ static void child_op(struct child_struct *child, const char *opname,
 		     const char *fname, const char *fname2, 
 		     char **params, const char *status)
 {
+	static struct dbench_op prev_op;
 	struct dbench_op op;
 	unsigned i;
 
@@ -172,12 +184,17 @@ static void child_op(struct child_struct *child, const char *opname,
 	op.fname2 = fname2;
 	op.status = status;
 	for (i=0;i<sizeof(op.params)/sizeof(op.params[0]);i++) {
-		if (params[i][0] == '*') {
-			op.params[i] = parse_special(params[i]);
-		} else {
+		switch (params[i][0]) {
+		case '*':
+		case '+':
+			op.params[i] = parse_special(params[i], prev_op.params[i]);
+			break;
+		default:
 			op.params[i] = params[i]?ival(params[i]):0;
 		}
 	}
+
+	prev_op = op;
 
 	if (strcasecmp(op.op, "Sleep") == 0) {
 		nb_sleep(op.params[0]);
