@@ -6,7 +6,7 @@
 # qualifier :
 # '*'    : Random 64 bit integer
 # '/yyy' : align the number to yyy. This is the same as x = (x/y)*y
-# '%yyy' : modulo yyy. This si teh same as x = x%y
+# '%yyy' : modulo yyy. This is the same as x = x%y
 # '+yyy' : Add y
 #
 # Examples :
@@ -17,6 +17,10 @@
 #
 # '*%100+25'  A random offset between 25 and 124
 #
+#
+# You can also use lines of the type "REPEAT <number>"
+# This means that the loadfile will repeat the next line
+# <number> times.
 #
 #
 #

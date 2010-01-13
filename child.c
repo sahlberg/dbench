@@ -234,11 +234,28 @@ again:
 	}
 
 	while (gzgets(gzf, line, sizeof(line)-1)) {
+		unsigned repeat_count = 1;
+
 		params = sparams;
 
 		if (kill(parent, 0) == -1) {
 			exit(1);
 		}
+
+		/* if this is a "REPEAT <xxx>" line, just replace the
+		 * currently read line with the next line
+		 */
+		if (strncmp(line, "REPEAT", 6) == 0) {
+			if (sscanf(line, "REPEAT %u\n", &repeat_count) != 1) {
+				fprintf(stderr, "Incorrect REPEAT at line %d\n", child0->line);
+				goto done;
+			}
+
+	       		for (child=child0;child<child0+options.clients_per_process;child++) {
+				child->line++;
+			}
+			gzgets(gzf, line, sizeof(line)-1);
+	        }
 
 		for (child=child0;child<child0+options.clients_per_process;child++) {
 			if (child->done) goto done;
@@ -284,6 +301,7 @@ again:
 		status = params[i-1];
 		
 		for (child=child0;child<child0+options.clients_per_process;child++) {
+			unsigned child_repeat_count = repeat_count;
 			int pcount = 1;
 
 			fname[0] = 0;
@@ -305,7 +323,9 @@ again:
 			} else {
 				nb_time_delay(child, targett);
 			}
-			child_op(child, params[0], fname, fname2, params+pcount, status);
+			while (child_repeat_count--) {
+				child_op(child, params[0], fname, fname2, params+pcount, status);
+			}
 		}
 	}
 
