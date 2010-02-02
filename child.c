@@ -213,6 +213,99 @@ static void child_op(struct child_struct *child, const char *opname,
 	       child->line, op.op, (unsigned)getpid());
 }
 
+#define MAX_RND_STR 10
+static char random_string[MAX_RND_STR][256];
+
+static int store_random_string(unsigned int idx, char *str)
+{
+	if (idx >= MAX_RND_STR) {
+		fprintf(stderr, "'idx' in RANDOMSTRING is too large. %u specified but %u is maximum\n", idx, MAX_RND_STR-1);
+		return 1;
+	}
+
+
+	strncpy(random_string[idx], str, sizeof(random_string[0]));
+
+	return 0;
+}
+
+static char *get_random_string(unsigned int idx)
+{
+	return random_string[idx];
+}
+
+/*
+ * This parses a line of the form :
+ * RANDOMSTRING <idx> <string>
+ * All subpatterns of the form [<characters>] in string are substituted for
+ * a randomly chosen character from the specified set.
+ *
+ * The end result is stored as string index <idx>
+ */
+static int parse_randomstring(char *line)
+{
+	int num;
+	char *pstart, *pend, rndc[2];
+	unsigned int idx;
+	char str[256];
+
+again:
+	pstart = index(line, '[');
+	if (pstart == NULL) {
+		goto finished;
+	}
+	strncpy(str, pstart, sizeof(str));
+
+	pend = index(str, ']');
+	if (pstart == NULL) {
+		fprintf(stderr, "Unbalanced '[' in RANDOMSTRING : %s\n", line);
+		return 1;
+	}
+
+	pend++;
+	*pend = '\0';
+
+	/* pick a random character */
+	num = strlen(str) - 2;
+	rndc[0] = str[random()%num + 1];
+	rndc[1] = '\0';
+
+	all_string_sub(line, str, rndc);
+	goto again;
+
+
+finished:
+	if (sscanf(line, "RANDOMSTRING %u %s\n", &idx, str) != 2) {
+		fprintf(stderr, "Invalid RANDOMSTRING line : [%s]\n", line);
+		return 1;
+	}
+	/* remote initial " */
+	while (str[0] == '"') {
+		memcpy(str, str+1, sizeof(str)-1);
+	}
+	/* remote trailing " */
+	while (1) {
+		int len = strlen(str);
+
+		if (len < 1) {
+			break;
+		}
+
+		if (str[len-1] != '"') {
+			break;
+		}
+
+		str[len-1] = '\0';
+	}
+
+	if (store_random_string(idx, str)) {
+		fprintf(stderr, "Failed to store randomstring idx:%d str:%s\n", idx, str);
+		return 1;
+	}
+
+	return 0;
+}
+
 
 /* run a test that simulates an approximate netbench client load */
 #define MAX_PARM_LEN 1024
@@ -253,11 +346,18 @@ again:
 	while (gzgets(gzf, line, sizeof(line)-1)) {
 		unsigned repeat_count = 1;
 
+		for (child=child0;child<child0+options.clients_per_process;child++) {
+			if (child->done) goto done;
+			child->line++;
+		}
+
+
 		params = sparams;
 
 		if (kill(parent, 0) == -1) {
 			exit(1);
 		}
+
 
 		/* if this is a "REPEAT <xxx>" line, just replace the
 		 * currently read line with the next line
@@ -274,15 +374,40 @@ again:
 			gzgets(gzf, line, sizeof(line)-1);
 	        }
 
-		for (child=child0;child<child0+options.clients_per_process;child++) {
-			if (child->done) goto done;
-			child->line++;
+
+		/* RANDOMSTRING */
+		if (strncmp(line, "RANDOMSTRING", 12) == 0) {
+			if (parse_randomstring(line) != 0) {
+				fprintf(stderr, "Incorrect RANDOMSTRING at line %d\n", child0->line);
+				goto done;
+			}
+			goto again;
 		}
+
 
 		line[strlen(line)-1] = 0;
 
 		all_string_sub(line,"\\", "/");
 		all_string_sub(line," /", " ");
+
+		/* substitute all $<digit> stored strings */
+		while ((p = index(line, '$')) != NULL) {
+			char sstr[3], *nstr;
+			unsigned int idx;
+		      
+		      	idx = *(p+1) - '0';
+			if (idx >= MAX_RND_STR) {
+				fprintf(stderr, "$%d is an invalid filename/string\n", idx);
+				goto done;
+			}
+
+			sstr[0] = '$';
+			sstr[1] = idx+'0';
+			sstr[2] = '\0';
+
+			nstr = get_random_string(idx);
+			all_string_sub(line, sstr, nstr);
+		}
 		
 		p = line;
 		for (i=0; 
@@ -316,6 +441,7 @@ again:
 		}
 
 		status = params[i-1];
+
 		
 		for (child=child0;child<child0+options.clients_per_process;child++) {
 			unsigned child_repeat_count = repeat_count;
