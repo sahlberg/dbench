@@ -18,3 +18,23 @@
 #
 # timestamp READCAPACITY10 lba pmi(0/1) sense
 0.000 READCAPACITY10 0 0 0x00
+
+# Reservation:
+# PROUT  <service action> <type> <key> <sa-key>
+
+# Register
+0.000 PROUT 0  0          0 0xdeadbeef 0x00
+# Reserve (type = 1)
+0.000 PROUT 1  1 0xdeadbeef          0 0x00
+# Reservation conflict (type = 3)
+0.000 PROUT 1  3 0xdeadbeef          0 0x18
+# Reservation conflict (type = 5)
+0.000 PROUT 1  5 0xdeadbeef          0 0x18
+# Release (type = 1)
+0.000 PROUT 2  1 0xdeadbeef          0 0x00
+# Reservation OK now (type = 3)
+0.000 PROUT 1  3 0xdeadbeef          0 0x00
+# Release (type = 3)
+0.000 PROUT 2  3 0xdeadbeef          0 0x00
+# Unregister
+0.000 PROUT 0  0 0xdeadbeef          0 0x00
