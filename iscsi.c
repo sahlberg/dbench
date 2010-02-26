@@ -33,6 +33,9 @@
 #ifndef SG_DXFER_FROM_DEV
 #define SG_DXFER_FROM_DEV -3
 #endif
+#define PARAMETERS_SIZE 24
+#define PROUT_CMD 0x5F
+#define PROUT_SCOPE_LU_SCOPE 0x0
 
 struct iscsi_device {
        const char *portal;
@@ -404,6 +407,12 @@ need_more_data:
 			sd->itt++;
 			return 0;
 		}
+		if (ish[3] == 0x18) {
+			/* reservation conflict */
+			*sc = 0x18;
+			sd->itt++;
+			return 0;
+		}
 		break;
 	case 0x25: /* SCSI Data-In */
 		if (ish[1]&0x01) {
@@ -539,6 +548,61 @@ static void local_iscsi_readcapacity10(struct dbench_op *op, uint64_t *blocks)
 	}
 }
 
+/* <service action> <type> <key> <sa-key>*/
+static void iscsi_prout(struct dbench_op *op)
+{
+	struct iscsi_device *sd;
+	unsigned char sc;
+	unsigned char cdb[10];
+	unsigned char parameters[PARAMETERS_SIZE];
+	int i;
+	unsigned int data_size = PARAMETERS_SIZE;
+	u_int64_t sa, type, key, sakey;
+
+	sa = op->params[0];
+	type = op->params[1];
+	key = op->params[2];
+	sakey = op->params[3];
+
+	bzero(parameters, PARAMETERS_SIZE);
+	bzero(cdb, 10);
+
+	/* Persistent Reserve OUT */
+	cdb[0] = PROUT_CMD;
+	/* Registering a key */
+	cdb[1] |= sa & 0x1f;
+
+	cdb[2] |= (PROUT_SCOPE_LU_SCOPE<<4) & 0xf0;
+	cdb[2] |= type & 0x0f;
+
+	/* Parameters size */
+	cdb[8] = PARAMETERS_SIZE;
+
+	/* splitting 64 bits in 8 blocks of 8 */
+	for (i = 0; i <= 7; i++) {
+		parameters[i] = (char) ((key >> 56) & 0xff);
+		key <<= 8;
+
+		parameters[i+8] = (char) ((sakey >> 56) & 0xff);
+		sakey <<= 8;
+	}
+
+	sd = op->child->private;
+
+	i = do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_TO_DEV, &data_size,
+	                   parameters, &sc);
+	if (i) {
+		printf("SCSI_IO failed\n");
+		failed(op->child);
+	}
+
+	if (!check_sense(sc, op->status)) {
+		printf("[%d] PROUT \"%s\" failed (0x%02x) - expected %s\n",
+			op->child->line, op->fname, sc, op->status);
+			failed(op->child);
+	}
+}
+
 static void iscsi_readcapacity10(struct dbench_op *op)
 {
 	return local_iscsi_readcapacity10(op, NULL);
@@ -671,6 +735,7 @@ static struct backend_op ops[] = {
 	{ "TESTUNITREADY",    iscsi_testunitready },
 	{ "READ10",           iscsi_read10 },
 	{ "READCAPACITY10",   iscsi_readcapacity10 },
+	{ "PROUT",            iscsi_prout },
 	{ NULL, NULL}
 };
 
