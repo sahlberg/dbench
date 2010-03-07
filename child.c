@@ -320,6 +320,7 @@ void child_run(struct child_struct *child0, const char *loadfile)
 	pid_t parent = getppid();
 	double targett;
 	struct child_struct *child;
+	int have_random = 0;
 
 	gzf = gzopen(loadfile, "r");
 	if (gzf == NULL) {
@@ -377,6 +378,7 @@ again:
 
 		/* RANDOMSTRING */
 		if (strncmp(line, "RANDOMSTRING", 12) == 0) {
+			have_random = 1;
 			if (parse_randomstring(line) != 0) {
 				fprintf(stderr, "Incorrect RANDOMSTRING at line %d\n", child0->line);
 				goto done;
@@ -391,7 +393,7 @@ again:
 		all_string_sub(line," /", " ");
 
 		/* substitute all $<digit> stored strings */
-		while ((p = index(line, '$')) != NULL) {
+		while (have_random && (p = index(line, '$')) != NULL) {
 			char sstr[3], *nstr;
 			unsigned int idx;
 		      
