@@ -367,8 +367,6 @@ static int smb_init(void)
 static void smb_setup(struct child_struct *child)
 {
 	struct smb_child *ctx;
-	char *str;
-	int ret;
 
 	ctx = malloc(sizeof(struct smb_child));
 	if (ctx == NULL) {
