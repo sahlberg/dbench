@@ -831,7 +831,7 @@ nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf, uint64_t o
 		goto finished;
 	}
 
-	if (offset >= size) {
+	if (offset >= size && size > 0) {
 		offset = offset % size;
  	}
 	if (offset+len >= size) {
