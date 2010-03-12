@@ -100,7 +100,7 @@ static void sig_alarm(int sig)
 
 	for (i=0;i<nclients;i++) {
 		total_bytes += children[i].bytes - children[i].bytes_done_warmup;
-		if (children[i].bytes == 0) {
+		if (children[i].bytes == 0 && options.warmup == -1) {
 			in_warmup = 1;
 		} else {
 			num_active++;
