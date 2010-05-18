@@ -91,6 +91,25 @@ void all_string_sub(char *s,const char *pattern,const char *insert)
 	}
 }
 
+void single_string_sub(char *s,const char *pattern,const char *insert)
+{
+	char *p;
+	size_t ls,lp,li;
+
+	if (!insert || !pattern || !s) return;
+
+	ls = strlen(s);
+	lp = strlen(pattern);
+	li = strlen(insert);
+
+	if (!*pattern) return;
+	
+	p = strstr(s,pattern);
+	memmove(p+li,p+lp,ls + 1 - (((int)(p-s)) + lp));
+	memcpy(p, insert, li);
+	s = p + li;
+	ls += (li-lp);
+}
 
 /****************************************************************************
   Get the next token from a string, return False if none found

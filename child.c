@@ -270,7 +270,7 @@ again:
 	rndc[0] = str[random()%num + 1];
 	rndc[1] = '\0';
 
-	all_string_sub(line, str, rndc);
+	single_string_sub(line, str, rndc);
 	goto again;
 
 

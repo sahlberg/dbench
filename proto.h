@@ -76,6 +76,7 @@ int sys_fsetxattr (int filedes, const char *name, const void *value, size_t size
 
 void *shm_setup(int size);
 void all_string_sub(char *s,const char *pattern,const char *insert);
+void single_string_sub(char *s,const char *pattern,const char *insert);
 BOOL next_token(char **ptr,char *buff,char *sep);
 struct timeval timeval_current(void);
 double timeval_elapsed(struct timeval *tv);
