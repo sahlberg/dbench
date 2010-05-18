@@ -321,6 +321,8 @@ void child_run(struct child_struct *child0, const char *loadfile)
 	double targett;
 	struct child_struct *child;
 	int have_random = 0;
+	unsigned loop_count = 0;
+	z_off_t loop_start = 0;
 
 	gzf = gzopen(loadfile, "r");
 	if (gzf == NULL) {
@@ -359,6 +361,36 @@ again:
 			exit(1);
 		}
 
+loop_again:
+		/* if this is a "LOOP <xxx>" line, 
+		 * remember the current file position and move to the next line
+		 */
+		if (strncmp(line, "LOOP", 4) == 0) {
+			if (sscanf(line, "LOOP %u\n", &loop_count) != 1) {
+				fprintf(stderr, "Incorrect LOOP at line %d\n", child0->line);
+				goto done;
+			}
+
+	       		for (child=child0;child<child0+options.clients_per_process;child++) {
+				child->line++;
+			}
+			loop_start = gztell(gzf);
+			gzgets(gzf, line, sizeof(line)-1);
+			goto loop_again;
+	        }
+
+		if (strncmp(line, "ENDLOOP", 7) == 0) {
+			loop_count--;
+
+			gzgets(gzf, line, sizeof(line)-1);
+
+			if (loop_count > 0) {
+				gzseek(gzf, loop_start, SEEK_SET);
+			}
+			
+			gzgets(gzf, line, sizeof(line)-1);
+			goto loop_again;
+		}			
 
 		/* if this is a "REPEAT <xxx>" line, just replace the
 		 * currently read line with the next line
