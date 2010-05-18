@@ -508,6 +508,63 @@ static void iscsi_read10(struct dbench_op *op)
 }
 
 
+static void iscsi_write10(struct dbench_op *op)
+{
+	struct iscsi_device *sd=op->child->private;
+	unsigned char cdb[]={0x2a,0,0,0,0,0,0,0,0,0};
+	int res;
+	uint32_t lba = op->params[0];
+	uint32_t xferlen = op->params[1];
+	int fua = op->params[2];
+	int grp = op->params[3];
+	unsigned int data_size=1024*1024;
+	char data[data_size];
+	unsigned char sc;
+
+	if (!options.allow_scsi_writes) {
+		printf("WRITE10 command in loadfile but --allow-scsi-writes not specified. Aborting.\n");
+		failed(op->child);
+	}
+
+	lba = (lba / xferlen) * xferlen;
+
+	/* make sure we wrap properly instead of failing if the loadfile
+	   is bigger than our device
+	*/
+	if (sd->blocks <= lba) {
+		lba = lba%sd->blocks;
+	}
+	if (sd->blocks <= lba+xferlen) {
+		xferlen=1;
+	}
+
+	cdb[1] = fua;
+
+	cdb[2] = (lba>>24)&0xff;
+	cdb[3] = (lba>>16)&0xff;
+	cdb[4] = (lba>> 8)&0xff;
+	cdb[5] = (lba    )&0xff;
+
+	cdb[6] = grp&0x1f;
+
+	cdb[7] = (xferlen>>8)&0xff;
+	cdb[8] = xferlen&0xff;
+	data_size = xferlen*512;
+
+	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_TO_DEV, &data_size, data, &sc);
+	if(res){
+		printf("SCSI_IO failed\n");
+		failed(op->child);
+	}
+	if (!check_sense(sc, op->status)) {
+		printf("[%d] READ10 \"%s\" failed (0x%02x) - expected %s\n", 
+		       op->child->line, op->fname, sc, op->status);
+		failed(op->child);
+	}
+
+	op->child->bytes += xferlen*512;
+}
+
 
 static void local_iscsi_readcapacity10(struct dbench_op *op, uint64_t *blocks)
 {
@@ -554,7 +611,7 @@ static void iscsi_prout(struct dbench_op *op)
 	struct iscsi_device *sd;
 	unsigned char sc;
 	unsigned char cdb[10];
-	unsigned char parameters[PARAMETERS_SIZE];
+	char parameters[PARAMETERS_SIZE];
 	int i;
 	unsigned int data_size = PARAMETERS_SIZE;
 	u_int64_t sa, type, key, sakey;
@@ -736,6 +793,7 @@ static struct backend_op ops[] = {
 	{ "READ10",           iscsi_read10 },
 	{ "READCAPACITY10",   iscsi_readcapacity10 },
 	{ "PROUT",            iscsi_prout },
+	{ "WRITE10",          iscsi_write10 },
 	{ NULL, NULL}
 };
 
