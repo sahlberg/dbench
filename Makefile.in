@@ -102,6 +102,13 @@ install: all
 	${INSTALLCMD} dbench $(DESTDIR)$(bindir)
 	${INSTALLCMD} loadfiles/client.txt $(DESTDIR)$(docdir)/loadfiles
 	${INSTALLCMD} loadfiles/nfs.txt $(DESTDIR)$(docdir)/loadfiles
+	${INSTALLCMD} loadfiles/nfs_2.txt $(DESTDIR)$(docdir)/loadfiles
+	${INSTALLCMD} loadfiles/smb.txt $(DESTDIR)$(docdir)/loadfiles
+	${INSTALLCMD} loadfiles/smb_1.txt $(DESTDIR)$(docdir)/loadfiles
+	${INSTALLCMD} loadfiles/smb_2.txt $(DESTDIR)$(docdir)/loadfiles
+	${INSTALLCMD} loadfiles/smb_3.txt $(DESTDIR)$(docdir)/loadfiles
+	${INSTALLCMD} loadfiles/iscsi.txt $(DESTDIR)$(docdir)/loadfiles
+	${INSTALLCMD} loadfiles/scsi.txt $(DESTDIR)$(docdir)/loadfiles
 	${INSTALLCMD} -m644 dbench.1 $(DESTDIR)$(mandir)/man1
 
 clean:
