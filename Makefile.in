@@ -7,7 +7,8 @@ prefix=@prefix@
 exec_prefix=@exec_prefix@
 bindir=@bindir@
 mandir=@mandir@
-datadir=@datadir@/dbench
+datadir=@datadir@
+docdir=@datadir@/doc/dbench
 XSLTPROC = /usr/bin/xsltproc
 INSTALLCMD=@INSTALL@
 LIBS=@LIBS@ -lpopt -lz -lsmbclient
@@ -96,11 +97,11 @@ doc: doc/dbench.1 doc/dbench.1.html
 # Careful here: don't install client.txt over itself.
 install: all
 	mkdir -p $(DESTDIR)$(bindir)
-	mkdir -p $(DESTDIR)$(datadir)/loadfiles
+	mkdir -p $(DESTDIR)$(docdir)/loadfiles
 	mkdir -p $(DESTDIR)$(mandir)/man1
 	${INSTALLCMD} dbench $(DESTDIR)$(bindir)
-	${INSTALLCMD} loadfiles/client.txt $(DESTDIR)$(datadir)/loadfiles
-	${INSTALLCMD} loadfiles/nfs.txt $(DESTDIR)$(datadir)/loadfiles
+	${INSTALLCMD} loadfiles/client.txt $(DESTDIR)$(docdir)/loadfiles
+	${INSTALLCMD} loadfiles/nfs.txt $(DESTDIR)$(docdir)/loadfiles
 	${INSTALLCMD} -m644 dbench.1 $(DESTDIR)$(mandir)/man1
 
 clean:
