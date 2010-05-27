@@ -97,11 +97,11 @@ doc: doc/dbench.1 doc/dbench.1.html
 install: all
 	mkdir -p $(DESTDIR)$(bindir)
 	mkdir -p $(DESTDIR)$(datadir)/loadfiles
-	mkdir -p $(DESTDIR)$(mandir)
+	mkdir -p $(DESTDIR)$(mandir)/man1
 	${INSTALLCMD} dbench $(DESTDIR)$(bindir)
 	${INSTALLCMD} loadfiles/client.txt $(DESTDIR)$(datadir)/loadfiles
 	${INSTALLCMD} loadfiles/nfs.txt $(DESTDIR)$(datadir)/loadfiles
-	${INSTALLCMD} -m644 dbench.1 $(DESTDIR)$(mandir)
+	${INSTALLCMD} -m644 dbench.1 $(DESTDIR)$(mandir)/man1
 
 clean:
 	rm -f *.[ao] *~ dbench tbench_srv
