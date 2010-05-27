@@ -96,11 +96,11 @@ doc: doc/dbench.1 doc/dbench.1.html
 # Careful here: don't install client.txt over itself.
 install: all
 	mkdir -p $(DESTDIR)$(bindir)
-	mkdir -p $(DESTDIR)$(datadir)
+	mkdir -p $(DESTDIR)$(datadir)/loadfiles
 	mkdir -p $(DESTDIR)$(mandir)
 	${INSTALLCMD} dbench $(DESTDIR)$(bindir)
-	${INSTALLCMD} loadfiles/client.txt $(DESTDIR)$(datadir)
-	${INSTALLCMD} loadfiles/nfs.txt $(DESTDIR)$(datadir)
+	${INSTALLCMD} loadfiles/client.txt $(DESTDIR)$(datadir)/loadfiles
+	${INSTALLCMD} loadfiles/nfs.txt $(DESTDIR)$(datadir)/loadfiles
 	${INSTALLCMD} -m644 dbench.1 $(DESTDIR)$(mandir)
 
 clean:
