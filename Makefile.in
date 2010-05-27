@@ -21,7 +21,7 @@ LIBNFS_OBJ = libnfs.o mount_client.o nfs_client.o mount_xdr.o nfs_xdr.o
 DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o sockio.o nfsio.o libnfs.a socklib.o linux_scsi.o iscsi.o smb.o
 SRV_OBJS = util.o tbench_srv.o socklib.o
 
-all: dbench tbench tbench_srv doc
+all: dbench doc
 
 dbench: $(DB_OBJS)
 	$(CC) -o $@ $(DB_OBJS) $(LIBS)
@@ -98,7 +98,7 @@ install: all
 	mkdir -p $(DESTDIR)$(bindir)
 	mkdir -p $(DESTDIR)$(datadir)
 	mkdir -p $(DESTDIR)$(mandir)
-	${INSTALLCMD} dbench tbench_srv $(DESTDIR)$(bindir)
+	${INSTALLCMD} dbench $(DESTDIR)$(bindir)
 	${INSTALLCMD} loadfiles/client.txt $(DESTDIR)$(datadir)
 	${INSTALLCMD} loadfiles/nfs.txt $(DESTDIR)$(datadir)
 	${INSTALLCMD} -m644 dbench.1 $(DESTDIR)$(mandir)
