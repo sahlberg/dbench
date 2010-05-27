@@ -11,7 +11,7 @@ datadir=@datadir@
 XSLTPROC = /usr/bin/xsltproc
 INSTALLCMD=@INSTALL@
 LIBS=@LIBS@ -lpopt -lz -lsmbclient
-
+DESTDIR=/
 CC=@CC@
 CFLAGS=@CFLAGS@ -I. -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(datadir)\"
 EXEEXT=@EXEEXT@
@@ -21,7 +21,7 @@ LIBNFS_OBJ = libnfs.o mount_client.o nfs_client.o mount_xdr.o nfs_xdr.o
 DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o sockio.o nfsio.o libnfs.a socklib.o linux_scsi.o iscsi.o smb.o
 SRV_OBJS = util.o tbench_srv.o socklib.o
 
-all: dbench tbench nfsbench tbench_srv doc
+all: dbench tbench tbench_srv doc
 
 dbench: $(DB_OBJS)
 	$(CC) -o $@ $(DB_OBJS) $(LIBS)
@@ -31,9 +31,6 @@ tbench_srv: $(SRV_OBJS)
 
 tbench: dbench
 	ln -sf dbench tbench
-
-nfsbench: dbench
-	ln -sf dbench nfsbench
 
 libnfs.a: $(LIBNFS_OBJ) 
 	@echo Creating library $@
@@ -98,15 +95,13 @@ doc: doc/dbench.1 doc/dbench.1.html
 
 # Careful here: don't install client.txt over itself.
 install: all
-	${INSTALLCMD} -d $(bindir) $(datadir) $(mandir)
-	${INSTALLCMD} dbench tbench_srv $(bindir)
-	${INSTALLCMD} loadfiles/client.txt $(datadir)
-	${INSTALLCMD} loadfiles/nfs.txt $(datadir)
-	${INSTALLCMD} -m644 dbench.1 $(mandir)
-	ln -sf dbench.1 $(mandir)/tbench.1
-	ln -sf dbench.1 $(mandir)/tbench_srv.1
-	ln -sf $(bindir)/dbench $(bindir)/tbench 
-	ln -sf $(bindir)/dbench $(bindir)/nfsbench 
+	mkdir -p $(DESTDIR)$(bindir)
+	mkdir -p $(DESTDIR)$(datadir)
+	mkdir -p $(DESTDIR)$(mandir)
+	${INSTALLCMD} dbench tbench_srv $(DESTDIR)$(bindir)
+	${INSTALLCMD} loadfiles/client.txt $(DESTDIR)$(datadir)
+	${INSTALLCMD} loadfiles/nfs.txt $(DESTDIR)$(datadir)
+	${INSTALLCMD} -m644 dbench.1 $(DESTDIR)$(mandir)
 
 clean:
 	rm -f *.[ao] *~ dbench tbench_srv
