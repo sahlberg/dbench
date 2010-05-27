@@ -1,0 +1,84 @@
+%define initdir %{_sysconfdir}/init.d
+Name: dbench
+Summary: DBench benchmark tool
+Vendor: Samba Team
+Packager: Ronnie Sahlberg <ronniesahlberg@gmail.com>
+Version: 1.0
+Release: 1GITHASH
+Epoch: 0
+License: GNU GPL version 3
+Group: System/Benchmark
+URL: http://dbench.samba.org/
+
+Source: dbench-%{version}.tar.gz
+
+Provides: dbench = %{version}
+
+Prefix: /usr
+BuildRoot: %{_tmppath}/%{name}-%{version}-root
+
+%description
+dbench is a network benchmark tool for NFS/SMB/iSCSI
+
+#######################################################################
+
+
+
+%prep
+%setup -q
+# setup the init script and sysconfig file
+%setup -T -D -n dbench-%{version} -q
+
+%build
+
+## check for ccache
+if ccache -h >/dev/null 2>&1 ; then
+	CC="ccache gcc"
+else
+	CC="gcc"
+fi
+
+export CC
+
+## always run autogen.sh
+./autogen.sh
+
+CFLAGS="$RPM_OPT_FLAGS $EXTRA -O0 -D_GNU_SOURCE" ./configure \
+	--prefix=%{_prefix} \
+	--sysconfdir=%{_sysconfdir} \
+	--mandir=%{_mandir} \
+	--localstatedir="/var"
+
+make
+
+%install
+# Clean up in case there is trash left from a previous build
+rm -rf $RPM_BUILD_ROOT
+
+make DESTDIR=$RPM_BUILD_ROOT install
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+
+#######################################################################
+## Files section                                                     ##
+#######################################################################
+
+%files
+%defattr(-,root,root)
+%{_bindir}/dbench
+%{_mandir}/man1/dbench.1.gz
+%{_docdir}/dbench/loadfiles/client.txt
+%{_docdir}/dbench/loadfiles/nfs.txt
+%{_docdir}/dbench/loadfiles/nfs_2.txt
+%{_docdir}/dbench/loadfiles/smb.txt
+%{_docdir}/dbench/loadfiles/smb_1.txt
+%{_docdir}/dbench/loadfiles/smb_2.txt
+%{_docdir}/dbench/loadfiles/smb_3.txt
+%{_docdir}/dbench/loadfiles/iscsi.txt
+%{_docdir}/dbench/loadfiles/scsi.txt
+
+%changelog
+* Thu May 27 2010 : Version 1.0
+ - initial RPM version
