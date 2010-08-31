@@ -60,9 +60,8 @@ static void nfs3_setup(struct child_struct *child)
 	child->rate.last_time = timeval_current();
 	child->rate.last_bytes = 0;
 
-
 	srandom(getpid() ^ time(NULL));
-	child->private = nfsio_connect(options.server, options.export, options.protocol);
+	child->private = nfsio_connect(options.server, options.export, options.protocol, global_random + child->id, child->num_clients);
 	if (child->private == NULL) {
 		child->failed = 1;
 		printf("nfsio_connect() failed\n");
@@ -396,7 +395,7 @@ static int nfs3_init(void)
 {
 	void *handle;
 
-	handle = nfsio_connect(options.server, options.export, options.protocol);
+	handle = nfsio_connect(options.server, options.export, options.protocol, global_random, 1);
 	if (handle == NULL) {
 		printf("Failed to connect to NFS server\n");
 		return 1;

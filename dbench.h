@@ -105,6 +105,7 @@ struct op {
 
 struct child_struct {
 	int id;
+	int num_clients;
 	int failed;
 	int line;
 	int done;
@@ -215,3 +216,4 @@ struct nfsio;
 #include "proto.h"
 
 extern struct options options;
+extern int global_random;

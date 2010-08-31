@@ -58,6 +58,7 @@ static struct timeval tv_end;
 static int barrier=-1;
 static double throughput;
 struct nb_operations *nb_ops;
+int global_random;
 
 static gzFile *open_loadfile(void)
 {
@@ -278,6 +279,7 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 
 	for (i=0;i<nclients;i++) {
 		children[i].id = i;
+		children[i].num_clients = nclients;
 		children[i].cleanup = 0;
 		children[i].directory = options.directory;
 		children[i].starttime = timeval_current();
@@ -509,6 +511,9 @@ static void process_opts(int argc, const char **argv)
 	} else if (strstr(argv[0], "iscsibench")) {
 		options.backend = "iscsi";
 	}
+
+	srandom(getpid() ^ time(NULL));
+	global_random = random();
 
 	process_opts(argc, argv);
 

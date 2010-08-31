@@ -32,7 +32,7 @@ void do_create(char *fname, int size);
 
 const char *nfs_error(int error);
 void nfsio_disconnect(struct nfsio *nfsio);
-struct nfsio *nfsio_connect(const char *server, const char *export, const char *protocol);
+struct nfsio *nfsio_connect(const char *server, const char *export, const char *protocol, int initial_xid, int xid_stride);
 
 /* The following definitions come from mount_client.c  */
 

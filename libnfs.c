@@ -44,8 +44,18 @@ typedef struct _tree_t {
 struct nfsio {
 	int s;
 	CLIENT *clnt;
+	unsigned long xid;
+	int xid_stride;
 	tree_t *fhandles;
 };
+
+static void set_new_xid(struct nfsio *nfsio)
+{
+	unsigned long xid = nfsio->xid;
+
+	clnt_control(nfsio->clnt, CLSET_XID, (char *)&xid);
+	nfsio->xid += nfsio->xid_stride;
+}
 
 static void free_node(tree_t *t)
 {
@@ -373,7 +383,7 @@ void nfsio_disconnect(struct nfsio *nfsio)
 
 
 
-struct nfsio *nfsio_connect(const char *server, const char *export, const char *protocol)
+struct nfsio *nfsio_connect(const char *server, const char *export, const char *protocol, int initial_xid, int xid_stride)
 {
 	dirpath mountdir=discard_const(export);
 	struct nfsio *nfsio;
@@ -389,8 +399,9 @@ struct nfsio *nfsio_connect(const char *server, const char *export, const char *
 	}
 	bzero(nfsio, sizeof(struct nfsio));
 
-	nfsio->s = -1;
-
+	nfsio->s          = -1;
+	nfsio->xid        = initial_xid;
+	nfsio->xid_stride = xid_stride;
 
 	/*
 	 * set up the MOUNT client. If we are running as root, we get
@@ -505,6 +516,7 @@ nfsstat3 nfsio_getattr(struct nfsio *nfsio, const char *name, fattr3 *attributes
 	GETATTR3args.object.data.data_len = fh->dsize;
 	GETATTR3args.object.data.data_val = discard_const(fh->dptr);
 
+	set_new_xid(nfsio);
 	GETATTR3res = nfsproc3_getattr_3(&GETATTR3args, nfsio->clnt);
 
 	if (GETATTR3res == NULL) {
@@ -562,6 +574,7 @@ nfsstat3 nfsio_lookup(struct nfsio *nfsio, const char *name, fattr3 *attributes)
 	LOOKUP3args.what.dir.data.data_val = discard_const(fh->dptr);
 	LOOKUP3args.what.name = ptr;
 
+	set_new_xid(nfsio);
 	LOOKUP3res = nfsproc3_lookup_3(&LOOKUP3args, nfsio->clnt);
 
 	if (LOOKUP3res == NULL) {
@@ -611,6 +624,7 @@ nfsstat3 nfsio_access(struct nfsio *nfsio, const char *name, uint32 desired, uin
 	ACCESS3args.object.data.data_len = fh->dsize;
 	ACCESS3args.access = desired;
 
+	set_new_xid(nfsio);
 	ACCESS3res = nfsproc3_access_3(&ACCESS3args, nfsio->clnt);
 
 	if (ACCESS3res == NULL) {
@@ -682,6 +696,7 @@ nfsstat3 nfsio_create(struct nfsio *nfsio, const char *name)
 	CREATE3args.how.createhow3_u.obj_attributes.atime.set_it = FALSE;
 	CREATE3args.how.createhow3_u.obj_attributes.mtime.set_it = FALSE;
 
+	set_new_xid(nfsio);
 	CREATE3res = nfsproc3_create_3(&CREATE3args, nfsio->clnt);
 
 	if (CREATE3res == NULL) {
@@ -750,6 +765,7 @@ nfsstat3 nfsio_remove(struct nfsio *nfsio, const char *name)
 	REMOVE3args.object.dir.data.data_val  = discard_const(fh->dptr);
 	REMOVE3args.object.name               = ptr;
 
+	set_new_xid(nfsio);
 	REMOVE3res = nfsproc3_remove_3(&REMOVE3args, nfsio->clnt);
 
 	if (REMOVE3res == NULL) {
@@ -799,6 +815,7 @@ nfsstat3 nfsio_write(struct nfsio *nfsio, const char *name, char *buf, uint64_t 
 	WRITE3args.data.data_val      = buf;
 
 
+	set_new_xid(nfsio);
 	WRITE3res = nfsproc3_write_3(&WRITE3args, nfsio->clnt);
 
 	if (WRITE3res == NULL) {
@@ -843,6 +860,7 @@ nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf, uint64_t o
 	READ3args.offset             = offset;
 	READ3args.count              = len;
 
+	set_new_xid(nfsio);
 	READ3res = nfsproc3_read_3(&READ3args, nfsio->clnt);
 
 	if (READ3res == NULL) {
@@ -895,6 +913,7 @@ nfsstat3 nfsio_commit(struct nfsio *nfsio, const char *name)
 	COMMIT3args.count              = 0;
 
 
+	set_new_xid(nfsio);
 	COMMIT3res = nfsproc3_commit_3(&COMMIT3args, nfsio->clnt);
 
 	if (COMMIT3res == NULL) {
@@ -928,6 +947,7 @@ nfsstat3 nfsio_fsinfo(struct nfsio *nfsio)
 	FSINFO3args.fsroot.data.data_len = fh->dsize;
 	FSINFO3args.fsroot.data.data_val = discard_const(fh->dptr);
 
+	set_new_xid(nfsio);
 	FSINFO3res = nfsproc3_fsinfo_3(&FSINFO3args, nfsio->clnt);
 
 	if (FSINFO3res == NULL) {
@@ -959,6 +979,7 @@ nfsstat3 nfsio_fsstat(struct nfsio *nfsio)
 	FSSTAT3args.fsroot.data.data_len = fh->dsize;
 	FSSTAT3args.fsroot.data.data_val = discard_const(fh->dptr);
 
+	set_new_xid(nfsio);
 	FSSTAT3res = nfsproc3_fsstat_3(&FSSTAT3args, nfsio->clnt);
 
 	if (FSSTAT3res == NULL) {
@@ -989,6 +1010,7 @@ nfsstat3 nfsio_pathconf(struct nfsio *nfsio, char *name)
 	PATHCONF3args.object.data.data_len = fh->dsize;
 	PATHCONF3args.object.data.data_val = discard_const(fh->dptr);
 
+	set_new_xid(nfsio);
 	PATHCONF3res = nfsproc3_pathconf_3(&PATHCONF3args, nfsio->clnt);
 
 	if (PATHCONF3res == NULL) {
@@ -1056,6 +1078,7 @@ nfsstat3 nfsio_symlink(struct nfsio *nfsio, const char *old, const char *new)
 	SYMLINK3args.symlink.symlink_data     = discard_const(new);
 
 
+	set_new_xid(nfsio);
 	SYMLINK3res = nfsproc3_symlink_3(&SYMLINK3args, nfsio->clnt);
 
 	if (SYMLINK3res == NULL) {
@@ -1137,6 +1160,7 @@ nfsstat3 nfsio_link(struct nfsio *nfsio, const char *old, const char *new)
 	LINK3args.link.dir.data.data_val  = discard_const(fh->dptr);
 	LINK3args.link.name	          = ptr;
 
+	set_new_xid(nfsio);
 	LINK3res = nfsproc3_link_3(&LINK3args, nfsio->clnt);
 
 	if (LINK3res == NULL) {
@@ -1182,6 +1206,7 @@ nfsstat3 nfsio_readlink(struct nfsio *nfsio, char *name, char **link_name)
 	READLINK3args.symlink.data.data_len  = fh->dsize;
 	READLINK3args.symlink.data.data_val  = discard_const(fh->dptr);
 
+	set_new_xid(nfsio);
 	READLINK3res = nfsproc3_readlink_3(&READLINK3args, nfsio->clnt);
 
 	if (READLINK3res == NULL) {
@@ -1240,6 +1265,7 @@ nfsstat3 nfsio_rmdir(struct nfsio *nfsio, const char *name)
 	RMDIR3args.object.dir.data.data_val  = discard_const(fh->dptr);
 	RMDIR3args.object.name               = ptr;
 
+	set_new_xid(nfsio);
 	RMDIR3res = nfsproc3_rmdir_3(&RMDIR3args, nfsio->clnt);
 
 	if (RMDIR3res == NULL) {
@@ -1314,6 +1340,7 @@ nfsstat3 nfsio_mkdir(struct nfsio *nfsio, const char *name)
 	MKDIR3args.attributes.atime.set_it = FALSE;
 	MKDIR3args.attributes.mtime.set_it = FALSE;
 
+	set_new_xid(nfsio);
 	MKDIR3res = nfsproc3_mkdir_3(&MKDIR3args, nfsio->clnt);
 
 	if (MKDIR3res == NULL) {
@@ -1374,6 +1401,7 @@ nfsstat3 nfsio_readdirplus(struct nfsio *nfsio, const char *name, nfs3_dirent_cb
 	READDIRPLUS3args.maxcount          = 8192;
 
 again:
+	set_new_xid(nfsio);
 	READDIRPLUS3res = nfsproc3_readdirplus_3(&READDIRPLUS3args, nfsio->clnt);
 
 	if (READDIRPLUS3res == NULL) {
@@ -1505,6 +1533,7 @@ nfsstat3 nfsio_rename(struct nfsio *nfsio, const char *old, const char *new)
 	RENAME3args.to.name		  = new_ptr;
 
 
+	set_new_xid(nfsio);
 	RENAME3res = nfsproc3_rename_3(&RENAME3args, nfsio->clnt);
 
 	if (RENAME3res == NULL) {
