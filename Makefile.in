@@ -11,7 +11,7 @@ datadir=@datadir@
 docdir=@datadir@/doc/dbench
 XSLTPROC = /usr/bin/xsltproc
 INSTALLCMD=@INSTALL@
-LIBS=@LIBS@ -lpopt -lz -lsmbclient
+LIBS=@LIBS@ -lpopt -lz @LIBSMBCLIENT@
 DESTDIR=/
 CC=@CC@
 CFLAGS=@CFLAGS@ -I. -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(datadir)\"
@@ -19,7 +19,7 @@ EXEEXT=@EXEEXT@
 
 LIBNFS_OBJ = libnfs.o mount_client.o nfs_client.o mount_xdr.o nfs_xdr.o
 
-DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o sockio.o nfsio.o libnfs.a socklib.o linux_scsi.o iscsi.o smb.o
+DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o sockio.o nfsio.o libnfs.a socklib.o @LINUXSCSI@ iscsi.o @SMBO@
 SRV_OBJS = util.o tbench_srv.o socklib.o
 
 all: dbench doc

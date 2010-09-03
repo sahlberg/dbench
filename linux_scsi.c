@@ -20,8 +20,6 @@
 #include <stdio.h>
 #undef _GNU_SOURCE
 
-#ifdef HAVE_LINUX_SCSI_SG
-
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <scsi/sg.h>
@@ -428,4 +426,3 @@ struct nb_operations scsi_ops = {
 	.ops          = ops
 };
 
-#endif /* HAVE_LINUX_SCSI_SG */

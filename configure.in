@@ -111,6 +111,48 @@ else
   exit
 fi
 
+#
+# Check that libsmbclient is available
+#
+AC_MSG_CHECKING(whether libsmbclient is available)
+ac_save_CFLAGS="$CFLAGS"
+ac_save_LIBS="$LIBS"
+CFLAGS="$CFLAGS $GLIB_CFLAGS"
+LIBS="$GLIB_LIBS $LIBS -lsmbclient"
+AC_TRY_RUN([
+#include <stdio.h>
+#include <libsmbclient.h>
+
+int main(int argc, char *argv[])
+{
+	SMBCCTX *ctx;
+
+	ctx = smbc_new_context();
+	if (ctx == NULL) {
+		fprintf(stderr, "Could not allocate SMB Context\n");
+		return 1;
+	}
+
+	smbc_free_context(ctx, 1);
+
+	return 0;
+}
+], ac_cv_have_libsmbclient=yes, ac_cv_have_libsmbclient=no,
+   [echo $ac_n "compile with LIBSMBCLIENT. Assuming OK... $ac_c"
+    ac_cv_have_libsmbclient=yes])
+CFLAGS="$ac_save_CFLAGS"
+LIBS="$ac_save_LIBS"
+if test "$ac_cv_have_libsmbclient" = yes ; then
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_LIBSMBCLIENT, 1, [Whether we have LIBSMBCLIENT support])
+  LIBSMBCLIENT="-lsmbclient"
+  SMBO="smb.o"
+else
+  AC_MSG_RESULT(no)
+  AC_MSG_NOTICE(Libsmbclient-dev not available. Building DBENCH without SMB support)
+  LIBSMBCLIENT=""
+  SMBO=""
+fi
 
 #
 # Check whether we have access to Linux SCSI Generic ioctl()
@@ -154,14 +196,33 @@ LIBS="$ac_save_LIBS"
 if test "$ac_cv_linux_scsi_sg" = yes ; then
   AC_MSG_RESULT(yes)
   have_linux_scsi_sg=yes
+  LINUXSCSI="linux_scsi.o"
 else
   AC_MSG_RESULT(no)
   have_linux_scsi_sg=no
+  LINUXSCSI=""
 fi
 if test x$have_linux_scsi_sg = xyes
 then
   AC_DEFINE(HAVE_LINUX_SCSI_SG, 1, [Define if Linux SCSI Generic is enabled])
 fi
 
+AC_SUBST(LIBSMBCLIENT)
+AC_SUBST(SMBO)
+AC_SUBST(LINUXSCSI)
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
+
+
+
+AC_MSG_NOTICE(============================================)
+if test "$ac_cv_have_libsmbclient" = yes ; then
+  AC_MSG_NOTICE(SMB support .......................... [YES])
+else
+  AC_MSG_NOTICE(SMB support .......................... [NO])
+fi
+if test "$ac_cv_linux_scsi_sg" = yes ; then
+  AC_MSG_NOTICE(LINUX SCSI SG support ................ [YES])
+else
+  AC_MSG_NOTICE(LINUX SCSI SG support ................ [NO])
+fi
