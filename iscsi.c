@@ -37,6 +37,51 @@
 #define PROUT_CMD 0x5F
 #define PROUT_SCOPE_LU_SCOPE 0x0
 
+#define SCSI_STATUS_GOOD			0x00
+#define SCSI_STATUS_CHECK_CONDITION		0x02
+#define SCSI_STATUS_BUSY			0x08
+#define SCSI_STATUS_RESERVATION_CONFLICT	0x18
+#define SCSI_STATUS_TASK_SET_FULL		0x28
+#define SCSI_STATUS_ACA_ACTIVE			0x30
+#define SCSI_STATUS_TASK_ABORTED		0x40
+
+struct scsi_status_name {
+       int sc;
+       const char *name;
+};
+static struct scsi_status_name scsi_status_names[] = {
+     { 0x00, "SCSI_STATUS_GOOD" },
+     { 0x02, "SCSI_STATUS_CHECK_CONDITION" },
+     { 0x08, "SCSI_STATUS_BUSY" },
+     { 0x18, "SCSI_STATUS_RESERVATION_CONFLICT" },
+     { 0x28, "SCSI_STATUS_TASK_SET_FULL" },
+     { 0x30, "SCSI_STATUS_ACA_ACTIVE" },
+     { 0x40, "SCSI_STATUS_TASK_ABORTED" },
+     { 0x00, NULL }
+};
+static struct scsi_status_name scsi_key_names[] = {
+     { 0x05, "ILLEGAL_REQUEST" },
+     { 0x06, "UNIT_ATTENTION" },
+     { 0x00, NULL }
+};
+static struct scsi_status_name scsi_ascq_names[] = {
+     { 0x2000, "INVALID COMMAND OPERATION CODE" },
+     { 0x2900, "POWER ON RESET" },
+     { 0x00, NULL }
+};
+
+const char *scsi_status_name(int sc, struct scsi_status_name *names) {
+      struct scsi_status_name *sn = names;
+
+      while (sn->name != NULL) {
+      	    if (sn->sc == sc)
+	    	    return sn->name;
+      	    sn++;
+      }
+      return "unknown";   
+};
+
+
 struct iscsi_device {
        const char *portal;
        const char *target;
@@ -129,7 +174,7 @@ static int send_iscsi_pdu(struct iscsi_device *sd, char *ish, char *data, int le
 	return 0;
 }
 
-static int wait_for_pdu(struct iscsi_device *sd, char *ish, char *data, unsigned int *data_size)
+static int wait_for_pdu(struct iscsi_device *sd, char *ish, char *data, unsigned int *data_size, char *sense_data)
 {
 	char *buf, *ptr;
 	ssize_t total, remaining, count;
@@ -203,6 +248,13 @@ static int wait_for_pdu(struct iscsi_device *sd, char *ish, char *data, unsigned
 		buffer_offset |= (ish[41]&0xff)<<16;
 		buffer_offset |= (ish[42]&0xff)<<8;
 		buffer_offset |= (ish[43]&0xff);
+
+		/* scsi response with check condition and sense data*/
+		if ((ish[0]&0x3f) == 33 && ish[2] == 0 && ish[3] == 2 )  {
+			if (sense_data) {
+				memcpy(sense_data, buf, 32);
+			}
+		}
 
 		if (buffer_offset == 0) {
 			/* we only return the data from the first data-in pdu */
@@ -295,7 +347,7 @@ static int iscsi_login(struct child_struct *child, struct iscsi_device *sd)
 		return -1;
 	}
 
-	if (wait_for_pdu(sd, ish, NULL, NULL) != 0) {
+	if (wait_for_pdu(sd, ish, NULL, NULL, NULL) != 0) {
 	   	printf("Failed to send iscsi pdu\n");
 		return -1;
 	}
@@ -336,9 +388,10 @@ static void failed(struct child_struct *child)
 
 
 
-static int do_iscsi_io(struct iscsi_device *sd, unsigned char *cdb, unsigned char cdb_size, int xfer_dir, unsigned int *data_size, char *data, unsigned char *sc)
+static int do_iscsi_io(struct iscsi_device *sd, unsigned char *cdb, unsigned char cdb_size, int xfer_dir, unsigned int *data_size, char *data, unsigned char *sc, int *sense_key, int *sense_ascq)
 {
 	char ish[48];
+	char sense_data[48];
 	int data_in_len=0, data_out_len=0;
 
 	bzero(ish, 48);
@@ -385,7 +438,7 @@ static int do_iscsi_io(struct iscsi_device *sd, unsigned char *cdb, unsigned cha
 
 need_more_data:
 	*data_size=data_in_len;
-	if (wait_for_pdu(sd, ish, data, data_size) != 0) {
+	if (wait_for_pdu(sd, ish, data, data_size, sense_data) != 0) {
 	   	printf("Failed to receive iscsi pdu\n");
 		return -1;
 	}
@@ -397,22 +450,12 @@ need_more_data:
 			sd->itt++;
 			return -1;
 		}
-		if (ish[3] == 0) {
-			*sc = 0;
-			sd->itt++;
-			return 0;
-		}
-		if (ish[3] == 2) {
-			*sc = 2;
-			sd->itt++;
-			return 0;
-		}
-		if (ish[3] == 0x18) {
-			/* reservation conflict */
-			*sc = 0x18;
-			sd->itt++;
-			return 0;
-		}
+		*sc = ish[3];
+		if (*sc == SCSI_STATUS_CHECK_CONDITION) {
+		   *sense_key = sense_data[4];
+		   *sense_ascq = sense_data[14] << 8 | sense_data[15];
+	        }
+		return 0;
 		break;
 	case 0x25: /* SCSI Data-In */
 		if (ish[1]&0x01) {
@@ -438,11 +481,12 @@ static void iscsi_testunitready(struct dbench_op *op)
 	unsigned char cdb[]={0,0,0,0,0,0};
 	int res;
 	unsigned char sc;
+	int sense_key, sense_ascq;
 	unsigned int data_size=0;
 
 	sd = op->child->private;
 
-	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_NONE, &data_size, NULL, &sc);
+	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_NONE, &data_size, NULL, &sc, &sense_key, &sense_ascq);
 	if(res){
 		printf("SCSI_IO failed\n");
 		failed(op->child);
@@ -450,6 +494,10 @@ static void iscsi_testunitready(struct dbench_op *op)
 	if (!check_sense(sc, op->status)) {
 		printf("[%d] TESTUNITREADY \"%s\" failed (0x%02x) - expected %s\n", 
 		       op->child->line, op->fname, sc, op->status);
+		if (sc == SCSI_STATUS_CHECK_CONDITION) {
+		       printf("SCSI command failed with CHECK_CONDITION. Sense key:%s(%d) Ascq:%s(0x%04x)\n",
+		       	     scsi_status_name(sense_key, &scsi_key_names[0]), sense_key, scsi_status_name(sense_ascq, &scsi_ascq_names[0]), sense_ascq);
+	        }
 		failed(op->child);
 	}
 	return;
@@ -467,6 +515,7 @@ static void iscsi_read10(struct dbench_op *op)
 	unsigned int data_size=1024*1024;
 	char data[data_size];
 	unsigned char sc;
+	int sense_key, sense_ascq;
 
 	lba = (lba / xferlen) * xferlen;
 
@@ -493,7 +542,7 @@ static void iscsi_read10(struct dbench_op *op)
 	cdb[8] = xferlen&0xff;
 	data_size = xferlen*512;
 
-	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_FROM_DEV, &data_size, data, &sc);
+	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_FROM_DEV, &data_size, data, &sc, &sense_key, &sense_ascq);
 	if(res){
 		printf("SCSI_IO failed\n");
 		failed(op->child);
@@ -501,6 +550,10 @@ static void iscsi_read10(struct dbench_op *op)
 	if (!check_sense(sc, op->status)) {
 		printf("[%d] READ10 \"%s\" failed (0x%02x) - expected %s\n", 
 		       op->child->line, op->fname, sc, op->status);
+		if (sc == SCSI_STATUS_CHECK_CONDITION) {
+		       printf("SCSI command failed with CHECK_CONDITION. Sense key:%s(%d) Ascq:%s(0x%04x)\n",
+		       	     scsi_status_name(sense_key, &scsi_key_names[0]), sense_key, scsi_status_name(sense_ascq, &scsi_ascq_names[0]), sense_ascq);
+	        }
 		failed(op->child);
 	}
 
@@ -520,6 +573,7 @@ static void iscsi_write10(struct dbench_op *op)
 	unsigned int data_size=1024*1024;
 	char data[data_size];
 	unsigned char sc;
+	int sense_key, sense_ascq;
 
 	if (!options.allow_scsi_writes) {
 		printf("WRITE10 command in loadfile but --allow-scsi-writes not specified. Aborting.\n");
@@ -551,7 +605,7 @@ static void iscsi_write10(struct dbench_op *op)
 	cdb[8] = xferlen&0xff;
 	data_size = xferlen*512;
 
-	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_TO_DEV, &data_size, data, &sc);
+	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_TO_DEV, &data_size, data, &sc, &sense_key, &sense_ascq);
 	if(res){
 		printf("SCSI_IO failed\n");
 		failed(op->child);
@@ -559,6 +613,10 @@ static void iscsi_write10(struct dbench_op *op)
 	if (!check_sense(sc, op->status)) {
 		printf("[%d] READ10 \"%s\" failed (0x%02x) - expected %s\n", 
 		       op->child->line, op->fname, sc, op->status);
+		if (sc == SCSI_STATUS_CHECK_CONDITION) {
+		       printf("SCSI command failed with CHECK_CONDITION. Sense key:%s(%d) Ascq:%s(0x%04x)\n",
+		       	     scsi_status_name(sense_key, &scsi_key_names[0]), sense_key, scsi_status_name(sense_ascq, &scsi_ascq_names[0]), sense_ascq);
+	        }
 		failed(op->child);
 	}
 
@@ -576,6 +634,7 @@ static void local_iscsi_readcapacity10(struct dbench_op *op, uint64_t *blocks)
 	unsigned int data_size=8;
 	char data[data_size];
 	unsigned char sc;
+	int sense_key, sense_ascq;
 
 	cdb[2] = (lba>>24)&0xff;
 	cdb[3] = (lba>>16)&0xff;
@@ -586,7 +645,7 @@ static void local_iscsi_readcapacity10(struct dbench_op *op, uint64_t *blocks)
 
 	sd = op->child->private;
 
-	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_FROM_DEV, &data_size, data, &sc);
+	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_FROM_DEV, &data_size, data, &sc, &sense_key, &sense_ascq);
 	if(res){
 		printf("SCSI_IO failed\n");
 		failed(op->child);
@@ -594,6 +653,10 @@ static void local_iscsi_readcapacity10(struct dbench_op *op, uint64_t *blocks)
 	if (!check_sense(sc, op->status)) {
 		printf("[%d] READCAPACITY10 \"%s\" failed (0x%02x) - expected %s\n", 
 		       op->child->line, op->fname, sc, op->status);
+		if (sc == SCSI_STATUS_CHECK_CONDITION) {
+		       printf("SCSI command failed with CHECK_CONDITION. Sense key:%s(%d) Ascq:%s(0x%04x)\n",
+		       	     scsi_status_name(sense_key, &scsi_key_names[0]), sense_key, scsi_status_name(sense_ascq, &scsi_ascq_names[0]), sense_ascq);
+	        }
 		failed(op->child);
 	}
 
@@ -610,6 +673,7 @@ static void iscsi_prout(struct dbench_op *op)
 {
 	struct iscsi_device *sd;
 	unsigned char sc;
+	int sense_key, sense_ascq;
 	unsigned char cdb[10];
 	char parameters[PARAMETERS_SIZE];
 	int i;
@@ -647,16 +711,21 @@ static void iscsi_prout(struct dbench_op *op)
 	sd = op->child->private;
 
 	i = do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_TO_DEV, &data_size,
-	                   parameters, &sc);
+	                   parameters, &sc, &sense_key, &sense_ascq);
 	if (i) {
 		printf("SCSI_IO failed\n");
 		failed(op->child);
 	}
 
+
 	if (!check_sense(sc, op->status)) {
-		printf("[%d] PROUT \"%s\" failed (0x%02x) - expected %s\n",
-			op->child->line, op->fname, sc, op->status);
-			failed(op->child);
+		printf("[%d] PROUT \"%s\" failed with %s(0x%02x) - expected %s\n",
+			op->child->line, op->fname, scsi_status_name(sc, &scsi_status_names[0]), sc, op->status);
+		if (sc == SCSI_STATUS_CHECK_CONDITION) {
+		       printf("SCSI command failed with CHECK_CONDITION. Sense key:%s(%d) Ascq:%s(0x%04x)\n",
+		       	     scsi_status_name(sense_key, &scsi_key_names[0]), sense_key, scsi_status_name(sense_ascq, &scsi_ascq_names[0]), sense_ascq);
+	        }
+		failed(op->child);
 	}
 }
 
