@@ -217,3 +217,4 @@ struct nfsio;
 
 extern struct options options;
 extern int global_random;
+extern char rw_buf[];

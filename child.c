@@ -30,6 +30,9 @@
 
 #define ival(s) strtoll(s, NULL, 0)
 
+#define RWBUFSIZE 1024*1024
+char rw_buf[RWBUFSIZE];
+
 static void nb_sleep(int usec)
 {
 	usleep(usec);
@@ -406,6 +409,26 @@ loop_again:
 			}
 			gzgets(gzf, line, sizeof(line)-1);
 	        }
+
+
+		/* WRITEPATTERN */
+		if (strncmp(line, "WRITEPATTERN", 12) == 0) {
+			char *ptr = rw_buf;
+			int count = RWBUFSIZE;
+			
+			while (count > 0) {
+			      int len;
+
+			      len = count;
+			      if (len > strlen(line +13)) {
+			     	      len = strlen(line +13);
+			      }
+			      memcpy(ptr, line+13, len);
+			      ptr += len;
+			      count -= len;
+			}
+			goto again;
+		}
 
 
 		/* RANDOMSTRING */

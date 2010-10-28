@@ -29,9 +29,6 @@
 
 #define MAX_FILES 200
 
-static char rw_buf[1024*1024];
-
-
 struct cb_data {
 	struct nfsio *nfsio;
 	char *dirname;
