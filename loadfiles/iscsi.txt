@@ -47,6 +47,9 @@
 # timestamp READCAPACITY10 lba pmi(0/1) sense
 0.000 READCAPACITY10 0 0 0x00
 
+# timestamp SYNCHRONIZECACHE10 lba numblocks syncnv immed sense
+0.000 SYNCHRONIZECACHE10 0 0 1 1 0x00
+
 # Reservation:
 # PROUT  <service action> <type> <key> <sa-key>
 
