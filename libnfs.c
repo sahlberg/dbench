@@ -882,7 +882,7 @@ nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf, uint64_t o
 		*eof = READ3res->READ3res_u.resok.eof;
 	}
 	if (buf) {
-		memcpy(buf, &READ3res->READ3res_u.resok.data.data_val,
+		memcpy(buf, READ3res->READ3res_u.resok.data.data_val,
 			READ3res->READ3res_u.resok.count);
 	}
 	free(READ3res->READ3res_u.resok.data.data_val);
