@@ -560,6 +560,51 @@ static void iscsi_read10(struct dbench_op *op)
 	op->child->bytes += xferlen*512;
 }
 
+static void iscsi_synchronizecache10(struct dbench_op *op)
+{
+	struct iscsi_device *sd;
+	unsigned char cdb[]={0x35,0,0,0,0,0,0,0,0,0};
+	int res;
+	uint32_t lba = op->params[0];
+	uint32_t xferlen = op->params[1];
+	int syncnv = op->params[2];
+	int immed = op->params[3];
+	unsigned char sc;
+	int sense_key, sense_ascq;
+	unsigned int data_size=0;
+
+	sd = op->child->private;
+
+	if (syncnv) {
+		cdb[1] |= 0x04;
+	}
+	if (immed) {
+		cdb[1] |= 0x02;
+	}
+	cdb[2] = (lba>>24)&0xff;
+	cdb[3] = (lba>>16)&0xff;
+	cdb[4] = (lba>> 8)&0xff;
+	cdb[5] = (lba    )&0xff;
+
+	cdb[7] = (xferlen>>8)&0xff;
+	cdb[8] = xferlen&0xff;
+
+	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_NONE, &data_size, NULL, &sc, &sense_key, &sense_ascq);
+	if(res){
+		printf("SCSI_IO failed\n");
+		failed(op->child);
+	}
+	if (!check_sense(sc, op->status)) {
+		printf("[%d] SYNCHRONIZECACHE10 \"%s\" failed (0x%02x) - expected %s\n", 
+		       op->child->line, op->fname, sc, op->status);
+		if (sc == SCSI_STATUS_CHECK_CONDITION) {
+		       printf("SCSI command failed with CHECK_CONDITION. Sense key:%s(%d) Ascq:%s(0x%04x)\n",
+		       	     scsi_status_name(sense_key, &scsi_key_names[0]), sense_key, scsi_status_name(sense_ascq, &scsi_ascq_names[0]), sense_ascq);
+	        }
+		failed(op->child);
+	}
+	return;
+}
 
 static void iscsi_write10(struct dbench_op *op)
 {
@@ -858,11 +903,12 @@ static int iscsi_init(void)
 
 
 static struct backend_op ops[] = {
-	{ "TESTUNITREADY",    iscsi_testunitready },
-	{ "READ10",           iscsi_read10 },
-	{ "READCAPACITY10",   iscsi_readcapacity10 },
-	{ "PROUT",            iscsi_prout },
-	{ "WRITE10",          iscsi_write10 },
+	{ "TESTUNITREADY",      iscsi_testunitready },
+	{ "READ10",             iscsi_read10 },
+	{ "READCAPACITY10",     iscsi_readcapacity10 },
+	{ "SYNCHRONIZECACHE10", iscsi_synchronizecache10 },
+	{ "PROUT",              iscsi_prout },
+	{ "WRITE10",            iscsi_write10 },
 	{ NULL, NULL}
 };
 

@@ -210,6 +210,49 @@ static void scsi_testunitready(struct dbench_op *op)
 	return;
 }
 
+static void scsi_synchronizecache10(struct dbench_op *op)
+{
+	struct scsi_device *sd;
+	unsigned char cdb[]={0x35,0,0,0,0,0,0,0,0,0};
+	int res;
+	uint32_t lba = op->params[0];
+	uint32_t xferlen = op->params[1];
+	int syncnv = op->params[2];
+	int immed = op->params[3];
+	unsigned char sc;
+	unsigned int data_size=200;
+	char data[data_size];
+
+	sd = op->child->private;
+
+	if (syncnv) {
+		cdb[1] |= 0x04;
+	}
+	if (immed) {
+		cdb[1] |= 0x02;
+	}
+	cdb[2] = (lba>>24)&0xff;
+	cdb[3] = (lba>>16)&0xff;
+	cdb[4] = (lba>> 8)&0xff;
+	cdb[5] = (lba    )&0xff;
+
+	cdb[7] = (xferlen>>8)&0xff;
+	cdb[8] = xferlen&0xff;
+
+	res=scsi_io(sd->fd, cdb, sizeof(cdb), SG_DXFER_FROM_DEV, &data_size, data, &sc);
+	if(res){
+		printf("SCSI_IO failed\n");
+		failed(op->child);
+	}
+	if (!check_sense(sc, op->status)) {
+		printf("[%d] SYNCHRONIZECACHE10 \"%s\" failed (0x%02x) - expected %s\n", 
+		       op->child->line, op->fname, sc, op->status);
+		failed(op->child);
+	}
+
+	return;
+}
+
 
 static void scsi_read6(struct dbench_op *op)
 {
@@ -411,11 +454,12 @@ static void scsi_readcapacity10(struct dbench_op *op)
 }
 
 static struct backend_op ops[] = {
-	{ "READ6",            scsi_read6 },
-	{ "READ10",           scsi_read10 },
-	{ "READCAPACITY10",   scsi_readcapacity10 },
-	{ "TESTUNITREADY",    scsi_testunitready },
-	{ "WRITE10",          scsi_write10 },
+	{ "READ6",              scsi_read6 },
+	{ "READ10",             scsi_read10 },
+	{ "READCAPACITY10",     scsi_readcapacity10 },
+	{ "SYNCHRONIZECACHE10", scsi_synchronizecache10 },
+	{ "TESTUNITREADY",      scsi_testunitready },
+	{ "WRITE10",            scsi_write10 },
 	{ NULL, NULL}
 };
 
