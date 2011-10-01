@@ -40,10 +40,8 @@
 		<arg choice="opt">--stat-check</arg>
 		<arg choice="opt">--skip-cleanup</arg>
 		<arg choice="opt">--per-client-results</arg>
-		<arg choice="opt">--iscsi-portal=&lt;ip-address&gt;</arg>
-		<arg choice="opt">--iscsi-port=&lt;port&gt;</arg>
-		<arg choice="opt">--iscsi-target=&lt;iqn name&gt;</arg>
-		<arg choice="opt">--iscsi-lun=&lt;LUN&gt;</arg>
+		<arg choice="opt">--iscsi-device=&lt;iSCSI URL&gt;</arg>
+		<arg choice="opt">--iscsi-initiatorname=&lt;iSCSI InitiatorName&gt;</arg>
 
 		<arg choice="opt">-? --help</arg>
 		<arg choice="opt">--usage</arg>
@@ -344,7 +342,7 @@
     Dbench contains a primitive iSCSI initiator, allowing it to perform I/O
     to some iSCSI targets.
     </para>
-    <refsect2><title>--iscsi-portal=&lt;ip-address&gt;</title>
+    <refsect2><title>--iscsi-device=&lt;iSCSI URL&gt;</title>
       <para>
       This option only apply to the "iscsi" backend.
       </para>
@@ -354,49 +352,20 @@
       </para>
 
       <para>
-      This specifies the host-name or ip-address of the target to test.
+      This specifies the URL to the target device. URLs are specified as "iscsi://&lt;ip-address&gt;[:&lt;port&gt;]/&lt;target-iqn&gt;/&lt;lun&gt;"
       </para>
     </refsect2>
-    <refsect2><title>--iscsi-port=&lt;tcp port&gt;</title>
+    <refsect2><title>--iscsi-initiatorname=&lt;iSCSI InitiatorName&gt;</title>
       <para>
       This option only apply to the "iscsi" backend.
       </para>
 
       <para>
       This option is optional when the "iscsi" backend is used.
-      If not used the tcp port defaults to 3260.
       </para>
 
       <para>
-      This specifies the tcp port to connect to on the target.
-      </para>
-    </refsect2>
-
-    <refsect2><title>--iscsi-target=&lt;iqn name&gt;</title>
-      <para>
-      This option only apply to the "iscsi" backend.
-      </para>
-
-      <para>
-      This option is mandatory when the "iscsi" backend is used.
-      </para>
-
-      <para>
-      This specifies the iscsi iqn name of the target to test.
-      </para>
-    </refsect2>
-
-    <refsect2><title>--iscsi-lun=&lt;LUN&gt;</title>
-      <para>
-      This option only apply to the "iscsi" backend.
-      </para>
-
-      <para>
-      This option is mandatory when the "iscsi" backend is used.
-      </para>
-
-      <para>
-      This specifies the LUN of the target to test.
+      This specifies the InitiatorName that dbench will use when connecting to the client.
       </para>
     </refsect2>
   </refsect1>

@@ -156,10 +156,8 @@ struct options {
 	int allow_scsi_writes;
 	int trunc_io;
 	const char *scsi_dev;
-	const char *iscsi_portal;
-	const char *iscsi_target;
-	int iscsi_lun;
-	int iscsi_port;
+	const char *iscsi_device;
+	const char *iscsi_initiatorname;
 	int machine_readable;
 	const char *smb_share;
 	const char *smb_user;

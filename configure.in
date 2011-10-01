@@ -155,6 +155,47 @@ else
 fi
 
 #
+# Check that libiscsi is available
+#
+AC_MSG_CHECKING(whether libiscsi is available)
+ac_save_CFLAGS="$CFLAGS"
+ac_save_LIBS="$LIBS"
+CFLAGS="$CFLAGS $GLIB_CFLAGS"
+LIBS="$GLIB_LIBS $LIBS -liscsi"
+AC_TRY_RUN([
+#include <stdio.h>
+#include <iscsi/iscsi.h>
+
+int main(int argc, char *argv[])
+{
+	struct iscsi_context *iscsi;
+
+	iscsi = iscsi_create_context("iqn.2002-10.com.ronnie:client");
+	if (iscsi == NULL) {
+		printf("Failed to create iscsi context\n");
+		exit(10);
+	}
+
+	iscsi_destroy_context(iscsi);
+
+	return 0;
+}
+], ac_cv_have_libiscsi=yes, ac_cv_have_libiscsi=no,
+   [echo $ac_n "compile with LIBISCSI. Assuming OK... $ac_c"
+    ac_cv_have_libiscsi=yes])
+CFLAGS="$ac_save_CFLAGS"
+LIBS="$ac_save_LIBS"
+if test "$ac_cv_have_libiscsi" = yes ; then
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_LIBISCSI, 1, [Whether we have LIBISCSI support])
+  LIBISCSI="-liscsi"
+else
+  AC_MSG_RESULT(no)
+  AC_MSG_NOTICE(Libiscsi not available. Building DBENCH with old iscsi support)
+  LIBISCSI=""
+fi
+
+#
 # Check whether we have access to Linux SCSI Generic ioctl()
 #
 AC_MSG_CHECKING(whether Linux SCSI Generic is available)
@@ -208,6 +249,7 @@ then
 fi
 
 AC_SUBST(LIBSMBCLIENT)
+AC_SUBST(LIBISCSI)
 AC_SUBST(SMBO)
 AC_SUBST(LINUXSCSI)
 AC_CONFIG_FILES([Makefile])
@@ -220,6 +262,11 @@ if test "$ac_cv_have_libsmbclient" = yes ; then
   AC_MSG_NOTICE(SMB support .......................... [YES])
 else
   AC_MSG_NOTICE(SMB support .......................... [NO])
+fi
+if test "$ac_cv_have_libiscsi" = yes ; then
+  AC_MSG_NOTICE(LIBISCSI support ..................... [YES])
+else
+  AC_MSG_NOTICE(LIBISCSI support ..................... [NO])
 fi
 if test "$ac_cv_linux_scsi_sg" = yes ; then
   AC_MSG_NOTICE(LINUX SCSI SG support ................ [YES])

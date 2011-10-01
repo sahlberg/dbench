@@ -14,15 +14,62 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
-#include "dbench.h"
+#include "config.h"
 
+#if !defined(HAVE_LIBISCSI)
+
+#include "dbench.h"
 #include <stdio.h>
 #include <sys/types.h>
-#include <sys/socket.h>
 #include <stdint.h>
+#include <sys/socket.h>
 #include <arpa/inet.h>
 
 #define discard_const(ptr) ((void *)((intptr_t)(ptr)))
+
+static void iscsi_testunitready(struct dbench_op *op);
+static void local_iscsi_readcapacity10(struct dbench_op *op, uint64_t *blocks);
+
+static void iscsi_readcapacity10(struct dbench_op *op)
+{
+	return local_iscsi_readcapacity10(op, NULL);
+}
+
+struct iscsi_device {
+       const char *portal;
+       int port;
+       const char *target;
+
+       int s;
+       uint64_t isid;
+       uint32_t itt;
+       uint32_t cmd_sn;
+       uint32_t exp_stat_sn;
+       uint64_t blocks;
+       int lun;
+       char *initiator_name;
+};
+
+
+static void failed(struct child_struct *child)
+{
+	child->failed = 1;
+	printf("ERROR: child %d failed at line %d\n", child->id, child->line);
+	exit(1);
+}
+
+/* XXX merge with scsi.c */
+static int check_sense(unsigned char sc, const char *expected)
+{
+	if (strcmp(expected, "*") == 0){
+		return 1;
+	}
+	if (strncmp(expected, "0x", 2) == 0) {
+		return sc == strtol(expected, NULL, 16);
+	}
+	return 0;
+}
+
 
 #ifndef SG_DXFER_NONE
 #define SG_DXFER_NONE -1
@@ -79,18 +126,6 @@ const char *scsi_status_name(int sc, struct scsi_status_name *names) {
       	    sn++;
       }
       return "unknown";   
-};
-
-
-struct iscsi_device {
-       const char *portal;
-       const char *target;
-       int s;
-       uint64_t isid;
-       uint64_t blocks;
-       uint32_t itt;
-       uint32_t cmd_sn;
-       uint32_t exp_stat_sn;
 };
 
 
@@ -273,10 +308,8 @@ static int wait_for_pdu(struct iscsi_device *sd, char *ish, char *data, unsigned
 	return 0;
 }
 
-static int iscsi_login(struct child_struct *child, struct iscsi_device *sd)
+static int iscsi_login(struct iscsi_device *sd)
 {
-	char name[256];
-	char alias[256];
 	char ish[48];
 	int len;
 	struct login_param *login_param;
@@ -296,11 +329,7 @@ static int iscsi_login(struct child_struct *child, struct iscsi_device *sd)
 	add_login_param("DataPDUInOrder", "Yes");
 	add_login_param("MaxConnections", "1");
 	add_login_param("TargetName", discard_const(sd->target));
-	sprintf(alias, "dbench:%d", child->id);
-	add_login_param("InitiatorAlias", alias);
-	sprintf(name, "iqn.2009-09.dbench:%d", child->id);
-	add_login_param("InitiatorName", name);
-
+	add_login_param("InitiatorName", sd->initiator_name);
 
 	bzero(ish, 48);
 	/* opcode : LOGIN REQUEST (I) */
@@ -359,35 +388,6 @@ static int iscsi_login(struct child_struct *child, struct iscsi_device *sd)
 }
 
 
-
-
-
-
-
-
-
-
-
-/* XXX merge with scsi.c */
-static int check_sense(unsigned char sc, const char *expected)
-{
-	if (strcmp(expected, "*") == 0){
-		return 1;
-	}
-	if (strncmp(expected, "0x", 2) == 0) {
-		return sc == strtol(expected, NULL, 16);
-	}
-	return 0;
-}
-static void failed(struct child_struct *child)
-{
-	child->failed = 1;
-	printf("ERROR: child %d failed at line %d\n", child->id, child->line);
-	exit(1);
-}
-
-
-
 static int do_iscsi_io(struct iscsi_device *sd, unsigned char *cdb, unsigned char cdb_size, int xfer_dir, unsigned int *data_size, char *data, unsigned char *sc, int *sense_key, int *sense_ascq)
 {
 	char ish[48];
@@ -419,7 +419,7 @@ static int do_iscsi_io(struct iscsi_device *sd, unsigned char *cdb, unsigned cha
 	}
 
 	/* lun */
-	ish[9] = options.iscsi_lun;
+	ish[9] = sd->lun;
 
 	/* expected data xfer len */
 	ish[20]  = ((*data_size)>>24)&0xff;
@@ -473,34 +473,6 @@ need_more_data:
 	*sc = 0;
 	sd->itt++;
 	return 0;
-}
-
-static void iscsi_testunitready(struct dbench_op *op)
-{
-	struct iscsi_device *sd;
-	unsigned char cdb[]={0,0,0,0,0,0};
-	int res;
-	unsigned char sc;
-	int sense_key, sense_ascq;
-	unsigned int data_size=0;
-
-	sd = op->child->private;
-
-	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_NONE, &data_size, NULL, &sc, &sense_key, &sense_ascq);
-	if(res){
-		printf("SCSI_IO failed\n");
-		failed(op->child);
-	}
-	if (!check_sense(sc, op->status)) {
-		printf("[%d] TESTUNITREADY \"%s\" failed (0x%02x) - expected %s\n", 
-		       op->child->line, op->fname, sc, op->status);
-		if (sc == SCSI_STATUS_CHECK_CONDITION) {
-		       printf("SCSI command failed with CHECK_CONDITION. Sense key:%s(%d) Ascq:%s(0x%04x)\n",
-		       	     scsi_status_name(sense_key, &scsi_key_names[0]), sense_key, scsi_status_name(sense_ascq, &scsi_ascq_names[0]), sense_ascq);
-	        }
-		failed(op->child);
-	}
-	return;
 }
 
 static void iscsi_read10(struct dbench_op *op)
@@ -669,50 +641,6 @@ static void iscsi_write10(struct dbench_op *op)
 }
 
 
-static void local_iscsi_readcapacity10(struct dbench_op *op, uint64_t *blocks)
-{
-	struct iscsi_device *sd;
-	unsigned char cdb[]={0x25,0,0,0,0,0,0,0,0,0};
-	int res;
-	int lba = op->params[0];
-	int pmi = op->params[1];
-	unsigned int data_size=8;
-	char data[data_size];
-	unsigned char sc;
-	int sense_key, sense_ascq;
-
-	cdb[2] = (lba>>24)&0xff;
-	cdb[3] = (lba>>16)&0xff;
-	cdb[4] = (lba>> 8)&0xff;
-	cdb[5] = (lba    )&0xff;
-
-	cdb[8] = (pmi?1:0);
-
-	sd = op->child->private;
-
-	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_FROM_DEV, &data_size, data, &sc, &sense_key, &sense_ascq);
-	if(res){
-		printf("SCSI_IO failed\n");
-		failed(op->child);
-	}
-	if (!check_sense(sc, op->status)) {
-		printf("[%d] READCAPACITY10 \"%s\" failed (0x%02x) - expected %s\n", 
-		       op->child->line, op->fname, sc, op->status);
-		if (sc == SCSI_STATUS_CHECK_CONDITION) {
-		       printf("SCSI command failed with CHECK_CONDITION. Sense key:%s(%d) Ascq:%s(0x%04x)\n",
-		       	     scsi_status_name(sense_key, &scsi_key_names[0]), sense_key, scsi_status_name(sense_ascq, &scsi_ascq_names[0]), sense_ascq);
-	        }
-		failed(op->child);
-	}
-
-	if (blocks) {
-		*blocks  = (data[0]&0xff)<<24;
-		*blocks |= (data[1]&0xff)<<16;
-		*blocks |= (data[2]&0xff)<<8;
-		*blocks |= (data[3]&0xff);
-	}
-}
-
 /* <service action> <type> <key> <sa-key>*/
 static void iscsi_prout(struct dbench_op *op)
 {
@@ -774,16 +702,15 @@ static void iscsi_prout(struct dbench_op *op)
 	}
 }
 
-static void iscsi_readcapacity10(struct dbench_op *op)
-{
-	return local_iscsi_readcapacity10(op, NULL);
-}
-
 static void iscsi_setup(struct child_struct *child)
 {
 	struct iscsi_device *sd;
 	struct sockaddr_in sin;
 	struct dbench_op fake_op;
+	char *portal;
+	char *port;
+	char *target;
+	char *lun;
 
 	sd = malloc(sizeof(struct iscsi_device));
 	if (sd == NULL) {
@@ -792,8 +719,38 @@ static void iscsi_setup(struct child_struct *child)
 	}
 	child->private=sd;
 
-	sd->portal=options.iscsi_portal;
-	sd->target=options.iscsi_target;
+	if (options.iscsi_device == NULL) {
+		printf("Must specify iSCSI URL for the target device\n");
+		return;
+	}
+	if (strncmp(options.iscsi_device, "iscsi://", 8)) {
+		printf("Invalid iSCSI device URL. Syntax is \"iscsi://<ip-address>[:<port>]/<target-iqn>/<lun>\"\n");
+		return;
+	}
+	portal = strdup(&options.iscsi_device[8]);
+	target = strchr(portal, '/');
+	if (target == NULL) {
+		printf("Invalid iSCSI device URL. Syntax is \"iscsi://<ip-address>[:<port>]/<target-iqn>/<lun>\"\n");
+		return;
+	}
+	*target++ = '\0';
+	lun = strchr(target, '/');
+	if (lun == NULL) {
+		printf("Invalid iSCSI device URL. Syntax is \"iscsi://<ip-address>[:<port>]/<target-iqn>/<lun>\"\n");
+		return;
+	}
+	*lun++ = '\0';
+	port = strchr(portal, ':');
+	if (port != NULL) {
+		*port++ = '\0';
+	}
+
+	sd->portal = portal;
+	sd->target = target;
+	sd->port   = port?atoi(port):3260;
+	sd->lun    = atoi(lun);
+	asprintf(&sd->initiator_name, "%s-%d", options.iscsi_initiatorname, child->id);
+
 	sd->isid  =0x0000800000000000ULL | child->id; 
 	sd->s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sd->s == -1) {
@@ -802,7 +759,7 @@ static void iscsi_setup(struct child_struct *child)
 	}
 
 	sin.sin_family      = AF_INET;
-	sin.sin_port        = htons(options.iscsi_port);
+	sin.sin_port        = htons(sd->port);
 	if (inet_pton(AF_INET, sd->portal, &sin.sin_addr) != 1) {
 		printf("Failed to convert \"%s\" into an address\n", sd->portal);
 		exit(10);
@@ -816,7 +773,7 @@ static void iscsi_setup(struct child_struct *child)
 	sd->itt=0x000a0000;
 	sd->cmd_sn=0;
 	sd->exp_stat_sn=0;
-	if (iscsi_login(child, sd) != 0) {
+	if (iscsi_login(sd) != 0) {
 		printf("Failed to log in to target.\n");
 		exit(10);
 	}
@@ -848,6 +805,10 @@ static int iscsi_init(void)
 	struct sockaddr_in sin;
 	struct dbench_op fake_op;
 	struct child_struct child;
+	char *portal;
+	char *port;
+	char *target;
+	char *lun;
 
 	sd = malloc(sizeof(struct iscsi_device));
 	if (sd == NULL) {
@@ -857,9 +818,40 @@ static int iscsi_init(void)
 	child.private=sd;
 	child.id=99999;
 
-	sd->portal=options.iscsi_portal;
-	sd->target=options.iscsi_target;
-	sd->isid  =0x0000800000000000ULL | child.id; 
+
+	if (options.iscsi_device == NULL) {
+		printf("Must specify iSCSI URL for the target device\n");
+		return -1;
+	}
+	if (strncmp(options.iscsi_device, "iscsi://", 8)) {
+		printf("Invalid iSCSI device URL. Syntax is \"iscsi://<ip-address>[:<port>]/<target-iqn>/<lun>\"\n");
+		return -1;
+	}
+	portal = strdup(&options.iscsi_device[8]);
+	target = strchr(portal, '/');
+	if (target == NULL) {
+		printf("Invalid iSCSI device URL. Syntax is \"iscsi://<ip-address>[:<port>]/<target-iqn>/<lun>\"\n");
+		return -1;
+	}
+	*target++ = '\0';
+	lun = strchr(target, '/');
+	if (lun == NULL) {
+		printf("Invalid iSCSI device URL. Syntax is \"iscsi://<ip-address>[:<port>]/<target-iqn>/<lun>\"\n");
+		return -1;
+	}
+	*lun++ = '\0';
+	port = strchr(portal, ':');
+	if (port != NULL) {
+		*port++ = '\0';
+	}
+
+	sd->portal = portal;
+	sd->target = target;
+	sd->port   = port?atoi(port):3260;
+	sd->lun    = atoi(lun);
+	asprintf(&sd->initiator_name, "%s-%d", options.iscsi_initiatorname, child.id);
+
+	sd->isid  =0x0000800000000000ULL | child.id;
 	sd->s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sd->s == -1) {
 		printf("could not open socket() errno:%d(%s)\n", errno, strerror(errno));
@@ -867,7 +859,7 @@ static int iscsi_init(void)
 	}
 
 	sin.sin_family      = AF_INET;
-	sin.sin_port        = htons(options.iscsi_port);
+	sin.sin_port        = htons(sd->port);
 	if (inet_pton(AF_INET, sd->portal, &sin.sin_addr) != 1) {
 		printf("Failed to convert \"%s\" into an address\n", sd->portal);
 		return 1;
@@ -881,7 +873,7 @@ static int iscsi_init(void)
 	sd->itt=0x000a0000;
 	sd->cmd_sn=0;
 	sd->exp_stat_sn=0;
-	if (iscsi_login(&child, sd) != 0) {
+	if (iscsi_login(sd) != 0) {
 		printf("Failed to log in to target.\n");
 		return 1;
 	}
@@ -901,6 +893,76 @@ static int iscsi_init(void)
 	return 0;
 }
 
+static void iscsi_testunitready(struct dbench_op *op)
+{
+	struct iscsi_device *sd;
+	unsigned char cdb[]={0,0,0,0,0,0};
+	int res;
+	unsigned char sc;
+	int sense_key, sense_ascq;
+	unsigned int data_size=0;
+
+	sd = op->child->private;
+
+	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_NONE, &data_size, NULL, &sc, &sense_key, &sense_ascq);
+	if(res){
+		printf("SCSI_IO failed\n");
+		failed(op->child);
+	}
+	if (!check_sense(sc, op->status)) {
+		printf("[%d] TESTUNITREADY \"%s\" failed (0x%02x) - expected %s\n", 
+		       op->child->line, op->fname, sc, op->status);
+		if (sc == SCSI_STATUS_CHECK_CONDITION) {
+		       printf("SCSI command failed with CHECK_CONDITION. Sense key:%s(%d) Ascq:%s(0x%04x)\n",
+		       	     scsi_status_name(sense_key, &scsi_key_names[0]), sense_key, scsi_status_name(sense_ascq, &scsi_ascq_names[0]), sense_ascq);
+	        }
+		failed(op->child);
+	}
+	return;
+}
+
+static void local_iscsi_readcapacity10(struct dbench_op *op, uint64_t *blocks)
+{
+	struct iscsi_device *sd;
+	unsigned char cdb[]={0x25,0,0,0,0,0,0,0,0,0};
+	int res;
+	int lba = op->params[0];
+	int pmi = op->params[1];
+	unsigned int data_size=8;
+	char data[data_size];
+	unsigned char sc;
+	int sense_key, sense_ascq;
+
+	cdb[2] = (lba>>24)&0xff;
+	cdb[3] = (lba>>16)&0xff;
+	cdb[4] = (lba>> 8)&0xff;
+	cdb[5] = (lba    )&0xff;
+
+	cdb[8] = (pmi?1:0);
+
+	sd = op->child->private;
+
+	res=do_iscsi_io(sd, cdb, sizeof(cdb), SG_DXFER_FROM_DEV, &data_size, data, &sc, &sense_key, &sense_ascq);
+	if(res){
+		printf("SCSI_IO failed\n");
+		failed(op->child);
+	}
+	if (!check_sense(sc, op->status)) {
+		printf("[%d] READCAPACITY10 \"%s\" failed (0x%02x) - expected %s\n", 
+		       op->child->line, op->fname, sc, op->status);
+		if (sc == SCSI_STATUS_CHECK_CONDITION) {
+		       printf("SCSI command failed with CHECK_CONDITION. Sense key:%s(%d) Ascq:%s(0x%04x)\n",
+		       	     scsi_status_name(sense_key, &scsi_key_names[0]), sense_key, scsi_status_name(sense_ascq, &scsi_ascq_names[0]), sense_ascq);
+	        }
+		failed(op->child);
+	}
+	if (blocks) {
+		*blocks  = (data[0]&0xff)<<24;
+		*blocks |= (data[1]&0xff)<<16;
+		*blocks |= (data[2]&0xff)<<8;
+		*blocks |= (data[3]&0xff);
+	}
+}
 
 static struct backend_op ops[] = {
 	{ "TESTUNITREADY",      iscsi_testunitready },
@@ -920,4 +982,4 @@ struct nb_operations iscsi_ops = {
 	.ops          = ops
 };
 
-
+#endif
