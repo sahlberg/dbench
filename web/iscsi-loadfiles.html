@@ -10,21 +10,13 @@ The iSCSI backend to DBENCH is activated with '-B iscsi'.
 </p>
 
 <H2>iSCSI specific arguments</h2>
-<H3>--iscsi-target=&lt;iqn-name&gt;</h3>
+<H3>--iscsi-device=iscsi://&lt;ip-address&gt;[:&lt;port&gt;]/&lt;target-iqn&gt;/&lt;lun&gt;</h3>
 <p>
-This argument specifies the iqn name of the target to connect to.
+This argument specifies the iSCSI URL for the device to use.
 </p>
-<H3>--iscsi-portal=&lt;ip address&gt;</h3>
+<H3>--iscsi-initiatorname=&lt;initiator-name&gt;</h3>
 <p>
-This is the ip address of the target.
-</p>
-<H3>--iscsi-port=&lt;port&gt;</h3>
-<p>
-This is the port of the target. This defaults to 3260 if not specified.
-</p>
-<H3>--iscsi-lun=&lt;lun&gt;</h3>
-<p>
-This specifies which LUN to perform I/O to.
+This is the name that dbench will use as InitiatorName. This is an optional argument. If not specified dbench will use iqn.2011-09.org.samba.dbench:client
 </p>
 
 
@@ -95,7 +87,7 @@ Throughput test. Read the same 1Mbyte from page-cache over and over. To measure 
 Run DBENCH with 1 thread of execution and run the loadfile only once. Terminate the run once the end of the loadfile has been reached.
 </p>
 <pre>
-dbench -B iscsi --loadfile=iscsi.txt --iscsi-lun=1 --iscsi-portal=10.0.0.71 --iscsi-port=3260 --iscsi-target=iqn.2007-03:mptest --warmup=0  --run-once 1
+dbench -B iscsi --loadfile=iscsi.txt --iscsi-device=iscsi://10.0.0.71/iqn.2007-03:mptest/1 --warmup=0  --run-once 1
 </pre>
 
 <H3>Example 2</h3>
@@ -103,7 +95,7 @@ dbench -B iscsi --loadfile=iscsi.txt --iscsi-lun=1 --iscsi-portal=10.0.0.71 --is
 Run DBENCH for 10 seconds with 5 separate threads of execution. When the end of the loadfile is reached, go back to the start and execute it again until time runs out.
 </p>
 <pre>
-dbench -B iscsi --loadfile=iscsi.txt --iscsi-lun=1 --iscsi-portal=10.0.0.71 --iscsi-port=3260 --iscsi-target=iqn.2007-03:mptest --warmup=0  --timelimit=10 5
+dbench -B iscsi --loadfile=iscsi.txt --iscsi-device=iscsi://10.0.0.71/iqn.2007-03:mptest/1 --warmup=0  --timelimit=10 5
 </pre>
 
 <H2>Example output</h2>
