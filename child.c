@@ -30,7 +30,7 @@
 
 #define ival(s) strtoll(s, NULL, 0)
 
-#define RWBUFSIZE 1024*1024
+#define RWBUFSIZE 16*1024*1024
 char rw_buf[RWBUFSIZE];
 
 static void nb_sleep(int usec)
