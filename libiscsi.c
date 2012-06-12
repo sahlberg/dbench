@@ -115,10 +115,10 @@ static void iscsi_write10(struct dbench_op *op)
 		xferlen=1;
 	}
 
-	if ((task = iscsi_write10_sync(sd->iscsi, sd->lun,
-		data, xferlen*512, lba,
-		fua&0x04, fua&0x02,
-		512)) == NULL) {
+	if ((task = iscsi_write10_sync(sd->iscsi, sd->lun, lba,
+				       data, xferlen*512, 512,
+				       0, 0, fua&0x04, fua&0x02, 0
+	       )) == NULL) {
 		printf("[%d] failed to send WRITE10\n", op->child->line);
 		failed(op->child);
 		return;
@@ -159,7 +159,9 @@ static void iscsi_read10(struct dbench_op *op)
 	}
 
 
-	if ((task = iscsi_read10_sync(sd->iscsi, sd->lun, lba, xferlen*512, xferlen)) == NULL) {
+	if ((task = iscsi_read10_sync(sd->iscsi, sd->lun, lba,
+				      xferlen*512, 512,
+				      0, 0, 0, 0, 0)) == NULL) {
 		printf("[%d] failed to send READ10\n", op->child->line);
 		failed(op->child);
 		return;
