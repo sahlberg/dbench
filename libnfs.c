@@ -420,7 +420,7 @@ struct nfsio *nfsio_connect(const char *server, const char *export, const char *
 
 	if (!strcmp(protocol, "tcp")) {
 		nfsio->s = RPC_ANYSOCK;
-		nfsio->clnt = clnttcp_create(&sin, MOUNT_PROGRAM, MOUNT_V3, &nfsio->s, 32768, 32768);
+		nfsio->clnt = clnttcp_create(&sin, MOUNT_PROGRAM, MOUNT_V3, &nfsio->s, 17*1024*1024, 17*1024*1024);
 	} else {
 		struct timeval wait;
 
@@ -480,7 +480,7 @@ struct nfsio *nfsio_connect(const char *server, const char *export, const char *
 
 	if (!strcmp(protocol, "tcp")) {
 		nfsio->s = RPC_ANYSOCK;
-		nfsio->clnt = clnttcp_create(&sin, NFS_PROGRAM, NFS_V3, &nfsio->s, 327680, 327680);
+		nfsio->clnt = clnttcp_create(&sin, NFS_PROGRAM, NFS_V3, &nfsio->s, 17*1024*1024, 17*1024*1024);
 	} else {
 		struct timeval wait;
 
