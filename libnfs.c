@@ -1376,6 +1376,8 @@ nfsstat3 nfsio_readdirplus(struct nfsio *nfsio, const char *name, nfs3_dirent_cb
 	int ret = NFS3_OK;
 	data_t *fh;
 	entryplus3 *e, *last_e = NULL;
+	entryplus3 *entries = NULL;
+	entryplus3 *new_entry;
 	char *dir = NULL;
 
 	dir = strdup(name);
@@ -1439,9 +1441,11 @@ again:
 		);
 		free(new_name);
 
-		if (cb) {
-			cb(e, private_data);
-		}
+		new_entry = malloc(sizeof(entryplus3));
+		new_entry->name = strdup(e->name);
+		new_entry->name_attributes.post_op_attr_u.attributes.type = e->name_attributes.post_op_attr_u.attributes.type;
+		new_entry->nextentry = entries;
+		entries = new_entry;
 	}	
 
 	if (READDIRPLUS3res->READDIRPLUS3res_u.resok.reply.eof == 0) {
@@ -1456,6 +1460,18 @@ again:
 		goto again;
 	}
 
+	/* we have read all entries, now invoke the callback for all of them */
+	while (entries != NULL) {
+		e = entries;
+		entries = entries->nextentry;
+
+		if (cb) {
+			cb(e, private_data);
+		}
+	
+		free(e->name);
+		free(e);
+	}
 
 finished:
 	if (dir) {

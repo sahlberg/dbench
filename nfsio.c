@@ -135,7 +135,7 @@ static void nfs3_deltree(struct dbench_op *op)
 {
 	struct cb_data *cbd;
 	nfsstat3 res;
-	
+
 	cbd = malloc(sizeof(struct cb_data));
 
 	cbd->nfsio = op->child->private;
