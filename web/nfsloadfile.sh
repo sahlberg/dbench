@@ -127,7 +127,7 @@ case "$PACKET" in
 		MSGTYP=`extract_field "$PACKET" "rpc.msgtyp"`
 		STATUS=`extract_field "$PACKET" "nfs.nfsstat3" | awk '{ printf "0x%08x", $1 }'`
 		FULLNAME=`extract_quoted_field "$PACKET" "nfs.full_name"`
-		COOKIE=`extract_field "$PACKET" "nfs.cookie3"`
+		COOKIE3=`extract_field "$PACKET" "nfs.cookie3"`
 		do_readdirplus $XID $MSGTYP "$FULLNAME" $COOKIE3 $STATUS
 		
 		;;
