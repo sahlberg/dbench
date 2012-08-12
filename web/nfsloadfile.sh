@@ -138,7 +138,7 @@ case "$PACKET" in
 		FULLNAME=`extract_quoted_field "$PACKET" "nfs.full_name"`
 		OFFSET=`extract_field "$PACKET" "nfs.offset3"`
 		COUNT=`extract_field "$PACKET" "nfs.count3"`
-		do_read $XID $MSGTYP "$FULLNAME" $OFFSET $COUNT $STATUS
+		do_read "$XID" "$MSGTYP" "$FULLNAME" "$OFFSET" "$COUNT" "$STATUS"
 		
 		;;
 	# WRITE
@@ -151,7 +151,7 @@ case "$PACKET" in
 		OFFSET=`extract_field "$PACKET" "nfs.offset3"`
 		COUNT=`extract_field "$PACKET" "nfs.count3"`
 		STABLE=`extract_field "$PACKET" "nfs.write.stable"`
-		do_write $XID $MSGTYP "$FULLNAME" $OFFSET $COUNT $STABLE $STATUS
+		do_write "$XID" "$MSGTYP" "$FULLNAME" "$OFFSET" "$COUNT" "$STABLE" "$STATUS"
 		
 		;;
 	# CREATE
@@ -162,7 +162,7 @@ case "$PACKET" in
 		NAME=`extract_quoted_field "$PACKET" "nfs.name"`
 		FULLNAME=`extract_quoted_field "$PACKET" "nfs.full_name"`
 		MODE=`extract_field "$PACKET" "nfs.createmode"`
-		do_create $XID $MSGTYP "$FULLNAME/$NAME" $MODE $STATUS
+		do_create "$XID" "$MSGTYP" "$FULLNAME/$NAME" "$MODE" "$STATUS"
 		
 		;;
 	# LOOKUP
@@ -172,7 +172,7 @@ case "$PACKET" in
 		STATUS=`extract_field "$PACKET" "nfs.nfsstat3" | awk '{ printf "0x%08x", $1 }'`
 		NAME=`extract_quoted_field "$PACKET" "nfs.name"`
 		FULLNAME=`extract_quoted_field "$PACKET" "nfs.full_name"`
-		do_lookup $XID $MSGTYP "$FULLNAME/$NAME" $STATUS
+		do_lookup "$XID" "$MSGTYP" "$FULLNAME/$NAME" "$STATUS"
 		
 		;;
 	# FSINFO
@@ -180,7 +180,7 @@ case "$PACKET" in
 		XID=`extract_field "$PACKET" "rpc.xid"`
 		MSGTYP=`extract_field "$PACKET" "rpc.msgtyp"`
 		STATUS=`extract_field "$PACKET" "nfs.nfsstat3" | awk '{ printf "0x%08x", $1 }'`
-		do_fsinfo $XID $MSGTYP $STATUS
+		do_fsinfo "$XID" "$MSGTYP" "$STATUS"
 		;;
 	# GETATTR
 	*"nfs.procedure_v3 == 1 "*)
@@ -188,7 +188,7 @@ case "$PACKET" in
 		MSGTYP=`extract_field "$PACKET" "rpc.msgtyp"`
 		STATUS=`extract_field "$PACKET" "nfs.nfsstat3" | awk '{ printf "0x%08x", $1 }'`
 		FULLNAME=`extract_quoted_field "$PACKET" "nfs.full_name"`
-		do_getattr $XID $MSGTYP $FULLNAME $STATUS
+		do_getattr "$XID" "$MSGTYP" "$FULLNAME" "$STATUS"
 		;;
 	# ACCESS
 	*"nfs.procedure_v3 == 4"*)
@@ -196,7 +196,7 @@ case "$PACKET" in
 		MSGTYP=`extract_field "$PACKET" "rpc.msgtyp"`
 		STATUS=`extract_field "$PACKET" "nfs.nfsstat3" | awk '{ printf "0x%08x", $1 }'`
 		FULLNAME=`extract_quoted_field "$PACKET" "nfs.full_name"`
-		do_access $XID $MSGTYP $FULLNAME $STATUS
+		do_access "$XID" "$MSGTYP" "$FULLNAME" "$STATUS"
 		;;
 	*)
 		echo "XXX unknown packet $PACKET"
