@@ -15,14 +15,12 @@ extract_quoted_field() {
 
 do_readdirplus() {
 	if [ $2 != "1" ]; then
-		if [ $4 != "0" ]; then
-			echo $TIMESTAMP READDIRPLUS3 \"$3\" >$DBDIR/$1
-		fi
+		echo $TIMESTAMP READDIRPLUS3 \"$3\" $4 >$DBDIR/$1
 	else
 		CMD=`cat $DBDIR/$1`
 		# we only generate the operation if we saw the request
 		if [ "${CMD}x" != "x" ]; then
-			echo $CMD $4
+			echo $CMD $5
 		fi
 	fi
 }
@@ -128,7 +126,7 @@ case "$PACKET" in
 		STATUS=`extract_field "$PACKET" "nfs.nfsstat3" | awk '{ printf "0x%08x", $1 }'`
 		FULLNAME=`extract_quoted_field "$PACKET" "nfs.full_name"`
 		COOKIE=`extract_field "$PACKET" "nfs.cookie3"`
-		do_readdirplus $XID $MSGTYP "$FULLNAME" $COOKIE3 $STATUS
+		do_readdirplus "$XID" "$MSGTYP" "$FULLNAME" "$COOKIE" "$STATUS"
 		
 		;;
 	# READ
