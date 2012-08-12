@@ -1,6 +1,6 @@
 #!/bin/sh
 
-TSHARK=tshark
+TSHARK=./tshark
 ECHO=/bin/echo
 DBDIR=/tmp/nldbd
 
