@@ -318,8 +318,6 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 				exit(1);
 			}
 
-			semctl(barrier,0,IPC_RMID);
-
 			fn(&children[i*options.clients_per_process], options.loadfile);
 			_exit(0);
 		}
@@ -348,8 +346,6 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 		exit(1);
 	}
 
-	semctl(barrier,0,IPC_RMID);
-
 	signal(SIGALRM, sig_alarm);
 	alarm(PRINT_FREQ);
 
@@ -365,6 +361,8 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 
 	alarm(0);
 	sig_alarm(SIGALRM);
+
+	semctl(barrier,0,IPC_RMID);
 
 	printf("\n");
 
