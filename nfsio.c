@@ -17,12 +17,16 @@
 
 #define _FILE_OFFSET_BITS 64
 
-#include "nfs.h"
+#include "config.h"
+#ifdef HAVE_LIBNFS
+
 #include "dbench.h"
 
 #include <stdio.h>
-#include "mount.h"
 #include <stdint.h>
+#include <nfsc/libnfs.h>
+#include <nfsc/libnfs-raw.h>
+#include <nfsc/libnfs-raw-nfs.h>
 #include "libnfs.h"
 
 #define discard_const(ptr) ((void *)((intptr_t)(ptr)))
@@ -58,7 +62,7 @@ static void nfs3_setup(struct child_struct *child)
 	child->rate.last_bytes = 0;
 
 	srandom(getpid() ^ time(NULL));
-	child->private = nfsio_connect(options.server, options.export, options.protocol, global_random + child->id, child->num_clients);
+	child->private = nfsio_connect(options.nfs, global_random + child->id, child->num_clients);
 	if (child->private == NULL) {
 		child->failed = 1;
 		printf("nfsio_connect() failed\n");
@@ -186,6 +190,29 @@ static void nfs3_getattr(struct dbench_op *op)
 	}
 }
 
+static void nfs3_pathconf(struct dbench_op *op)
+{
+	nfsstat3 res;
+
+	res = nfsio_pathconf(op->child->private, discard_const(op->fname));
+	if (!check_status(res, op->status)) {
+		printf("[%d] PATHCONF \"%s\" failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, res, op->status);
+		failed(op->child);
+	}
+}
+
+static void nfs3_readlink(struct dbench_op *op)
+{
+	nfsstat3 res;
+
+	res = nfsio_readlink(op->child->private, discard_const(op->fname));
+	if (!check_status(res, op->status)) {
+		printf("[%d] READLINK \"%s\" failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, res, op->status);
+		failed(op->child);
+	}
+}
 
 static void nfs3_lookup(struct dbench_op *op)
 {
@@ -255,7 +282,7 @@ static void nfs3_read(struct dbench_op *op)
 		len = options.trunc_io;
 	}
 
-	res = nfsio_read(op->child->private, op->fname, NULL, offset, len, NULL, NULL);
+	res = nfsio_read(op->child->private, op->fname, NULL, offset, len);
 	if (!check_status(res, op->status)) {
 		printf("[%d] READ \"%s\" failed (%x) - expected %s\n", 
 		       op->child->line, op->fname,
@@ -392,7 +419,11 @@ static int nfs3_init(void)
 {
 	void *handle;
 
-	handle = nfsio_connect(options.server, options.export, options.protocol, global_random, 1);
+	if (options.nfs == NULL) {
+		printf("--nfs target was not specified\n");
+		return 1;
+	}
+	handle = nfsio_connect(options.nfs, global_random, 1);
 	if (handle == NULL) {
 		printf("Failed to connect to NFS server\n");
 		return 1;
@@ -404,22 +435,24 @@ static int nfs3_init(void)
 
 static struct backend_op ops[] = {
 	{ "Deltree",  nfs3_deltree },
-	{ "GETATTR3", nfs3_getattr },
-	{ "LOOKUP3",  nfs3_lookup },
-	{ "CREATE3",  nfs3_create },
-	{ "WRITE3",   nfs3_write },
-	{ "COMMIT3",  nfs3_commit },
-	{ "READ3",    nfs3_read },
 	{ "ACCESS3",  nfs3_access },
-	{ "MKDIR3",   nfs3_mkdir },
-	{ "RMDIR3",   nfs3_rmdir },
-	{ "FSSTAT3",  nfs3_fsstat },
+	{ "COMMIT3",  nfs3_commit },
+	{ "CREATE3",  nfs3_create },
 	{ "FSINFO3",  nfs3_fsinfo },
-	{ "SYMLINK3", nfs3_symlink },
-	{ "REMOVE3",  nfs3_remove },
-	{ "READDIRPLUS3", nfs3_readdirplus },
-	{ "RENAME3",  nfs3_rename },
+	{ "FSSTAT3",  nfs3_fsstat },
+	{ "GETATTR3", nfs3_getattr },
 	{ "LINK3",    nfs3_link },
+	{ "LOOKUP3",  nfs3_lookup },
+	{ "MKDIR3",   nfs3_mkdir },
+	{ "PATHCONF3", nfs3_pathconf },
+	{ "READ3",    nfs3_read },
+	{ "READDIRPLUS3", nfs3_readdirplus },
+	{ "READLINK3", nfs3_readlink },
+	{ "REMOVE3",  nfs3_remove },
+	{ "RENAME3",  nfs3_rename },
+	{ "RMDIR3",   nfs3_rmdir },
+	{ "SYMLINK3", nfs3_symlink },
+	{ "WRITE3",   nfs3_write },
 	{ NULL, NULL}
 };
 
@@ -430,3 +463,5 @@ struct nb_operations nfs_ops = {
 	.cleanup      = nfs3_cleanup,
 	.ops          = ops
 };
+
+#endif /* HAVE_LIBNFS */

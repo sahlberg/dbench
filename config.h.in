@@ -103,6 +103,9 @@
 /* Whether we have LIBISCSI support */
 #undef HAVE_LIBISCSI
 
+/* Whether we have LIBNFS support */
+#undef HAVE_LIBNFS
+
 /* Whether we have LIBSMBCLIENT support */
 #undef HAVE_LIBSMBCLIENT
 

@@ -82,6 +82,8 @@
 #
 #
 1.050 LOOKUP3 "/clients/client1/test.file" 0x00000000
+1.050 PATHCONF3 "/clients/client1/test.file" 0x00000000
+1.050 READLINK3 "/clients/client1/test.file" *
 1.060 LINK3 "/clients/client1/hard.link" "/clients/client1/test.file" 0x00000000
 1.070 REMOVE3 "/clients/client1/hard.link" 0x00000000
 1.080 SYMLINK3 "/clients/client1/test.link" "/clients/client1/test.file" 0x00000000

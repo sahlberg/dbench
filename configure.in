@@ -248,8 +248,51 @@ then
   AC_DEFINE(HAVE_LINUX_SCSI_SG, 1, [Define if Linux SCSI Generic is enabled])
 fi
 
+#
+# Check that libnfs is available
+#
+AC_MSG_CHECKING(whether libnfs is available)
+ac_save_CFLAGS="$CFLAGS"
+ac_save_LIBS="$LIBS"
+CFLAGS="$CFLAGS $GLIB_CFLAGS"
+LIBS="$GLIB_LIBS $LIBS -lnfs"
+AC_TRY_RUN([
+#include <stdio.h>
+#include <sys/time.h>
+#include <nfsc/libnfs.h>
+
+int main(int argc, char *argv[])
+{
+	struct nfs_context *nfs;
+
+	nfs = nfs_init_context();
+	if (nfs == NULL) {
+		printf("Failed to create nfs context\n");
+		exit(10);
+	}
+
+	nfs_destroy_context(nfs);
+
+	return 0;
+}
+], ac_cv_have_libnfs=yes, ac_cv_have_libnfs=no,
+   [echo $ac_n "compile with LIBNFS. Assuming OK... $ac_c"
+    ac_cv_have_libnfs=yes])
+CFLAGS="$ac_save_CFLAGS"
+LIBS="$ac_save_LIBS"
+if test "$ac_cv_have_libnfs" = yes ; then
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_LIBNFS, 1, [Whether we have LIBNFS support])
+  LIBNFS="-lnfs"
+else
+  AC_MSG_RESULT(no)
+  AC_MSG_NOTICE(Libnfs not available. Building DBENCH without NFS support)
+  LIBNFS=""
+fi
+
 AC_SUBST(LIBSMBCLIENT)
 AC_SUBST(LIBISCSI)
+AC_SUBST(LIBNFS)
 AC_SUBST(SMBO)
 AC_SUBST(LINUXSCSI)
 AC_CONFIG_FILES([Makefile])
@@ -267,6 +310,11 @@ if test "$ac_cv_have_libiscsi" = yes ; then
   AC_MSG_NOTICE(LIBISCSI support ..................... [YES])
 else
   AC_MSG_NOTICE(LIBISCSI support ..................... [NO])
+fi
+if test "$ac_cv_have_libnfs" = yes ; then
+  AC_MSG_NOTICE(LIBNFS support ....................... [YES])
+else
+  AC_MSG_NOTICE(LIBNFS support ....................... [NO])
 fi
 if test "$ac_cv_linux_scsi_sg" = yes ; then
   AC_MSG_NOTICE(LINUX SCSI SG support ................ [YES])

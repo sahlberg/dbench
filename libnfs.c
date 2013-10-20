@@ -1,5 +1,5 @@
 /* 
-   nfs library for dbench
+   libnfs glue for dbench
 
    Copyright (C) 2008 by Ronnie Sahlberg (ronniesahlberg@gmail.com)
    
@@ -17,23 +17,37 @@
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 #define _FILE_OFFSET_BITS 64
-#include "mount.h"
-#include "nfs.h"
-#include "libnfs.h"
+
+#include "config.h"
+#ifdef HAVE_LIBNFS
+
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <poll.h>
+#include <errno.h>
+
+#include <inttypes.h>
+
+#include <nfsc/libnfs.h>
+#include <nfsc/libnfs-raw.h>
+#include <nfsc/libnfs-raw-nfs.h>
+#include "libnfs.h"
 
 #define discard_const(ptr) ((void *)((intptr_t)(ptr)))
+#define _U_ __attribute__((unused))
 
-typedef struct _data_t {
-	const char *dptr;
-	int dsize;
-} data_t;
+struct nfs_fh3 *nfs_get_rootfh(struct nfs_context *nfs);
+void nfs_set_error(struct nfs_context *nfs, char *error_string, ...);
+int rpc_nfs_pathconf_async(struct rpc_context *rpc, rpc_cb cb, struct nfs_fh3 *fh, void *private_data);
 
 typedef struct _tree_t {
-	data_t key;
-	data_t fh;
+	nfs_fh3 key;
+	nfs_fh3 fh;
 	off_t  file_size;
 	struct _tree_t *parent;
 	struct _tree_t *left;
@@ -42,25 +56,16 @@ typedef struct _tree_t {
 
 
 struct nfsio {
-	int s;
-	CLIENT *clnt;
+	struct nfs_context *nfs;
 	unsigned long xid;
 	int xid_stride;
 	tree_t *fhandles;
 };
 
-static void set_new_xid(struct nfsio *nfsio)
-{
-	unsigned long xid = nfsio->xid;
-
-	clnt_control(nfsio->clnt, CLSET_XID, (char *)&xid);
-	nfsio->xid += nfsio->xid_stride;
-}
-
 static void free_node(tree_t *t)
 {
-	free(discard_const(t->key.dptr));
-	free(discard_const(t->fh.dptr));
+	free(discard_const(t->key.data.data_val));
+	free(discard_const(t->fh.data.data_val));
 	free(t);
 }
 
@@ -72,7 +77,7 @@ static tree_t *find_fhandle(tree_t *tree, const char *key)
 		return NULL;
 	}
 
-	i = strcmp(key, tree->key.dptr);
+	i = strcmp(key, tree->key.data.data_val);
 	if (i == 0) {
 		return tree;
 	}
@@ -83,7 +88,7 @@ static tree_t *find_fhandle(tree_t *tree, const char *key)
 	return find_fhandle(tree->right, key);
 }
 
-static data_t *recursive_lookup_fhandle(struct nfsio *nfsio, const char *name)
+static nfs_fh3 *recursive_lookup_fhandle(struct nfsio *nfsio, const char *name)
 {
 	tree_t *t;
 	char *strp;
@@ -122,10 +127,10 @@ static data_t *recursive_lookup_fhandle(struct nfsio *nfsio, const char *name)
 		return &t->fh;
 	}
 
-	return ;
+	return NULL;
 }
 
-static data_t *lookup_fhandle(struct nfsio *nfsio, const char *name, off_t *off)
+static nfs_fh3 *lookup_fhandle(struct nfsio *nfsio, const char *name, off_t *off)
 {
 	tree_t *t;
 
@@ -256,21 +261,21 @@ static void insert_fhandle(struct nfsio *nfsio, const char *name, const char *fh
 		exit(10);
 	}
 
-	t->key.dptr = strdup(name);
-	if (t->key.dptr == NULL) {
+	t->key.data.data_val = strdup(name);
+	if (t->key.data.data_val == NULL) {
 		fprintf(stderr, "STRDUP failed to allocate key in insert_fhandle\n");
 		exit(10);
 	}
-	t->key.dsize = strlen(name);
+	t->key.data.data_len = strlen(name);
 
 
-	t->fh.dptr = malloc(length);
-	if (t->key.dptr == NULL) {
+	t->fh.data.data_val = malloc(length);
+	if (t->key.data.data_val == NULL) {
 		fprintf(stderr, "MALLOC failed to allocate fhandle in insert_fhandle\n");
 		exit(10);
 	}
-	memcpy(discard_const(t->fh.dptr), fhandle, length);
-	t->fh.dsize = length;	
+	memcpy(discard_const(t->fh.data.data_val), fhandle, length);
+	t->fh.data.data_len = length;	
 	
 	t->file_size = off;
 	t->left   = NULL;
@@ -284,12 +289,12 @@ static void insert_fhandle(struct nfsio *nfsio, const char *name, const char *fh
 
 	tmp_t = nfsio->fhandles;
 again:
-	i = strcmp(t->key.dptr, tmp_t->key.dptr);
+	i = strcmp(t->key.data.data_val, tmp_t->key.data.data_val);
 	if (i == 0) {
-		free(discard_const(tmp_t->fh.dptr));
-		tmp_t->fh.dsize = t->fh.dsize;
-		tmp_t->fh.dptr  = t->fh.dptr;
-		free(discard_const(t->key.dptr));
+		free(discard_const(tmp_t->fh.data.data_val));
+		tmp_t->fh.data.data_len = t->fh.data.data_len;
+		tmp_t->fh.data.data_val  = t->fh.data.data_val;
+		free(discard_const(t->key.data.data_val));
 		free(t);
 		return;
 	}
@@ -363,19 +368,47 @@ const char *nfs_error(int error)
 	return "Unknown NFS error";
 }
 
+struct nfsio_cb_data {
+	struct nfsio *nfsio;
+	char *name, *old_name;
+	fattr3 *attributes;
+	uint32_t *access;
+	nfs_fh3 *fh;
+	nfs3_dirent_cb rd_cb;
+	void *private_data;
 
+	int is_finished;
+	int status;
+};
+
+static void nfsio_wait_for_reply(struct nfs_context *nfs, struct nfsio_cb_data *cb_data)
+{
+	struct pollfd pfd;
+
+	while (!cb_data->is_finished) {
+
+		pfd.fd = nfs_get_fd(nfs);
+		pfd.events = nfs_which_events(nfs);
+		if (poll(&pfd, 1, -1) < 0) {
+			nfs_set_error(nfs, "Poll failed");
+			cb_data->status = -EIO;
+			break;
+		}
+		if (nfs_service(nfs, pfd.revents) < 0) {
+			nfs_set_error(nfs, "nfs_service failed");
+			cb_data->status = -EIO;
+			break;
+		}
+	}
+}
 
 
 void nfsio_disconnect(struct nfsio *nfsio)
 {
-	if (nfsio->clnt != NULL) {
-		clnt_destroy(nfsio->clnt);
-		nfsio->clnt = NULL;
+	if (nfsio->nfs != NULL) {
+		nfs_destroy_context(nfsio->nfs);
+		nfsio->nfs = NULL;
 	}
-	if (nfsio->s != -1) {
-		close(nfsio->s);
-	}
-	// qqq free the tree*/
 
 	free(nfsio);
 }
@@ -383,129 +416,91 @@ void nfsio_disconnect(struct nfsio *nfsio)
 
 
 
-struct nfsio *nfsio_connect(const char *server, const char *export, const char *protocol, int initial_xid, int xid_stride)
+struct nfsio *nfsio_connect(const char *url, int initial_xid, int xid_stride)
 {
-	dirpath mountdir=discard_const(export);
 	struct nfsio *nfsio;
-	mountres3 *mountres;
-	fhandle3 *fh;
-        struct sockaddr_in sin;
-	int ret;
+	char *tmp, *server, *export;
+	struct nfs_fh3 *root_fh;
+
+	tmp = strdup(url);
+	if (tmp == NULL) {
+		fprintf(stderr, "Failed to strdup nfs url\n");
+		return NULL;
+	}
+	if (strncmp(tmp, "nfs://", 6)) {
+		fprintf(stderr, "Invalid URL. NFS URL must be of form nfs://<server>/<path>\n");
+		free(tmp);
+		return NULL;
+	}
+	server = &tmp[6];
+	export = strchr(server, '/');
+	if (export == NULL) {
+		fprintf(stderr, "Invalid URL. NFS URL must be of form nfs://<server>/<path>\n");
+		free(tmp);
+		return NULL;
+	}
+	*export = 0;
+
+	export = strchr(&url[6], '/');
 
 	nfsio = malloc(sizeof(struct nfsio));
 	if (nfsio == NULL) {
 		fprintf(stderr, "Failed to malloc nfsio\n");
+		free(tmp);
 		return NULL;
 	}
 	bzero(nfsio, sizeof(struct nfsio));
 
-	nfsio->s          = -1;
 	nfsio->xid        = initial_xid;
 	nfsio->xid_stride = xid_stride;
+	nfsio->nfs = nfs_init_context();
 
-	/*
-	 * set up the MOUNT client. If we are running as root, we get
-	 * a port <1024 by default. If we are not root, we can not
-	 * bind to these ports, so the server must be in "insecure"
-	 * mode.
-	 */
-	memset(&sin, 0, sizeof(sin));
-	sin.sin_port = 0;
-	sin.sin_family = PF_INET;
-	if (inet_aton(server, &sin.sin_addr) == 0) {
-		fprintf(stderr, "Invalid address '%s'\n", server);
-		nfsio_disconnect(nfsio);
+	if (nfs_mount(nfsio->nfs, server, export) != 0) {
+		fprintf(stderr, "Failed to mount %s. Error:%s\n", url,
+			nfs_get_error(nfsio->nfs));
+		free(tmp);
 		return NULL;
 	}
+	free(tmp);
 
-	if (!strcmp(protocol, "tcp")) {
-		nfsio->s = RPC_ANYSOCK;
-		nfsio->clnt = clnttcp_create(&sin, MOUNT_PROGRAM, MOUNT_V3, &nfsio->s, 17*1024*1024, 17*1024*1024);
-	} else {
-		struct timeval wait;
-
-		wait.tv_sec  = 5;
-		wait.tv_usec = 0;
-		nfsio->s = RPC_ANYSOCK;
-		nfsio->clnt = clntudp_create(&sin, MOUNT_PROGRAM, MOUNT_V3, wait, &nfsio->s);
-	}
-
-	if (nfsio->clnt == NULL) {
-		printf("ERROR: failed to connect to MOUNT daemon on %s\n", server);
-		nfsio_disconnect(nfsio);
-		return NULL;
-	}
-	nfsio->clnt->cl_auth = authunix_create_default();
-
-	mountres=mountproc3_mnt_3(&mountdir, nfsio->clnt);
-	if (mountres == NULL) {
-		printf("ERROR: failed to call the MNT procedure\n");
-		nfsio_disconnect(nfsio);
-		return NULL;
-	}
-	if (mountres->fhs_status != MNT3_OK) {
-		printf("ERROR: Server returned error %d when trying to MNT\n",mountres->fhs_status);
-		nfsio_disconnect(nfsio);
-		return NULL;
-	}
-
-	fh = &mountres->mountres3_u.mountinfo.fhandle;
+	root_fh = nfs_get_rootfh(nfsio->nfs);
 	insert_fhandle(nfsio, "/",
-			      fh->fhandle3_val,
-			      fh->fhandle3_len,
+			      root_fh->data.data_val,
+			      root_fh->data.data_len,
 			      0);
-
-
-	/* we dont need the mount client any more */
-	clnt_destroy(nfsio->clnt);
-	nfsio->clnt = NULL;
-	close(nfsio->s);
-	nfsio->s = -1;
-
-
-	/*
-	 * set up the NFS client. If we are running as root, we get
-	 * a port <1024 by default. If we are not root, we can not
-	 * bind to these ports, so the server must be in "insecure"
-	 * mode.
-	 */
-	memset(&sin, 0, sizeof(sin));
-	sin.sin_port = 0;
-	sin.sin_family = PF_INET;
-	if (inet_aton(server, &sin.sin_addr) == 0) {
-		fprintf(stderr, "Invalid address '%s'\n", server);
-		nfsio_disconnect(nfsio);
-		return NULL;
-	}
-
-	if (!strcmp(protocol, "tcp")) {
-		nfsio->s = RPC_ANYSOCK;
-		nfsio->clnt = clnttcp_create(&sin, NFS_PROGRAM, NFS_V3, &nfsio->s, 17*1024*1024, 17*1024*1024);
-	} else {
-		struct timeval wait;
-
-		wait.tv_sec  = 5;
-		wait.tv_usec = 0;
-		nfsio->s = RPC_ANYSOCK;
-		nfsio->clnt = clntudp_create(&sin, NFS_PROGRAM, NFS_V3, wait, &nfsio->s);
-	}
-
-	if (nfsio->clnt == NULL) {
-		fprintf(stderr, "Failed to initialize nfs client structure\n");
-		nfsio_disconnect(nfsio);
-		return NULL;
-	}
-	nfsio->clnt->cl_auth = authunix_create_default();
 
 	return nfsio;
 }
 
+static void nfsio_getattr_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct GETATTR3res *GETATTR3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (GETATTR3res->status != NFS3_OK) {
+		cb_data->status = GETATTR3res->status;
+		return;
+	}
+
+	if (cb_data->attributes) {
+		memcpy(cb_data->attributes,
+			&GETATTR3res->GETATTR3res_u.resok.obj_attributes,
+			sizeof(fattr3));
+	}
+
+	cb_data->status = NFS3_OK;
+}
 
 nfsstat3 nfsio_getattr(struct nfsio *nfsio, const char *name, fattr3 *attributes)
 {
-	struct GETATTR3args GETATTR3args;
-	struct GETATTR3res *GETATTR3res;
-	data_t *fh;
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
 
 	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
@@ -513,51 +508,67 @@ nfsstat3 nfsio_getattr(struct nfsio *nfsio, const char *name, fattr3 *attributes
 		return NFS3ERR_SERVERFAULT;
 	}
 
-	GETATTR3args.object.data.data_len = fh->dsize;
-	GETATTR3args.object.data.data_val = discard_const(fh->dptr);
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
+	cb_data.attributes = attributes;
 
-	set_new_xid(nfsio);
-	GETATTR3res = nfsproc3_getattr_3(&GETATTR3args, nfsio->clnt);
-
-	if (GETATTR3res == NULL) {
-		fprintf(stderr, "nfsproc3_getattr_3 failed in getattr\n");
+	if (rpc_nfs_getattr_async(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_getattr_cb, fh, &cb_data)) {
+		fprintf(stderr, "failed to send getattr\n");
 		return NFS3ERR_SERVERFAULT;
 	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	if (GETATTR3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_getattr_3 failed in getattr. status:%d\n", GETATTR3res->status);
-		return GETATTR3res->status;
+	return cb_data.status;
+}
+
+static void nfsio_lookup_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct LOOKUP3res *LOOKUP3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (LOOKUP3res->status != NFS3_OK) {
+		cb_data->status = LOOKUP3res->status;
+		return;
 	}
 
-	if (attributes) {
-		memcpy(attributes, &GETATTR3res->GETATTR3res_u.resok.obj_attributes, sizeof(fattr3));
+	insert_fhandle(cb_data->nfsio, cb_data->name, 
+			LOOKUP3res->LOOKUP3res_u.resok.object.data.data_val,
+			LOOKUP3res->LOOKUP3res_u.resok.object.data.data_len,
+			LOOKUP3res->LOOKUP3res_u.resok.obj_attributes.post_op_attr_u.attributes.size);
+
+	if (cb_data->attributes) {
+		memcpy(cb_data->attributes,
+			&LOOKUP3res->LOOKUP3res_u.resok.obj_attributes.post_op_attr_u.attributes,
+			sizeof(fattr3));
 	}
 
-	return NFS3_OK;
+	cb_data->status = NFS3_OK;
 }
 
 nfsstat3 nfsio_lookup(struct nfsio *nfsio, const char *name, fattr3 *attributes)
 {
-
-	struct LOOKUP3args LOOKUP3args;
-	struct LOOKUP3res *LOOKUP3res;
-	char *tmp_name = NULL;
-	int ret = NFS3_OK;
-	data_t *fh;
+	char *tmp_name;
 	char *ptr;
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
 
-	tmp_name = strdup(name);
+	tmp_name = strdupa(name);
 	if (tmp_name == NULL) {
 		fprintf(stderr, "failed to strdup name in nfsio_lookup\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	ptr = rindex(tmp_name, '/');
 	if (ptr == NULL) {	
 		fprintf(stderr, "name did not contain '/' in nfsio_lookup\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	*ptr = 0;
@@ -566,53 +577,52 @@ nfsstat3 nfsio_lookup(struct nfsio *nfsio, const char *name, fattr3 *attributes)
 	fh = lookup_fhandle(nfsio, tmp_name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle for '%s' in nfsio_lookup\n", tmp_name);
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
-	LOOKUP3args.what.dir.data.data_len = fh->dsize;
-	LOOKUP3args.what.dir.data.data_val = discard_const(fh->dptr);
-	LOOKUP3args.what.name = ptr;
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
+	cb_data.name = discard_const(name);
+	cb_data.attributes = attributes;
 
-	set_new_xid(nfsio);
-	LOOKUP3res = nfsproc3_lookup_3(&LOOKUP3args, nfsio->clnt);
-
-	if (LOOKUP3res == NULL) {
-		fprintf(stderr, "nfsproc3_lookup_3 failed in lookup\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+	if (rpc_nfs_lookup_async(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_lookup_cb, fh, ptr, &cb_data)) {
+		fprintf(stderr, "failed to send lookup for '%s' "
+			"in nfsio_lookup\n", tmp_name);
+		return NFS3ERR_SERVERFAULT;
 	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	if (LOOKUP3res->status != NFS3_OK) {
-		ret = LOOKUP3res->status;
-		goto finished;
-	}
-
-	insert_fhandle(nfsio, name, 
-			LOOKUP3res->LOOKUP3res_u.resok.object.data.data_val,
-			LOOKUP3res->LOOKUP3res_u.resok.object.data.data_len,
-			LOOKUP3res->LOOKUP3res_u.resok.obj_attributes.post_op_attr_u.attributes.size);
-
-	free(LOOKUP3res->LOOKUP3res_u.resok.object.data.data_val);
-
-	if (attributes) {
-		memcpy(attributes, &LOOKUP3res->LOOKUP3res_u.resok.obj_attributes.post_op_attr_u.attributes, sizeof(fattr3));
-	}
-
-finished:
-	if (tmp_name) {
-		free(tmp_name);
-	}
-	return ret;
+	return cb_data.status;
 }
 
+static void nfsio_access_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct ACCESS3res *ACCESS3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
 
-nfsstat3 nfsio_access(struct nfsio *nfsio, const char *name, uint32 desired, uint32 *access)
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (ACCESS3res->status != NFS3_OK) {
+		cb_data->status = ACCESS3res->status;
+		return;
+	}
+
+	if (cb_data->access) {
+		*cb_data->access = ACCESS3res->ACCESS3res_u.resok.access;
+	}
+
+	cb_data->status = NFS3_OK;
+}
+
+nfsstat3 nfsio_access(struct nfsio *nfsio, const char *name, uint32_t desired, uint32_t *access)
 {
-
-	struct ACCESS3args ACCESS3args;
-	struct ACCESS3res *ACCESS3res;
-	data_t *fh;
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
 
 	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
@@ -620,55 +630,62 @@ nfsstat3 nfsio_access(struct nfsio *nfsio, const char *name, uint32 desired, uin
 		return NFS3ERR_SERVERFAULT;
 	}
 
-	ACCESS3args.object.data.data_val = discard_const(fh->dptr);
-	ACCESS3args.object.data.data_len = fh->dsize;
-	ACCESS3args.access = desired;
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
+	cb_data.access = access;
 
-	set_new_xid(nfsio);
-	ACCESS3res = nfsproc3_access_3(&ACCESS3args, nfsio->clnt);
-
-	if (ACCESS3res == NULL) {
-		fprintf(stderr, "nfsproc3_access_3 failed in access\n");
+	if (rpc_nfs_access_async(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_access_cb, fh, desired, &cb_data)) {
+		fprintf(stderr, "failed to send access\n");
 		return NFS3ERR_SERVERFAULT;
 	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	if (ACCESS3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_access_3 failed. status:%d\n", 
-ACCESS3res->status);
-		return ACCESS3res->status;
-	}
-
-	if (access) {
-		*access = ACCESS3res->ACCESS3res_u.resok.access;
-	}
-
-	return NFS3_OK;
+	return cb_data.status;
 }
 
 
+static void nfsio_create_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct CREATE3res *CREATE3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (CREATE3res->status != NFS3_OK) {
+		cb_data->status = CREATE3res->status;
+		return;
+	}
+
+	insert_fhandle(cb_data->nfsio, cb_data->name, 
+			CREATE3res->CREATE3res_u.resok.obj.post_op_fh3_u.handle.data.data_val,
+			CREATE3res->CREATE3res_u.resok.obj.post_op_fh3_u.handle.data.data_len,
+			CREATE3res->CREATE3res_u.resok.obj_attributes.post_op_attr_u.attributes.size);
+
+	cb_data->status = NFS3_OK;
+}
 
 nfsstat3 nfsio_create(struct nfsio *nfsio, const char *name)
 {
-
 	struct CREATE3args CREATE3args;
-	struct CREATE3res *CREATE3res;
-	char *tmp_name = NULL;
-	data_t *fh;
-	char *ptr;
-	int ret = NFS3_OK;
+	char *tmp_name, *ptr;
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
 
-	tmp_name = strdup(name);
+	tmp_name = strdupa(name);
 	if (tmp_name == NULL) {
 		fprintf(stderr, "failed to strdup name in nfsio_create\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	ptr = rindex(tmp_name, '/');
 	if (ptr == NULL) {	
 		fprintf(stderr, "name did not contain '/' in nfsio_create\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	*ptr = 0;
@@ -677,17 +694,16 @@ nfsstat3 nfsio_create(struct nfsio *nfsio, const char *name)
 	fh = lookup_fhandle(nfsio, tmp_name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_create\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
-	CREATE3args.where.dir.data.data_len  = fh->dsize;
-	CREATE3args.where.dir.data.data_val  = discard_const(fh->dptr);
-	CREATE3args.where.name               = ptr;
+	memset(&CREATE3args, 0, sizeof(CREATE3args));
+	CREATE3args.where.dir  = *fh;
+	CREATE3args.where.name = ptr;
 
 	CREATE3args.how.mode = UNCHECKED;
 	CREATE3args.how.createhow3_u.obj_attributes.mode.set_it  = TRUE;
-	CREATE3args.how.createhow3_u.obj_attributes.mode.set_mode3_u.mode    = 0777;
+	CREATE3args.how.createhow3_u.obj_attributes.mode.set_mode3_u.mode    = 0666;
 	CREATE3args.how.createhow3_u.obj_attributes.uid.set_it   = TRUE;
 	CREATE3args.how.createhow3_u.obj_attributes.uid.set_uid3_u.uid      = 0;
 	CREATE3args.how.createhow3_u.obj_attributes.gid.set_it   = TRUE;
@@ -696,58 +712,57 @@ nfsstat3 nfsio_create(struct nfsio *nfsio, const char *name)
 	CREATE3args.how.createhow3_u.obj_attributes.atime.set_it = FALSE;
 	CREATE3args.how.createhow3_u.obj_attributes.mtime.set_it = FALSE;
 
-	set_new_xid(nfsio);
-	CREATE3res = nfsproc3_create_3(&CREATE3args, nfsio->clnt);
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
+	cb_data.name = discard_const(name);
 
-	if (CREATE3res == NULL) {
-		fprintf(stderr, "nfsproc3_create_3 failed in nfsio_create\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+	if (rpc_nfs_create_async(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_create_cb, &CREATE3args, &cb_data)) {
+		fprintf(stderr, "failed to send create\n");
+		return NFS3ERR_SERVERFAULT;
+	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+
+	return cb_data.status;
+}
+
+static void nfsio_remove_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct REMOVE3res *REMOVE3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (REMOVE3res->status != NFS3_OK) {
+		cb_data->status = REMOVE3res->status;
+		return;
 	}
 
-	if (CREATE3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_create_3 failed in nfsio_create. status:%d\n", CREATE3res->status);
-		ret = CREATE3res->status;
-		goto finished;
-	}
+	delete_fhandle(cb_data->nfsio, cb_data->name);
 
-
-	insert_fhandle(nfsio, name, 
-		CREATE3res->CREATE3res_u.resok.obj.post_op_fh3_u.handle.data.data_val,
-		CREATE3res->CREATE3res_u.resok.obj.post_op_fh3_u.handle.data.data_len,
-		0 /*qqq*/
-	);
-
-
-finished:
-	if (tmp_name) {
-		free(tmp_name);
-	}
-	return ret;
+	cb_data->status = NFS3_OK;
 }
 
 nfsstat3 nfsio_remove(struct nfsio *nfsio, const char *name)
 {
+	char *tmp_name, *ptr;
+	nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
 
-	struct REMOVE3args REMOVE3args;
-	struct REMOVE3res *REMOVE3res;
-	int ret = NFS3_OK;
-	char *tmp_name = NULL;
-	data_t *fh;
-	char *ptr;
-
-	tmp_name = strdup(name);
+	tmp_name = strdupa(name);
 	if (tmp_name == NULL) {
 		fprintf(stderr, "failed to strdup name in nfsio_remove\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	ptr = rindex(tmp_name, '/');
 	if (ptr == NULL) {	
 		fprintf(stderr, "name did not contain '/' in nfsio_remove\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	*ptr = 0;
@@ -756,187 +771,175 @@ nfsstat3 nfsio_remove(struct nfsio *nfsio, const char *name)
 	fh = lookup_fhandle(nfsio, tmp_name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_remove\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
+	cb_data.name = discard_const(name);
 
-	REMOVE3args.object.dir.data.data_len  = fh->dsize;
-	REMOVE3args.object.dir.data.data_val  = discard_const(fh->dptr);
-	REMOVE3args.object.name               = ptr;
-
-	set_new_xid(nfsio);
-	REMOVE3res = nfsproc3_remove_3(&REMOVE3args, nfsio->clnt);
-
-	if (REMOVE3res == NULL) {
-		fprintf(stderr, "nfsproc3_remove_3 failed in nfsio_remove\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+	if (rpc_nfs_remove_async(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_remove_cb, fh, ptr, &cb_data)) {
+		fprintf(stderr, "failed to send remove\n");
+		return NFS3ERR_SERVERFAULT;
 	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	if (REMOVE3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_remove_3 failed in nfsio_remove. status:%d\n", REMOVE3res->status);
-		ret = REMOVE3res->status;
-		goto finished;
-	}
-
-
-	delete_fhandle(nfsio, name);
-
-
-finished:
-	if (tmp_name) {
-		free(tmp_name);
-	}
-	return ret;
+	return cb_data.status;
 }
 
+static void nfsio_write_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct WRITE3res *WRITE3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (WRITE3res->status != NFS3_OK) {
+		cb_data->status = WRITE3res->status;
+		return;
+	}
+
+	cb_data->status = NFS3_OK;
+}
 
 nfsstat3 nfsio_write(struct nfsio *nfsio, const char *name, char *buf, uint64_t offset, int len, int stable)
 {
-	struct WRITE3args WRITE3args;
-	struct WRITE3res *WRITE3res;
-	int ret = NFS3_OK;
-	data_t *fh;
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
 
 	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_write\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
-	WRITE3args.file.data.data_len = fh->dsize;
-	WRITE3args.file.data.data_val = discard_const(fh->dptr);
-	WRITE3args.offset             = offset;
-	WRITE3args.count              = len;
-	WRITE3args.stable             = stable;
-	WRITE3args.data.data_len      = len;
-	WRITE3args.data.data_val      = buf;
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
 
-
-	set_new_xid(nfsio);
-	WRITE3res = nfsproc3_write_3(&WRITE3args, nfsio->clnt);
-
-	if (WRITE3res == NULL) {
-		fprintf(stderr, "nfsproc3_write_3 failed in nfsio_write\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+	if (rpc_nfs_write_async(nfs_get_rpc_context(nfsio->nfs), nfsio_write_cb,
+				fh, buf, offset, len, stable, &cb_data)) {
+		fprintf(stderr, "failed to send write\n");
+		return NFS3ERR_SERVERFAULT;
 	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	if (WRITE3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_write_3 failed in getattr. status:%d\n", WRITE3res->status);
-		ret = WRITE3res->status;
-	}
-
-finished:
-	return ret;
+	return cb_data.status;
 }
 
-nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf, uint64_t offset, int len, int *count, int *eof)
-{
-	struct READ3args READ3args;
-	struct READ3res *READ3res;
-	int ret = NFS3_OK;
-	data_t *fh;
-	off_t size;
+static void nfsio_read_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct READ3res *READ3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
 
-	fh = lookup_fhandle(nfsio, name, &size);
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (READ3res->status != NFS3_OK) {
+		cb_data->status = READ3res->status;
+		return;
+	}
+
+	cb_data->status = NFS3_OK;
+}
+
+nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf _U_, uint64_t offset, int len)
+{
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
+
+	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_read\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
-	if (offset >= size && size > 0) {
-		offset = offset % size;
- 	}
-	if (offset+len >= size) {
-		offset = 0;
-	}
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
 
-	READ3args.file.data.data_len = fh->dsize;
-	READ3args.file.data.data_val = discard_const(fh->dptr);
-	READ3args.offset             = offset;
-	READ3args.count              = len;
-
-	set_new_xid(nfsio);
-	READ3res = nfsproc3_read_3(&READ3args, nfsio->clnt);
-
-	if (READ3res == NULL) {
-		fprintf(stderr, "nfsproc3_read_3 failed in nfsio_read\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+	if (rpc_nfs_read_async(nfs_get_rpc_context(nfsio->nfs), nfsio_read_cb,
+			fh, offset, len, &cb_data)) {
+		fprintf(stderr, "failed to send read\n");
+		return NFS3ERR_SERVERFAULT;
 	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	if (READ3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_read_3 failed in nfsio_read. status:%d\n", READ3res->status);
-		ret = READ3res->status;
-		goto finished;
-	}
-
-	if (count) {
-		*count = READ3res->READ3res_u.resok.count;
-	}
-	if (eof) {
-		*eof = READ3res->READ3res_u.resok.eof;
-	}
-	if (buf) {
-		memcpy(buf, READ3res->READ3res_u.resok.data.data_val,
-			READ3res->READ3res_u.resok.count);
-	}
-	free(READ3res->READ3res_u.resok.data.data_val);
-	READ3res->READ3res_u.resok.data.data_val = NULL;
-
-finished:
-	return ret;
+	return cb_data.status;
 }
 
+static void nfsio_commit_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct COMMIT3res *COMMIT3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (COMMIT3res->status != NFS3_OK) {
+		cb_data->status = COMMIT3res->status;
+		return;
+	}
+
+	cb_data->status = NFS3_OK;
+}
 
 nfsstat3 nfsio_commit(struct nfsio *nfsio, const char *name)
 {
-	struct COMMIT3args COMMIT3args;
-	struct COMMIT3res *COMMIT3res;	
-	int ret = NFS3_OK;
-	data_t *fh;
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
 
 	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_commit\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
-	COMMIT3args.file.data.data_len = fh->dsize;
-	COMMIT3args.file.data.data_val = discard_const(fh->dptr);
-	COMMIT3args.offset             = 0;
-	COMMIT3args.count              = 0;
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
 
+	if (rpc_nfs_commit_async(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_commit_cb, fh, &cb_data)) {
+		fprintf(stderr, "failed to send commit\n");
+		return NFS3ERR_SERVERFAULT;
+	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	set_new_xid(nfsio);
-	COMMIT3res = nfsproc3_commit_3(&COMMIT3args, nfsio->clnt);
+	return cb_data.status;
+}
 
-	if (COMMIT3res == NULL) {
-		fprintf(stderr, "nfsproc3_commit_3 failed in nfsio_commit\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+static void nfsio_fsinfo_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct FSINFO3res *FSINFO3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (FSINFO3res->status != NFS3_OK) {
+		cb_data->status = FSINFO3res->status;
+		return;
 	}
 
-	if (COMMIT3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_commit_3 failed in nfsio_commit. status:%d\n", COMMIT3res->status);
-		ret = COMMIT3res->status;
-		goto finished;
-	}
-
-finished:
-	return ret;
+	cb_data->status = NFS3_OK;
 }
 
 nfsstat3 nfsio_fsinfo(struct nfsio *nfsio)
 {
-	struct FSINFO3args FSINFO3args;
-	struct FSINFO3res *FSINFO3res;
-	data_t *fh;
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
 
 	fh = lookup_fhandle(nfsio, "/", NULL);
 	if (fh == NULL) {
@@ -944,31 +947,43 @@ nfsstat3 nfsio_fsinfo(struct nfsio *nfsio)
 		return NFS3ERR_SERVERFAULT;
 	}
 
-	FSINFO3args.fsroot.data.data_len = fh->dsize;
-	FSINFO3args.fsroot.data.data_val = discard_const(fh->dptr);
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
 
-	set_new_xid(nfsio);
-	FSINFO3res = nfsproc3_fsinfo_3(&FSINFO3args, nfsio->clnt);
-
-	if (FSINFO3res == NULL) {
-		fprintf(stderr, "nfsproc3_fsinfo_3 failed in nfsio_fsinfo\n");
+	if (rpc_nfs_fsinfo_async(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_fsinfo_cb, fh, &cb_data)) {
+		fprintf(stderr, "failed to send fsinfo\n");
 		return NFS3ERR_SERVERFAULT;
 	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	if (FSINFO3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_fsinfo_3 failed in nfsio_fsinfo. status:%d\n", FSINFO3res->status);
-		return FSINFO3res->status;
-	}
-
-	return NFS3_OK;
+	return cb_data.status;
 }
 
 
+static void nfsio_fsstat_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct FSSTAT3res *FSSTAT3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (FSSTAT3res->status != NFS3_OK) {
+		cb_data->status = FSSTAT3res->status;
+		return;
+	}
+
+	cb_data->status = NFS3_OK;
+}
+
 nfsstat3 nfsio_fsstat(struct nfsio *nfsio)
 {
-	struct FSSTAT3args FSSTAT3args;
-	struct FSSTAT3res *FSSTAT3res;
-	data_t *fh;
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
 
 	fh = lookup_fhandle(nfsio, "/", NULL);
 	if (fh == NULL) {
@@ -976,30 +991,42 @@ nfsstat3 nfsio_fsstat(struct nfsio *nfsio)
 		return NFS3ERR_SERVERFAULT;
 	}
 
-	FSSTAT3args.fsroot.data.data_len = fh->dsize;
-	FSSTAT3args.fsroot.data.data_val = discard_const(fh->dptr);
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
 
-	set_new_xid(nfsio);
-	FSSTAT3res = nfsproc3_fsstat_3(&FSSTAT3args, nfsio->clnt);
-
-	if (FSSTAT3res == NULL) {
-		fprintf(stderr, "nfsproc3_fsstat_3 failed in nfsio_fsstat\n");
+	if (rpc_nfs_fsstat_async(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_fsstat_cb, fh, &cb_data)) {
+		fprintf(stderr, "failed to send fsstat\n");
 		return NFS3ERR_SERVERFAULT;
 	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	if (FSSTAT3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_fsstat_3 failed in nfsio_fsstat. status:%d\n", FSSTAT3res->status);
-		return FSSTAT3res->status;
+	return cb_data.status;
+}
+
+static void nfsio_pathconf_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct PATHCONF3res *PATHCONF3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (PATHCONF3res->status != NFS3_OK) {
+		cb_data->status = PATHCONF3res->status;
+		return;
 	}
 
-	return NFS3_OK;
+	cb_data->status = NFS3_OK;
 }
 
 nfsstat3 nfsio_pathconf(struct nfsio *nfsio, char *name)
 {
-	struct PATHCONF3args PATHCONF3args;
-	struct PATHCONF3res *PATHCONF3res;
-	data_t *fh;
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
 
 	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
@@ -1007,48 +1034,60 @@ nfsstat3 nfsio_pathconf(struct nfsio *nfsio, char *name)
 		return NFS3ERR_SERVERFAULT;
 	}
 
-	PATHCONF3args.object.data.data_len = fh->dsize;
-	PATHCONF3args.object.data.data_val = discard_const(fh->dptr);
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
 
-	set_new_xid(nfsio);
-	PATHCONF3res = nfsproc3_pathconf_3(&PATHCONF3args, nfsio->clnt);
-
-	if (PATHCONF3res == NULL) {
-		fprintf(stderr, "nfsproc3_pathconf_3 failed in nfsio_pathconf\n");
+	if (rpc_nfs_pathconf_async(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_pathconf_cb, fh, &cb_data)) {
+		fprintf(stderr, "failed to send pathconf\n");
 		return NFS3ERR_SERVERFAULT;
 	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	if (PATHCONF3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_pathconf_3 failed in nfsio_pathconf. status:%d\n", PATHCONF3res->status);
-		return PATHCONF3res->status;
-	}
-
-	return NFS3_OK;
+	return cb_data.status;
 }
 
+static void nfsio_symlink_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct SYMLINK3res *SYMLINK3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (SYMLINK3res->status != NFS3_OK) {
+		cb_data->status = SYMLINK3res->status;
+		return;
+	}
+
+	insert_fhandle(cb_data->nfsio, cb_data->name, 
+		       SYMLINK3res->SYMLINK3res_u.resok.obj.post_op_fh3_u.handle.data.data_val,
+		       SYMLINK3res->SYMLINK3res_u.resok.obj.post_op_fh3_u.handle.data.data_len,
+		       0);
+
+	cb_data->status = NFS3_OK;
+}
 
 nfsstat3 nfsio_symlink(struct nfsio *nfsio, const char *old, const char *new)
 {
-
+	char *tmp_name, *ptr;
+	nfs_fh3 *fh;
 	struct SYMLINK3args SYMLINK3args;
-	struct SYMLINK3res *SYMLINK3res;
-	int ret = NFS3_OK;
-	char *tmp_name = NULL;
-	data_t *fh;
-	char *ptr;
+	struct nfsio_cb_data cb_data;
 
-	tmp_name = strdup(old);
+	tmp_name = strdupa(old);
 	if (tmp_name == NULL) {
 		fprintf(stderr, "failed to strdup name in nfsio_symlink\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	ptr = rindex(tmp_name, '/');
 	if (ptr == NULL) {	
 		fprintf(stderr, "name did not contain '/' in nfsio_symlink\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	*ptr = 0;
@@ -1057,14 +1096,12 @@ nfsstat3 nfsio_symlink(struct nfsio *nfsio, const char *old, const char *new)
 	fh = lookup_fhandle(nfsio, tmp_name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_symlink\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
-
-	SYMLINK3args.where.dir.data.data_len  = fh->dsize;
-	SYMLINK3args.where.dir.data.data_val  = discard_const(fh->dptr);
-	SYMLINK3args.where.name		      = ptr;
+	memset(&SYMLINK3args, 0, sizeof(SYMLINK3args));
+	SYMLINK3args.where.dir  = *fh;
+	SYMLINK3args.where.name	= ptr;
 
 	SYMLINK3args.symlink.symlink_attributes.mode.set_it = TRUE;
 	SYMLINK3args.symlink.symlink_attributes.mode.set_mode3_u.mode = 0777;
@@ -1077,60 +1114,55 @@ nfsstat3 nfsio_symlink(struct nfsio *nfsio, const char *old, const char *new)
 	SYMLINK3args.symlink.symlink_attributes.mtime.set_it = FALSE;
 	SYMLINK3args.symlink.symlink_data     = discard_const(new);
 
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
+	cb_data.name  = discard_const(old);
 
-	set_new_xid(nfsio);
-	SYMLINK3res = nfsproc3_symlink_3(&SYMLINK3args, nfsio->clnt);
-
-	if (SYMLINK3res == NULL) {
-		fprintf(stderr, "nfsproc3_symlink_3 failed in nfsio_symlink\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+	if (rpc_nfs_symlink_async(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_symlink_cb, &SYMLINK3args, &cb_data)) {
+		fprintf(stderr, "failed to send symlink\n");
+		return NFS3ERR_SERVERFAULT;
 	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	if (SYMLINK3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_symlink_3 failed in nfsio_symlink. status:%d\n", SYMLINK3res->status);
-		ret = SYMLINK3res->status;
-		goto finished;
-	}
-
-
-	insert_fhandle(nfsio, old, 
-		SYMLINK3res->SYMLINK3res_u.resok.obj.post_op_fh3_u.handle.data.data_val,
-		SYMLINK3res->SYMLINK3res_u.resok.obj.post_op_fh3_u.handle.data.data_len,
-		0 /*qqq*/
-	);
-
-
-finished:
-	if (tmp_name) {
-		free(tmp_name);
-	}
-	return ret;
+	return cb_data.status;
 }
 
+static void nfsio_link_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct LINK3res *LINK3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (LINK3res->status != NFS3_OK) {
+		cb_data->status = LINK3res->status;
+		return;
+	}
+
+	cb_data->status = NFS3_OK;
+}
 
 nfsstat3 nfsio_link(struct nfsio *nfsio, const char *old, const char *new)
 {
+	char *tmp_name, *ptr;
+	nfs_fh3 *fh, *new_fh;
+	struct nfsio_cb_data cb_data;
 
-	struct LINK3args LINK3args;
-	struct LINK3res *LINK3res;
-	int ret = NFS3_OK;
-	char *tmp_name = NULL;
-	data_t *fh, *new_fh;
-	char *ptr;
-
-	tmp_name = strdup(old);
+	tmp_name = strdupa(old);
 	if (tmp_name == NULL) {
 		fprintf(stderr, "failed to strdup name in nfsio_link\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	ptr = rindex(tmp_name, '/');
 	if (ptr == NULL) {	
 		fprintf(stderr, "name did not contain '/' in nfsio_link\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	*ptr = 0;
@@ -1139,62 +1171,53 @@ nfsstat3 nfsio_link(struct nfsio *nfsio, const char *old, const char *new)
 	fh = lookup_fhandle(nfsio, tmp_name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_link\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
-
 
 	new_fh = lookup_fhandle(nfsio, new, NULL);
 	if (new_fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_link\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
+	cb_data.name  = ptr;
 
-	LINK3args.file.data.data_len  = new_fh->dsize;
-	LINK3args.file.data.data_val  = discard_const(new_fh->dptr);
-
-
-	LINK3args.link.dir.data.data_len  = fh->dsize;
-	LINK3args.link.dir.data.data_val  = discard_const(fh->dptr);
-	LINK3args.link.name	          = ptr;
-
-	set_new_xid(nfsio);
-	LINK3res = nfsproc3_link_3(&LINK3args, nfsio->clnt);
-
-	if (LINK3res == NULL) {
-		fprintf(stderr, "nfsproc3_link_3 failed in nfsio_link\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+	if (rpc_nfs_link_async(nfs_get_rpc_context(nfsio->nfs),
+			       nfsio_link_cb, new_fh, fh, ptr, &cb_data)) {
+		fprintf(stderr, "failed to send link\n");
+		return NFS3ERR_SERVERFAULT;
 	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	if (LINK3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_link_3 failed in nfsio_link. status:%d\n", LINK3res->status);
-		ret = LINK3res->status;
-		goto finished;
-	}
-
-
-//	insert_fhandle(nfsio, old, 
-//		LINK3res->LINK3res_u.resok.obj.post_op_fh3_u.handle.data.data_val,
-//		LINK3res->LINK3res_u.resok.obj.post_op_fh3_u.handle.data.data_len);
-
-
-finished:
-	if (tmp_name) {
-		free(tmp_name);
-	}
-	return ret;
+	return cb_data.status;
 }
 
+static void nfsio_readlink_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct READLINK3res *READLINK3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
 
+	cb_data->is_finished = 1;
 
-nfsstat3 nfsio_readlink(struct nfsio *nfsio, char *name, char **link_name)
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (READLINK3res->status != NFS3_OK) {
+		cb_data->status = READLINK3res->status;
+		return;
+	}
+
+	cb_data->status = NFS3_OK;
+}
+
+nfsstat3 nfsio_readlink(struct nfsio *nfsio, char *name)
 {
-	struct READLINK3args READLINK3args;
-	struct READLINK3res *READLINK3res;
-	data_t *fh;
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
+	READLINK3args READLINK3args;
 
 	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
@@ -1202,42 +1225,49 @@ nfsstat3 nfsio_readlink(struct nfsio *nfsio, char *name, char **link_name)
 		return NFS3ERR_SERVERFAULT;
 	}
 
+	READLINK3args.symlink = *fh;
 
-	READLINK3args.symlink.data.data_len  = fh->dsize;
-	READLINK3args.symlink.data.data_val  = discard_const(fh->dptr);
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
 
-	set_new_xid(nfsio);
-	READLINK3res = nfsproc3_readlink_3(&READLINK3args, nfsio->clnt);
-
-	if (READLINK3res == NULL) {
-		fprintf(stderr, "nfsproc3_readlink_3 failed in nfsio_readlink\n");
+	if (rpc_nfs_readlink_async(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_readlink_cb, &READLINK3args, &cb_data)) {
+		fprintf(stderr, "failed to send readlink\n");
 		return NFS3ERR_SERVERFAULT;
 	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	if (READLINK3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_readlink_3 failed in nfsio_readlink. status:%d\n", READLINK3res->status);
-		return READLINK3res->status;
-	}
-
-	if (link_name) {
-		*link_name = strdup(READLINK3res->READLINK3res_u.resok.data);
-	}
-
-	return NFS3_OK;
+	return cb_data.status;
 }
 
+static void nfsio_rmdir_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct RMDIR3res *RMDIR3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (RMDIR3res->status != NFS3_OK) {
+		cb_data->status = RMDIR3res->status;
+		return;
+	}
+
+	delete_fhandle(cb_data->nfsio, cb_data->name);
+
+	cb_data->status = NFS3_OK;
+}
 
 nfsstat3 nfsio_rmdir(struct nfsio *nfsio, const char *name)
 {
+	char *tmp_name, *ptr;
+	nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
 
-	struct RMDIR3args RMDIR3args;
-	struct RMDIR3res *RMDIR3res;
-	int ret = NFS3_OK;
-	char *tmp_name = NULL;
-	data_t *fh;
-	char *ptr;
-
-	tmp_name = strdup(name);
+	tmp_name = strdupa(name);
 	if (tmp_name == NULL) {
 		fprintf(stderr, "failed to strdup name in nfsio_rmdir\n");
 		return NFS3ERR_SERVERFAULT;
@@ -1246,8 +1276,7 @@ nfsstat3 nfsio_rmdir(struct nfsio *nfsio, const char *name)
 	ptr = rindex(tmp_name, '/');
 	if (ptr == NULL) {	
 		fprintf(stderr, "name did not contain '/' in nfsio_rmdir\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	*ptr = 0;
@@ -1256,54 +1285,55 @@ nfsstat3 nfsio_rmdir(struct nfsio *nfsio, const char *name)
 	fh = lookup_fhandle(nfsio, tmp_name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_rmdir\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
+	cb_data.name = discard_const(name);
 
-	RMDIR3args.object.dir.data.data_len  = fh->dsize;
-	RMDIR3args.object.dir.data.data_val  = discard_const(fh->dptr);
-	RMDIR3args.object.name               = ptr;
-
-	set_new_xid(nfsio);
-	RMDIR3res = nfsproc3_rmdir_3(&RMDIR3args, nfsio->clnt);
-
-	if (RMDIR3res == NULL) {
-		fprintf(stderr, "nfsproc3_rmdir_3 failed in nfsio_rmdir\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+	if (rpc_nfs_rmdir_async(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_rmdir_cb, fh, ptr, &cb_data)) {
+		fprintf(stderr, "failed to send rmdir\n");
+		return NFS3ERR_SERVERFAULT;
 	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	if (RMDIR3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_rmdir_3(%s) failed in nfsio_rmdir. status:%s(%d)\n", name, nfs_error(RMDIR3res->status), RMDIR3res->status);
-		ret = RMDIR3res->status;
-		goto finished;
-	}
-
-
-	delete_fhandle(nfsio, name);
-
-
-finished:
-	if (tmp_name) {
-		free(tmp_name);
-	}
-	return ret;
+	return cb_data.status;
 }
 
+static void nfsio_mkdir_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct MKDIR3res *MKDIR3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
 
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (MKDIR3res->status != NFS3_OK) {
+		cb_data->status = MKDIR3res->status;
+		return;
+	}
+
+	insert_fhandle(cb_data->nfsio, cb_data->name, 
+			MKDIR3res->MKDIR3res_u.resok.obj.post_op_fh3_u.handle.data.data_val,
+			MKDIR3res->MKDIR3res_u.resok.obj.post_op_fh3_u.handle.data.data_len,
+			0);
+
+	cb_data->status = NFS3_OK;
+}
 
 nfsstat3 nfsio_mkdir(struct nfsio *nfsio, const char *name)
 {
-
 	struct MKDIR3args MKDIR3args;
-	struct MKDIR3res *MKDIR3res;
-	int ret = NFS3_OK;
-	char *tmp_name = NULL;
-	data_t *fh;
-	char *ptr;
+	char *tmp_name, *ptr;
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
 
-	tmp_name = strdup(name);
+	tmp_name = strdupa(name);
 	if (tmp_name == NULL) {
 		fprintf(stderr, "failed to strdup name in nfsio_mkdir\n");
 		return NFS3ERR_SERVERFAULT;
@@ -1312,8 +1342,7 @@ nfsstat3 nfsio_mkdir(struct nfsio *nfsio, const char *name)
 	ptr = rindex(tmp_name, '/');
 	if (ptr == NULL) {	
 		fprintf(stderr, "name did not contain '/' in nfsio_mkdir\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	*ptr = 0;
@@ -1322,13 +1351,12 @@ nfsstat3 nfsio_mkdir(struct nfsio *nfsio, const char *name)
 	fh = lookup_fhandle(nfsio, tmp_name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_mkdir\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
-	MKDIR3args.where.dir.data.data_len  = fh->dsize;
-	MKDIR3args.where.dir.data.data_val  = discard_const(fh->dptr);
-	MKDIR3args.where.name               = ptr;
+	memset(&MKDIR3args, 0, sizeof(MKDIR3args));
+	MKDIR3args.where.dir  = *fh;
+	MKDIR3args.where.name = ptr;
 
 	MKDIR3args.attributes.mode.set_it  = TRUE;
 	MKDIR3args.attributes.mode.set_mode3_u.mode    = 0777;
@@ -1340,85 +1368,61 @@ nfsstat3 nfsio_mkdir(struct nfsio *nfsio, const char *name)
 	MKDIR3args.attributes.atime.set_it = FALSE;
 	MKDIR3args.attributes.mtime.set_it = FALSE;
 
-	set_new_xid(nfsio);
-	MKDIR3res = nfsproc3_mkdir_3(&MKDIR3args, nfsio->clnt);
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
+	cb_data.name = discard_const(name);
 
-	if (MKDIR3res == NULL) {
-		fprintf(stderr, "nfsproc3_mkdir_3 failed in nfsio_mkdir\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+	if (rpc_nfs_mkdir_async(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_mkdir_cb, &MKDIR3args, &cb_data)) {
+		fprintf(stderr, "failed to send mkdir\n");
+		return NFS3ERR_SERVERFAULT;
 	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	if (MKDIR3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_mkdir_3(%s) failed in nfsio_mkdir. status:%s(%d)\n", name, nfs_error(MKDIR3res->status), MKDIR3res->status);
-		ret = MKDIR3res->status;
-		goto finished;
-	}
-
-	insert_fhandle(nfsio, name, 
-		MKDIR3res->MKDIR3res_u.resok.obj.post_op_fh3_u.handle.data.data_val,
-		MKDIR3res->MKDIR3res_u.resok.obj.post_op_fh3_u.handle.data.data_len,
-		0 /*qqq*/
-	);
-
-finished:
-	if (tmp_name) {
-		free(tmp_name);
-	}
-	return ret;
+	return cb_data.status;
 }
 
+static void nfsio_readdirplus_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct READDIRPLUS3res *READDIRPLUS3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
+	entryplus3 *e;
 
-nfsstat3 nfsio_readdirplus(struct nfsio *nfsio, const char *name, nfs3_dirent_cb cb, void *private_data)
-{
-	struct READDIRPLUS3args READDIRPLUS3args;
-	struct READDIRPLUS3res *READDIRPLUS3res;
-	int ret = NFS3_OK;
-	data_t *fh;
-	entryplus3 *e, *last_e = NULL;
-	entryplus3 *entries = NULL;
-	entryplus3 *new_entry;
-	char *dir = NULL;
+	cb_data->is_finished = 1;
 
-	dir = strdup(name);
-	while(strlen(dir)){
-		if(dir[strlen(dir)-1] != '/'){
-			break;
-		}
-		dir[strlen(dir)-1] = 0;
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
 	}
- 
-	fh = lookup_fhandle(nfsio, name, NULL);
-	if (fh == NULL) {
-		fprintf(stderr, "failed to fetch handle for '%s' in nfsio_readdirplus\n", name);
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
-	}
-
-	READDIRPLUS3args.dir.data.data_len = fh->dsize;
-	READDIRPLUS3args.dir.data.data_val = discard_const(fh->dptr);
-	READDIRPLUS3args.cookie            = 0;
-	bzero(&READDIRPLUS3args.cookieverf, NFS3_COOKIEVERFSIZE);
-	READDIRPLUS3args.dircount          = 6000;
-	READDIRPLUS3args.maxcount          = 8192;
-
-again:
-	set_new_xid(nfsio);
-	READDIRPLUS3res = nfsproc3_readdirplus_3(&READDIRPLUS3args, nfsio->clnt);
-
-	if (READDIRPLUS3res == NULL) {
-		fprintf(stderr, "nfsproc3_readdirplus_3 failed in readdirplus\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
-	}
-
 	if (READDIRPLUS3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_readdirplus_3 failed in readdirplus. status:%d\n", READDIRPLUS3res->status);
-		ret = READDIRPLUS3res->status;
-		goto finished;
+		cb_data->status = READDIRPLUS3res->status;
+		return;
 	}
 
-	for(e = READDIRPLUS3res->READDIRPLUS3res_u.resok.reply.entries;e;e=e->nextentry){
+	if (READDIRPLUS3res->READDIRPLUS3res_u.resok.reply.eof == 0) {
+		for(e = READDIRPLUS3res->READDIRPLUS3res_u.resok.reply.entries;
+			e->nextentry; 
+			e = e->nextentry){
+		}
+
+		if (rpc_nfs_readdirplus_async(
+				nfs_get_rpc_context(cb_data->nfsio->nfs),
+				nfsio_readdirplus_cb,
+				cb_data->fh,
+				e->cookie,
+				(char *)&READDIRPLUS3res->READDIRPLUS3res_u.resok.cookieverf,
+				512, cb_data)) {
+			fprintf(stderr, "failed to send readdirplus\n");
+			cb_data->status = NFS3ERR_SERVERFAULT;
+			return;
+		}
+		cb_data->is_finished = 0;
+		nfsio_wait_for_reply(cb_data->nfsio->nfs, cb_data);
+	}
+
+	/* Record the dir/file name to filehandle mappings */
+	for(e = READDIRPLUS3res->READDIRPLUS3res_u.resok.reply.entries;
+		e; e = e->nextentry){
 		char *new_name;
 
 		if(!strcmp(e->name, ".")){
@@ -1431,79 +1435,99 @@ again:
 			continue;
 		}
 
-		last_e = e;
-
-		asprintf(&new_name, "%s/%s", dir, e->name);
-		insert_fhandle(nfsio, new_name, 
+		asprintf(&new_name, "%s/%s", cb_data->name, e->name);
+		insert_fhandle(cb_data->nfsio, new_name, 
 			e->name_handle.post_op_fh3_u.handle.data.data_val,
 			e->name_handle.post_op_fh3_u.handle.data.data_len,
 			0 /*qqq*/
 		);
 		free(new_name);
 
-		new_entry = malloc(sizeof(entryplus3));
-		new_entry->name = strdup(e->name);
-		new_entry->name_attributes.post_op_attr_u.attributes.type = e->name_attributes.post_op_attr_u.attributes.type;
-		new_entry->nextentry = entries;
-		entries = new_entry;
-	}	
-
-	if (READDIRPLUS3res->READDIRPLUS3res_u.resok.reply.eof == 0) {
-		if (READDIRPLUS3args.cookie == 0) {
-			memcpy(&READDIRPLUS3args.cookieverf, 
-			&READDIRPLUS3res->READDIRPLUS3res_u.resok.cookieverf,
-			NFS3_COOKIEVERFSIZE);		
+		if (cb_data->rd_cb) {
+			cb_data->rd_cb(e, cb_data->private_data);
 		}
-
-		READDIRPLUS3args.cookie = last_e->cookie;
-
-		goto again;
 	}
 
-	/* we have read all entries, now invoke the callback for all of them */
-	while (entries != NULL) {
-		e = entries;
-		entries = entries->nextentry;
+	cb_data->status = NFS3_OK;
+}
 
-		if (cb) {
-			cb(e, private_data);
-		}
-	
-		free(e->name);
-		free(e);
+nfsstat3 nfsio_readdirplus(struct nfsio *nfsio, const char *name, nfs3_dirent_cb cb, void *private_data)
+{
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
+	cookieverf3 cv;
+
+	fh = lookup_fhandle(nfsio, name, NULL);
+	if (fh == NULL) {
+		fprintf(stderr, "failed to fetch handle for '%s' in nfsio_readdirplus\n", name);
+		return NFS3ERR_SERVERFAULT;
 	}
 
-finished:
-	if (dir) {
-		free(dir);
+	memset(&cv, 0, sizeof(cv));
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
+	cb_data.fh    = fh;
+	cb_data.name  = name;
+	cb_data.rd_cb = cb;
+	cb_data.private_data = private_data;
+
+	if (rpc_nfs_readdirplus_async(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_readdirplus_cb, fh, 0, (char *)&cv, 512, &cb_data)) {
+		fprintf(stderr, "failed to send readdirplus\n");
+		return NFS3ERR_SERVERFAULT;
 	}
-	return ret;
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+
+	return cb_data.status;
 }
 
 
+static void nfsio_rename_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct RENAME3res *RENAME3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
+	nfs_fh3 *old_fh;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (RENAME3res->status != NFS3_OK) {
+		cb_data->status = RENAME3res->status;
+		return;
+	}
+
+	old_fh = lookup_fhandle(cb_data->nfsio, cb_data->old_name, NULL);
+	delete_fhandle(cb_data->nfsio, cb_data->old_name);
+	insert_fhandle(cb_data->nfsio, cb_data->name, 
+			old_fh->data.data_val,
+			old_fh->data.data_len,
+			0 /* FIXME */
+		);
+
+	cb_data->status = NFS3_OK;
+}
+
 nfsstat3 nfsio_rename(struct nfsio *nfsio, const char *old, const char *new)
 {
-
-	struct RENAME3args RENAME3args;
-	struct RENAME3res *RENAME3res;
-	int ret = NFS3_OK;
-	char *tmp_old_name = NULL;
-	char *tmp_new_name = NULL;
-	data_t *old_fh, *new_fh;
+	char *tmp_old_name;
+	char *tmp_new_name;
+	nfs_fh3 *old_fh, *new_fh;
 	char *old_ptr, *new_ptr;
+	struct nfsio_cb_data cb_data;
 
-	tmp_old_name = strdup(old);
+	tmp_old_name = strdupa(old);
 	if (tmp_old_name == NULL) {
 		fprintf(stderr, "failed to strdup name in nfsio_rename\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	old_ptr = rindex(tmp_old_name, '/');
 	if (old_ptr == NULL) {	
 		fprintf(stderr, "name did not contain '/' in nfsio_rename\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	*old_ptr = 0;
@@ -1512,22 +1536,19 @@ nfsstat3 nfsio_rename(struct nfsio *nfsio, const char *old, const char *new)
 	old_fh = lookup_fhandle(nfsio, tmp_old_name, NULL);
 	if (old_fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_rename\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
-	tmp_new_name = strdup(new);
+	tmp_new_name = strdupa(new);
 	if (tmp_new_name == NULL) {
 		fprintf(stderr, "failed to strdup name in nfsio_rename\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	new_ptr = rindex(tmp_new_name, '/');
 	if (new_ptr == NULL) {	
 		fprintf(stderr, "name did not contain '/' in nfsio_rename\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
 	*new_ptr = 0;
@@ -1536,54 +1557,25 @@ nfsstat3 nfsio_rename(struct nfsio *nfsio, const char *old, const char *new)
 	new_fh = lookup_fhandle(nfsio, tmp_new_name, NULL);
 	if (new_fh == NULL) {
 		fprintf(stderr, "failed to fetch parent handle in nfsio_rename\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+		return NFS3ERR_SERVERFAULT;
 	}
 
-	RENAME3args.from.dir.data.data_len  = old_fh->dsize;
-	RENAME3args.from.dir.data.data_val  = discard_const(old_fh->dptr);
-	RENAME3args.from.name		    = old_ptr;
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio    = nfsio;
+	cb_data.name     = discard_const(new);
+	cb_data.old_name = discard_const(old);
 
-	RENAME3args.to.dir.data.data_len  = new_fh->dsize;
-	RENAME3args.to.dir.data.data_val  = discard_const(new_fh->dptr);
-	RENAME3args.to.name		  = new_ptr;
-
-
-	set_new_xid(nfsio);
-	RENAME3res = nfsproc3_rename_3(&RENAME3args, nfsio->clnt);
-
-	if (RENAME3res == NULL) {
-		fprintf(stderr, "nfsproc3_rename_3 failed in nfsio_rename\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
+	if (rpc_nfs_rename_async(nfs_get_rpc_context(nfsio->nfs),
+			nfsio_rename_cb,
+			old_fh, old_ptr,
+			new_fh, new_ptr,
+			&cb_data)) {
+		fprintf(stderr, "failed to send rename\n");
+		return NFS3ERR_SERVERFAULT;
 	}
+	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
 
-	if (RENAME3res->status != NFS3_OK) {
-		fprintf(stderr, "nfsproc3_rename_3 failed in nfsio_rename. status:%d\n", RENAME3res->status);
-		ret = RENAME3res->status;
-		goto finished;
-	}
-
-
-	old_fh = lookup_fhandle(nfsio, old, NULL);
-	if (old_fh == NULL) {
-		fprintf(stderr, "failed to fetch parent handle in nfsio_rename\n");
-		ret = NFS3ERR_SERVERFAULT;
-		goto finished;
-	}
-
-
-	insert_fhandle(nfsio, new, old_fh->dptr, old_fh->dsize, 0 /*qqq*/);
-	delete_fhandle(nfsio, old);
-
-
-finished:
-	if (tmp_old_name) {
-		free(tmp_old_name);
-	}
-	if (tmp_new_name) {
-		free(tmp_new_name);
-	}
-	return ret;
+	return cb_data.status;
 }
 
+#endif /* HAVE_LIBNFS */

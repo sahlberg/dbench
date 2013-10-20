@@ -11,15 +11,13 @@ datadir=@datadir@
 docdir=@datadir@/doc/dbench
 XSLTPROC = /usr/bin/xsltproc
 INSTALLCMD=@INSTALL@
-LIBS=@LIBS@ -lpopt -lz @LIBSMBCLIENT@ @LIBISCSI@
+LIBS=@LIBS@ -lpopt -lz @LIBSMBCLIENT@ @LIBISCSI@ @LIBNFS@
 DESTDIR=/
 CC=@CC@
 CFLAGS=@CFLAGS@ -I. -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(datadir)\"
 EXEEXT=@EXEEXT@
 
-LIBNFS_OBJ = libnfs.o mount_client.o nfs_client.o mount_xdr.o nfs_xdr.o
-
-DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o sockio.o nfsio.o libnfs.a socklib.o @LINUXSCSI@ iscsi.o libiscsi.o @SMBO@
+DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o sockio.o nfsio.o libnfs.o socklib.o @LINUXSCSI@ iscsi.o libiscsi.o @SMBO@
 SRV_OBJS = util.o tbench_srv.o socklib.o
 
 all: dbench doc
@@ -33,58 +31,9 @@ tbench_srv: $(SRV_OBJS)
 tbench: dbench
 	ln -sf dbench tbench
 
-libnfs.a: $(LIBNFS_OBJ) 
-	@echo Creating library $@
-	ar r libnfs.a $(LIBNFS_OBJ) 
-	ranlib libnfs.a
-
-nfsio.o: nfsio.c mount.h nfs.h
+nfsio.o: nfsio.c
 	@echo Compiling $@
 	gcc -g -c nfsio.c -o $@
-
-libnfs.o: libnfs.c libnfs.h mount.h nfs.h
-	@echo Compiling $@
-	gcc -g -c libnfs.c -o $@
-
-mount.h: mount.x
-	@echo Generating $@
-	rpcgen -h mount.x > mount.h
-
-nfs.h: nfs.x
-	@echo Generating $@
-	rpcgen -h nfs.x > nfs.h
-
-mount_xdr.o: mount_xdr.c mount.h
-	@echo Compiling $@
-	gcc -g -c mount_xdr.c -o $@
-
-mount_xdr.c: mount.x
-	@echo Generating $@
-	rpcgen -c mount.x > mount_xdr.c
-
-mount_client.o: mount_client.c mount.h
-	@echo Compiling $@
-	gcc -g -c mount_client.c -o $@
-
-mount_client.c: mount.x
-	@echo Generating $@
-	rpcgen -l mount.x > mount_client.c
-
-nfs_xdr.o: nfs_xdr.c nfs.h
-	@echo Compiling $@
-	gcc -g -c nfs_xdr.c -o $@
-
-nfs_xdr.c: nfs.x
-	@echo Generating $@
-	rpcgen -c nfs.x > nfs_xdr.c
-
-nfs_client.o: nfs_client.c nfs.h
-	@echo Compiling $@
-	gcc -g -c nfs_client.c -o $@
-
-nfs_client.c: nfs.x
-	@echo Generating $@
-	rpcgen -l nfs.x > nfs_client.c
 
 doc/dbench.1.html: doc/dbench.1.xml
 	-test -z "$(XSLTPROC)" || $(XSLTPROC) -o $@ http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl $<
@@ -112,9 +61,7 @@ install: all
 	${INSTALLCMD} -m644 dbench.1 $(DESTDIR)$(mandir)/man1
 
 clean:
-	rm -f *.[ao] *~ dbench tbench_srv
-	rm -f mount.h mount_xdr.c mount_client.c
-	rm -f nfs.h nfs_xdr.c nfs_client.c 
+	rm -f *.o *~ dbench tbench_srv
 
 proto:
 	./mkproto.pl *.c > proto.h

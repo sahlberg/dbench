@@ -91,7 +91,6 @@
 #define BOOL int
 #define True 1
 #define False 0
-#define uint32 unsigned
 
 struct op {
 	unsigned count;
@@ -143,15 +142,14 @@ struct options {
 	char *loadfile;
 	double targetrate;
 	int ea_enable;
-	const char *server;
 	int clients_per_process;
 	int one_byte_write_fix;
 	int stat_check;
 	int fake_io;
 	int skip_cleanup;
 	int per_client_results;
-	const char *export;
-	const char *protocol;
+	const char *nfs;
+	const char *server;
 	int run_once;
 	int allow_scsi_writes;
 	int trunc_io;

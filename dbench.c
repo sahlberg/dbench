@@ -43,8 +43,6 @@ struct options options = {
 	.ea_enable           = 0,
 	.clients_per_process = 1,
 	.server              = "localhost",
-	.export		     = "/tmp",
-	.protocol	     = "tcp",
 	.run_once            = 0,
 	.allow_scsi_writes   = 0,
 	.trunc_io            = 0,
@@ -415,10 +413,8 @@ static void process_opts(int argc, const char **argv)
 		  "show results per client", NULL },
 		{ "server",  0, POPT_ARG_STRING, &options.server, 0, 
 		  "server", NULL },
-		{ "export",  0, POPT_ARG_STRING, &options.export, 0, 
-		  "export", NULL },
-		{ "protocol",  0, POPT_ARG_STRING, &options.protocol, 0, 
-		  "protocol", NULL },
+		{ "nfs",  0, POPT_ARG_STRING, &options.nfs, 0, 
+		  "nfs url", NULL },
 		{ "run-once", 0, POPT_ARG_NONE, &options.run_once, 0,
 		  "Stop once reaching the end of the loadfile", NULL},
 		{ "scsi",  0, POPT_ARG_STRING, &options.scsi_dev, 0, 
@@ -518,9 +514,11 @@ static void process_opts(int argc, const char **argv)
 	} else if (strcmp(options.backend, "sockio") == 0) {
 		extern struct nb_operations sockio_ops;
 		nb_ops = &sockio_ops;
+#ifdef HAVE_LIBNFS
 	} else if (strcmp(options.backend, "nfs") == 0) {
 		extern struct nb_operations nfs_ops;
 		nb_ops = &nfs_ops;
+#endif
 #ifdef HAVE_LINUX_SCSI_SG
 	} else if (strcmp(options.backend, "scsi") == 0) {
 		extern struct nb_operations scsi_ops;

@@ -16,6 +16,8 @@
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <stdint.h>
+
 #include "dbench.h"
 
 #define MAX_FILES 1000
@@ -29,7 +31,7 @@ struct sockio {
 static void do_packets(struct child_struct *child, int send_size, int recv_size)
 {
 	struct sockio *sockio = (struct sockio *)child->private;
-	uint32 *ubuf = (uint32 *)sockio->buf;
+	uint32_t *ubuf = (uint32_t *)sockio->buf;
 
 	ubuf[0] = htonl(send_size-4);
 	ubuf[1] = htonl(recv_size-4);
