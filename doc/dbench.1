@@ -150,6 +150,349 @@ Username and password to authenticate to the SMB server with\&.
 .sp
 This argument is only valid with SMB backend\&.
 .RE
+.SH "NFS COMMANDS"
+.PP
+<timing> ACCESS3 <path> 0 0 <status>
+.RS 4
+Send a NFSv3 ACCESS3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 ACCESS3 "/" 0 0 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> COMMIT3 <path> <status>
+.RS 4
+Send a NFSv3 COMMIT3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 COMMIT3 "/some\-file" 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> CREATE3 <path> <status>
+.RS 4
+Send a NFSv3 CREATE3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 CREATE3 "/some\-file" 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> FSINFO3 <status>
+.RS 4
+Send a NFSv3 FSINFO3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 FSINFO3 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> FSSTAT3 <status>
+.RS 4
+Send a NFSv3 FSSTAT3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 FSSTAT3 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> GETATTR3 <path> <status>
+.RS 4
+Send a NFSv3 GETATTR3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 GETATTR3 "/some\-file" 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> LINK3 <path> <path> <status>
+.RS 4
+Send a NFSv3 LINK3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 LINK3 "/hard\-link" "/original\-file" 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> LOOKUP3 <path> <status>
+.RS 4
+Send a NFSv3 LOOKUP3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 LOOKUP3 "/some\-file" 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> MKDIR3 <path> <status>
+.RS 4
+Send a NFSv3 MKDIR3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 MKDIR3 "/some\-file" 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> PATHCONF3 <path> <status>
+.RS 4
+Send a NFSv3 PATHCONF3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 PATHCONF3 "/some\-file" 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> READDIRPLUS3 <path> <status>
+.RS 4
+Send a NFSv3 READDIRPLUS3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 READDIRPLUS3 "/some\-directory" 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> READ3 <path> <offset> <length> <status>
+.RS 4
+Send a NFSv3 READ3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 READ3 "/some\-file" 0 4096 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> READLINK3 <path> <status>
+.RS 4
+Send a NFSv3 READLINK3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 READLINK3 "/some\-link" 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> REMOVE3 <path> <status>
+.RS 4
+Send a NFSv3 REMOVE3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 REMOVE3 "/some\-directory" 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> RENAME3 <old\-path> <new\-path> <status>
+.RS 4
+Send a NFSv3 RENAME3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 RENAME3 "/old\-name" "/new\-name"  0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> RMDIR3 <path> <status>
+.RS 4
+Send a NFSv3 RMDIR3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 RMDIR3 "/some\-directory" 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> SYMLINK3 <path> <path> <status>
+.RS 4
+Send a NFSv3 SYMLINK3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 SYMLINK3 "/sym\-link" "/original\-file" 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> WRITE3 <path> <offset> <length> <stable> <status>
+.RS 4
+Send a NFSv3 WRITE3 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 WRITE3 "/some\-file" 0 4096 2 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
 .SH "SEE ALSO"
 .PP
 dbench(1)
