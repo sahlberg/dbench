@@ -46,7 +46,9 @@ struct options options = {
 	.run_once            = 0,
 	.allow_scsi_writes   = 0,
 	.trunc_io            = 0,
+#ifdef HAVE_LIBISCSI
 	.iscsi_initiatorname = "iqn.2011-09.org.samba.dbench:client",
+#endif
 	.machine_readable    = 0,
 };
 
@@ -421,10 +423,12 @@ static void process_opts(int argc, const char **argv)
 		  "scsi device", NULL },
 		{ "allow-scsi-writes", 0, POPT_ARG_NONE, &options.allow_scsi_writes, 0,
 		  "Allow SCSI write command to the device", NULL},
+#ifdef HAVE_LIBISCSI
 		{ "iscsi-device",  0, POPT_ARG_STRING, &options.iscsi_device, 0, 
 		  "iscsi URL for the target device", NULL },
 		{ "iscsi-initiatorname",  0, POPT_ARG_STRING, &options.iscsi_initiatorname, 0, 
 		  "iscsi InitiatorName", NULL },
+#endif
 		{ "warmup", 0, POPT_ARG_INT, &options.warmup, 0, 
 		  "How many seconds of warmup to run", NULL },
 		{ "machine-readable", 0, POPT_ARG_NONE, &options.machine_readable, 0,
@@ -499,8 +503,10 @@ static void process_opts(int argc, const char **argv)
 		options.backend = "nfs";
 	} else if (strstr(argv[0], "scsibench")) {
 		options.backend = "scsi";
+#ifdef HAVE_LIBISCSI
 	} else if (strstr(argv[0], "iscsibench")) {
 		options.backend = "iscsi";
+#endif
 	}
 
 	srandom(getpid() ^ time(NULL));
@@ -524,9 +530,11 @@ static void process_opts(int argc, const char **argv)
 		extern struct nb_operations scsi_ops;
 		nb_ops = &scsi_ops;
 #endif /* HAVE_LINUX_SCSI_SG */
+#ifdef HAVE_LIBISCSI
 	} else if (strcmp(options.backend, "iscsi") == 0) {
 		extern struct nb_operations iscsi_ops;
 		nb_ops = &iscsi_ops;
+#endif
 #ifdef HAVE_LIBSMBCLIENT
 	} else if (strcmp(options.backend, "smb") == 0) {
 		extern struct nb_operations smb_ops;

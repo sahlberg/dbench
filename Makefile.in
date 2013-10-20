@@ -17,7 +17,7 @@ CC=@CC@
 CFLAGS=@CFLAGS@ -I. -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(datadir)\"
 EXEEXT=@EXEEXT@
 
-DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o sockio.o nfsio.o libnfs-glue.o socklib.o @LINUXSCSI@ iscsi.o libiscsi.o @SMBO@
+DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o sockio.o nfsio.o libnfs-glue.o socklib.o @LINUXSCSI@ libiscsi.o @SMBO@
 SRV_OBJS = util.o tbench_srv.o socklib.o
 
 all: dbench doc

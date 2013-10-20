@@ -191,7 +191,7 @@ if test "$ac_cv_have_libiscsi" = yes ; then
   LIBISCSI="-liscsi"
 else
   AC_MSG_RESULT(no)
-  AC_MSG_NOTICE(Libiscsi not available. Building DBENCH with old iscsi support)
+  AC_MSG_NOTICE(Libiscsi not available. Building DBENCH without iscsi support)
   LIBISCSI=""
 fi
 
