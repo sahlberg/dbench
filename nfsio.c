@@ -27,7 +27,7 @@
 #include <nfsc/libnfs.h>
 #include <nfsc/libnfs-raw.h>
 #include <nfsc/libnfs-raw-nfs.h>
-#include "libnfs.h"
+#include "libnfs-glue.h"
 
 #define discard_const(ptr) ((void *)((intptr_t)(ptr)))
 
