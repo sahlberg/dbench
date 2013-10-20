@@ -5,389 +5,260 @@
 <refmeta>
 	<refentrytitle>dbench</refentrytitle>
 	<manvolnum>1</manvolnum>
+	<refmiscinfo class="source">dbench</refmiscinfo>
+	<refmiscinfo class="manual">dbench: a multiprotocol loadtester.</refmiscinfo>
 </refmeta>
 
 
 <refnamediv>
 	<refname>dbench</refname>
-        <refpurpose>a benchmark tool</refpurpose>
+        <refpurpose>Utility to perform loadtesting for multiple protocols.</refpurpose>
 </refnamediv>
 
 <refsynopsisdiv>
 	<cmdsynopsis>
-		<command>dbench [OPTIONS] &lt;num-procs&gt;</command>
+		<command>dbench [ OPTIONS ] &lt;num-clients&gt;</command>
 	</cmdsynopsis>
 	
 	<cmdsynopsis>
 		<command>dbench</command>
-		<arg choice="opt">-B --backend=&lt;dbench backend&gt;</arg>
+		<arg choice="opt">-B --backend=&lt;backend&gt;</arg>
+		<arg choice="opt">-t --timelimit=&lt;seconds&gt;</arg>
+		<arg choice="opt">--warmup=&lt;seconds&gt;</arg>
 		<arg choice="opt">-c --loadfile=&lt;filename&gt;</arg>
-		<arg choice="opt">-D --directory=&lt;string&gt;</arg>
-		<arg choice="opt">-F --fsync</arg>
-		<arg choice="opt">-R --target-rate=&lt;double&gt;</arg>
-		<arg choice="opt">-s --sync</arg>
-		<arg choice="opt">-S --sync-dir</arg>
-		<arg choice="opt">-t --timelimit=&lt;integer&gt;</arg>
-		<arg choice="opt">-T --tcp-options=&lt;string&gt;</arg>
+		<arg choice="opt">-R --targe-trate=&lt;throughput&gt;</arg>
+		<arg choice="opt">--trunc-io=&lt;size&gt;</arg>
 		<arg choice="opt">--run-once</arg>
-		<arg choice="opt">--fake-io</arg>
-		<arg choice="opt">--scsi=&lt;scsi-device&gt;</arg>
-		<arg choice="opt">--server=&lt;hostname&gt;</arg>
-		<arg choice="opt">--export=&lt;string&gt;</arg>
-		<arg choice="opt">--protocol=&lt;string&gt;</arg>
-		<arg choice="opt">--clients-per-process=&lt;integer&gt;</arg>
-		<arg choice="opt">--trunc-io=&lt;integer&gt;</arg>
-		<arg choice="opt">--stat-check</arg>
-		<arg choice="opt">--skip-cleanup</arg>
-		<arg choice="opt">--per-client-results</arg>
-		<arg choice="opt">--iscsi-device=&lt;iSCSI URL&gt;</arg>
-		<arg choice="opt">--iscsi-initiatorname=&lt;iSCSI InitiatorName&gt;</arg>
+		<arg choice="opt">--machine-readable</arg>
 
-		<arg choice="opt">-? --help</arg>
-		<arg choice="opt">--usage</arg>
+		<arg choice="opt">--iscsi=&lt;iSCSI url&gt;</arg>
+		<arg choice="opt">--iscsi-initiatorname=&lt;iqn name&gt;</arg>
+
+		<arg choice="opt">--nfs=&lt;nfs url&gt;</arg>
+
+		<arg choice="opt">--smb-share=&lt;//SERVER/SHARE&gt;</arg>
+		<arg choice="opt">--smb-user=&lt;user%password&gt;</arg>
+
+		<arg choice="opt">--scsi=&lt;device&gt;</arg>
+		<arg choice="opt">--allow-scsi-writes</arg>
 	</cmdsynopsis>
 	
 </refsynopsisdiv>
 
-
-
   <refsect1><title>DESCRIPTION</title>
     <para>
-      dbench is a utility to benchmark a system based on client workload
-      profiles.
+      Dbench is a utility to loadtest network server. Dbench currently supports
+      iSCSI, NFSv3, SCSI and SMB.
     </para>
   </refsect1>
 
+  <refsect1><title>OPTIONS</title>
+    <variablelist>
+      <varlistentry><term>-B --backend=&lt;iscsi|nfs|scsi|smb&gt;</term>
+        <listitem>
+          <para>
+	    This specifies which protocol to test with. Supported protocols
+	    are iscsi, nfsv3, scsi and smbv1
+	  </para>
+        </listitem>
+      </varlistentry>
 
-  <refsect1> <title>STANDARD OPTIONS</title>
+      <varlistentry><term>-t --timelimit=&lt;seconds&gt;</term>
+        <listitem>
+          <para>
+	    For how long to run the test. This argument is mutually exclusive
+	    with --run-once.
+	  </para>
+        </listitem>
+      </varlistentry>
 
-    <refsect2><title>-B --backend=&lt;dbench backend&gt;</title>
-      <para>
-      The backend type specifies which kind of commandset and what kind of
-      tests that dbench will perform. The backend type specifies which
-      kind of loadfile that can be used.
-      </para>
+      <varlistentry><term>--warmup=&lt;seconds&gt;</term>
+        <listitem>
+          <para>
+	    Before starting to record throughput and latencies dbench will
+	    first wait until all clients are running and then wait for the
+	    target and its caches to warm up before it starts collecting
+	    data.
+	  </para>
+          <para>
+	    Setting warmup to 0 means not warmup and dbench will start running
+	    the test immediately.
+	  </para>
+        </listitem>
+      </varlistentry>
 
-      <para>
-      There are currently six types of backends : "fileio", "sockio", "nfs", "scsi", "iscsi" and "smb". The default is "fileio" which uses a smbtorture/BENCH-NBENCH style loadfile.
-      </para>
-    </refsect2>
 
-    <refsect2><title>-c --loadfile=&lt;filename&gt;</title>
-      <para>
-      This specifies the name of the loadfile to use. The loadfile describes
-      the sequence and timing of operations that dbench will issue.
-      </para>
-    </refsect2>
+      <varlistentry><term>-c --loadfile=&lt;filename&gt;</term>
+        <listitem>
+          <para>
+	    The loadfile is the script for the commands to run during the test.
+	    This command is mandatory.
+	  </para>
+          <para>	    The loadfile is the script for the commands to run during the test.
+	    This command is mandatory.
+	    The content of this file depends on the backend protocol that is
+	    beeing tested. See the protocol specific sections below for
+	    the commands that apply to the backends.
+	  </para>
+        </listitem>
+      </varlistentry>
 
-    <refsect2><title>-D --directory=&lt;string&gt;</title>
-      <para>
-      This controls which directory that dbench will use as the root for when
-      running the loadfile. This defaults to "." which refers to the current
-      directory for the "fileio" and "sockio" backends and the root of the
-      export for the "nfs" backend.
-      </para>
-    </refsect2>
+      <varlistentry><term>-R --targetrate=&lt;throughput&gt;</term>
+        <listitem>
+          <para>
+	    If the target rate is used dbench will try to keep each client
+	    running at the indicated throughput rate by adjusting a 
+	    delta that the dbench thread will sleep between commands.
+	  </para>
+          <para>
+	    This is mainly useful for capacity testing of a known workload.
+	    By using this argument it is possible to run each thread to match
+	    the timings for the specific workload. By increasing the number of
+	    threads until the target can no longer keep up it is possible
+	    to measure how many clents/threads the target can service before
+	    it becomes saturated and it can no longer keep up.
+	  </para>
+        </listitem>
+      </varlistentry>
 
-    <refsect2><title>-R --target-rate=&lt;double&gt;</title>
-      <para>
-      By default dbench will try to replay the loadfile and keep the same
-      rate as the original application the loadfile was captured from.
-      Using this option it is possible to run the load file faster/slower
-      than in the original capture.
-      </para>
+      <varlistentry><term>--trunc-io=&lt;integer&gt;</term>
+        <listitem>
+          <para>
+	    Some targets may have limits on the size of I/O they can accept.
+	    This argument will clamp all I/O read from the loadfile to not
+	    exceed this value. This is mainly useful for using generic loadfiles
+	    against targets that can not handle the I/O size.
+	  </para>
+        </listitem>
+      </varlistentry>
 
-      <para>
-      The argument is specified in MByte/second. dbench tries to match this
-      target rate by dynamically increasing/decreasing the delays beteen
-      the inidvidual opertaions in the loadfile. These calculations only
-      take the READ and WRITE operations of the loadfile into account
-      so this may not work reliable for loadfiles with very few READ/WRITE
-      operations.
-      </para>
+      <varlistentry><term>--run-once</term>
+        <listitem>
+          <para>
+	    Run the workload exactly once for each thread and exit the test
+	    once all threads have finished. This option is mutualy exclusive
+	    with --timelimit.
+	  </para>
+        </listitem>
+      </varlistentry>
 
-      <para>
-      By setting this limit to something very large, such as 999999.99 you can
-      effectively tell dbench to "run this loadfile as fast as possible".
-      </para>
+      <varlistentry><term>--machine-readable</term>
+        <listitem>
+          <para>
+	    Output data during in a more machine friendly format.
+	  </para>
+        </listitem>
+      </varlistentry>
 
-    </refsect2>
+      <varlistentry><term>--iscsi=&lt;iSCSI url&gt;</term>
+        <listitem>
+          <para>
+	    iSCSI url for the target to connect to. The url format is :
+	    iscsi://[&lt;username&gt;[%&lt;password&gt;]@]&lt;host&gt;[:&lt;port&gt;]/&lt;target-iqn&gt;/&lt;lun&gt;
+	  </para>
 
-    <refsect2><title>-t --timelimit=&lt;integer&gt;</title>
-      <para>
-      How long to run the test for.
-      </para>
-    </refsect2>
+	  <para>
+	    Username and password are only required if the target requires CHAP
+	    authentication. Optionally you can specify the username and
+	    password using the environment variables LIBISCSI_CHAP_USERNAME and
+	    LIBISCSI_CHAP_PASSWORD.
+	  </para>
 
-    <refsect2><title>--run-once</title>
-      <para>
-      Only run the loadfile once and stop when the end of the loadfile is
-      reached.
-      </para>
-      <para>
-      The default for dbench is to wrap the loadfile when the end is
-      reached and continue running the loadfile over and over until the
-      timelimit is reached.
-      </para>
-    </refsect2>
+	  <para>
+	    Host can be specified either as a hostname, an IPv4 address or an
+	    IPv6 address.
 
-    <refsect2><title>--clients-per-process=&lt;integer&gt;</title>
-      <para>
-      By default dbench will fork one child process for each client emulated.
-      Using this option dbench will run multiple emulated clients inside
-      each process.
-      </para>
+	    Examples:
+	    <screen format="linespecific">
+	      iscsi://192.0.2.1/iqn.ronnie.test/1
+	      iscsi://[2001:DB8::1]:3261/iqn.ronnie.test/1
+	      iscsi://ronnie%password@iscsi.example.com/iqn.ronnie.test/1
+	    </screen>
+	  </para>
+          <para>
+	    This argument is only valid with iSCSI backend.
+	  </para>
+        </listitem>
+      </varlistentry>
 
-      <para>
-      This is useful for testing how performance differs between the case
-      of n processes with one thread of I/O each and one process with n threads
-      of I/O.
-      </para>
-    </refsect2>
+      <varlistentry><term>--iscsi-initiatorname=&lt;iqn name&gt;</term>
+        <listitem>
+          <para>
+	    iSCSI initatorname to use when connecting to the target.
+	  </para>
+          <para>
+	    This argument is only valid with iSCSI backend.
+	  </para>
+        </listitem>
+      </varlistentry>
 
-    <refsect2><title>--skip-cleanup</title>
-      <para>
-      Do not cleanup and delete all temporary files in the clients work
-      directory when the test ends.
-      </para>
-    </refsect2>
+      <varlistentry><term>--nfs=&lt;NFS url&gt;</term>
+        <listitem>
+          <para>
+	    NFS url for the target to connect to. The url format is :
+	    nfs://&lt;server&gt;/&lt;path-of-export&gt;
+	  </para>
+          <para>
+	    This argument is only valid with NFS backend.
+	  </para>
+        </listitem>
+      </varlistentry>
 
-    <refsect2><title>--per-client-results</title>
-      <para>
-      When the test is finished print a latency report for each inidvidual
-      client in addition to the aggregated report over all clients.
-      </para>
-    </refsect2>
+      <varlistentry><term>--scsi=&lt;SCSI device&gt;</term>
+        <listitem>
+          <para>
+	    Device name for the device to test.
+	  </para>
+          <para>
+	    This argument is only valid with SCSI backend.
+	  </para>
+        </listitem>
+      </varlistentry>
 
+      <varlistentry><term>--allow-scsi-write</term>
+        <listitem>
+          <para>
+	    Allow sending medium write commands to the device.
+	  </para>
+          <para>
+	    This argument is only valid with SCSI backend.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry><term>--smb-share=&lt;//SERVER/SHARE&gt;</term>
+        <listitem>
+          <para>
+	    Server and share to connect to for the SMB backend.
+	  </para>
+          <para>
+	    This argument is only valid with SMB backend.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry><term>--smb-user=&lt;user%password&gt;</term>
+        <listitem>
+          <para>
+	    Username and password to authenticate to the SMB server with.
+	  </para>
+          <para>
+	    This argument is only valid with SMB backend.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+
+    </variablelist>
   </refsect1>
 
-  <refsect1> <title>FILEIO OPTIONS</title>
-    <refsect2><title>-F --fsync</title>
-      <para>
-      This option only apply to the "fileio" backend.
-      </para>
-
-      <para>
-      This will make dbench perform a fsync() to the file after each write
-      operation.
-      </para>
-    </refsect2>
-
-    <refsect2><title>-s --sync-open</title>
-      <para>
-      This option only apply to the "fileio" backend.
-      </para>
-
-      <para>
-      This makes dbench override the loadfile and use O_SYNC for all 
-      file open operations.
-      </para>
-    </refsect2>
-
-    <refsect2><title>-S --sync-dir</title>
-      <para>
-      This option only apply to the "fileio" backend.
-      </para>
-
-      <para>
-      Call fsync() on the directory after each "unlink", "rmdir" or "rename"
-      operation. This emulates how the linux kernel nfs daemon syncs
-      directories after performing directory modifying operations.
-      </para>
-    </refsect2>
-
-    <refsect2><title>--fake-io</title>
-      <para>
-      This option only apply to the "fileio" backend.
-      </para>
-
-      <para>
-      Do not do any file read/write operations at all.
-      </para>
-    </refsect2>
-
-    <refsect2><title>--stat-check</title>
-      <para>
-      This option only apply to the "fileio" backend.
-      </para>
-
-      <para>
-      After each create/mkdir/rmdir/rename operation, immediately try to
-      stat() the object affected and verify that the return code from stat()
-      is correct. I.e. Verify that immediately after we have created an
-      object that stat() will succeed and that immediately after we have
-      deleted an object that stat() will fail.
-      </para>
-    </refsect2>
-
-  </refsect1>
-
-  <refsect1> <title>SOCKIO OPTIONS</title>
-    <refsect2><title>-T --tcp-options=&lt;string&gt;</title>
-      <para>
-      This option only apply to the "sockio" backend.
-      </para>
-    </refsect2>
 
 
-  </refsect1>
-
-  <refsect1> <title>SMB OPTIONS</title>
-    <refsect2><title>--smb-share=//&lt;hostname&gt;/&lt;share&gt;[/&lt;path&gt;]</title>
-      <para>
-      This option only apply to the "smb" backend.
-      </para>
-
-      <para>
-      This option is mandatory when the "smb" backend is used.
-      </para>
-
-      <para>
-      This specifies the server and the share to use for the testing. It also contains an optional path to a directory to use.
-      </para>
-      <para>
-	Example: --smb-share=//MY-SERVER/DATA
-      </para>
-    </refsect2>
-
-    <refsect2><title>--smb-user=[&lt;domain&gt;/]&lt;user&gt;%&lt;password&gt;</title>
-      <para>
-      This option only apply to the "smb" backend.
-      </para>
-
-      <para>
-      This option is mandatory when the "smb" backend is used.
-      </para>
-
-      <para>
-      This specifies the username and password to use when authenticationg to the server.
-      </para>
-      <para>
-	Example: --smb-user=Administrator%Password
-      </para>
-    </refsect2>
-  </refsect1>
-
-  <refsect1> <title>NFS OPTIONS</title>
-    <refsect2><title>--server=&lt;hostname&gt;</title>
-      <para>
-      This option only apply to the "nfs" backend.
-      </para>
-
-      <para>
-      This option is mandatory when the "nfs" backend is used.
-      </para>
-
-      <para>
-      This specifies the host-name or ip-address of the server to test.
-      </para>
-    </refsect2>
-
-    <refsect2><title>--export=&lt;string&gt;</title>
-      <para>
-      This option only apply to the "nfs" backend.
-      </para>
-
-      <para>
-      This option is mandatory when the "nfs" backend is used.
-      </para>
-
-      <para>
-      This specifies the nfs-export on the server to do i/o to.
-      </para>
-    </refsect2>
-
-    <refsect2><title>--protocol=&lt;string&gt;</title>
-      <para>
-      This option only apply to the "nfs" backend.
-      </para>
-
-      <para>
-      This specifies whether "tcp" or "udp" is to be used. Default is "tcp".
-      </para>
-    </refsect2>
-
-    <refsect2><title>--trunc-io=&lt;integer&gt;</title>
-      <para>
-      This option only apply to the "nfs" backend.
-      </para>
-
-      <para>
-      Some NFS server may have limitations on how large READ/WRITE I/Os they
-      accept preventing some loadfiles from running. Using this option will
-      override the length specified in the loadfile and make dbench never
-      issuing any READ/WRITE operations larger than this.
-      </para>
-    </refsect2>
-  </refsect1>
-
-  <refsect1> <title>SCSI OPTIONS</title>
-    <refsect2><title>--scsi=&lt;scsi-device&gt;</title>
-      <para>
-      This option only apply to the "scsi" backend.
-      </para>
-
-      <para>
-      This option is mandatory when the "scsi" backend is used.
-      </para>
-
-      <para>
-      This specifies the device node of the scsi-device we want to run the loadfile on. Example: --scsi=/dev/sda
-      </para>
-    </refsect2>
-  </refsect1>
-
-  <refsect1> <title>iSCSI OPTIONS</title>
+  <refsect1><title>SEE ALSO</title>
     <para>
-    Dbench contains a primitive iSCSI initiator, allowing it to perform I/O
-    to some iSCSI targets.
+      dbench(1)
+      <ulink url="http://github.com/sahlberg/dbench"/>
     </para>
-    <refsect2><title>--iscsi-device=&lt;iSCSI URL&gt;</title>
-      <para>
-      This option only apply to the "iscsi" backend.
-      </para>
-
-      <para>
-      This option is mandatory when the "iscsi" backend is used.
-      </para>
-
-      <para>
-      This specifies the URL to the target device. URLs are specified as "iscsi://&lt;ip-address&gt;[:&lt;port&gt;]/&lt;target-iqn&gt;/&lt;lun&gt;"
-      </para>
-    </refsect2>
-    <refsect2><title>--iscsi-initiatorname=&lt;iSCSI InitiatorName&gt;</title>
-      <para>
-      This option only apply to the "iscsi" backend.
-      </para>
-
-      <para>
-      This option is optional when the "iscsi" backend is used.
-      </para>
-
-      <para>
-      This specifies the InitiatorName that dbench will use when connecting to the client.
-      </para>
-    </refsect2>
   </refsect1>
 
-
-  <refsect1><title>COPYRIGHT/LICENSE</title>
-<literallayout>
-Copyright (C) Andrew Tridgell 2008
-Copyright (C) Ronnie Sahlberg 2008
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 3 of the License, or (at
-your option) any later version.
-
-This program is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, see http://www.gnu.org/licenses/.
-</literallayout>
-  </refsect1>
 </refentry>

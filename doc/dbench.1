@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: dbench
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
-.\" Generator: DocBook XSL Stylesheets v1.75.2 <http://docbook.sf.net/>
-.\"      Date: 10/01/2011
-.\"    Manual: [FIXME: manual]
-.\"    Source: [FIXME: source]
+.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
+.\"      Date: 10/20/2013
+.\"    Manual: dbench: a multiprotocol loadtester.
+.\"    Source: dbench
 .\"  Language: English
 .\"
-.TH "DBENCH" "1" "10/01/2011" "[FIXME: source]" "[FIXME: manual]"
+.TH "DBENCH" "1" "10/20/2013" "dbench" "dbench: a multiprotocol loadte"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,174 +28,129 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-dbench \- a benchmark tool
+dbench \- Utility to perform loadtesting for multiple protocols\&.
 .SH "SYNOPSIS"
-.HP \w'\fBdbench\ [OPTIONS]\ <num\-procs>\fR\ 'u
-\fBdbench [OPTIONS] <num\-procs>\fR
+.HP \w'\fBdbench\ [\ OPTIONS\ ]\ <num\-clients>\fR\ 'u
+\fBdbench [ OPTIONS ] <num\-clients>\fR
 .HP \w'\fBdbench\fR\ 'u
-\fBdbench\fR [\-B\ \-\-backend=<dbench\ backend>] [\-c\ \-\-loadfile=<filename>] [\-D\ \-\-directory=<string>] [\-F\ \-\-fsync] [\-R\ \-\-target\-rate=<double>] [\-s\ \-\-sync] [\-S\ \-\-sync\-dir] [\-t\ \-\-timelimit=<integer>] [\-T\ \-\-tcp\-options=<string>] [\-\-run\-once] [\-\-fake\-io] [\-\-scsi=<scsi\-device>] [\-\-server=<hostname>] [\-\-export=<string>] [\-\-protocol=<string>] [\-\-clients\-per\-process=<integer>] [\-\-trunc\-io=<integer>] [\-\-stat\-check] [\-\-skip\-cleanup] [\-\-per\-client\-results] [\-\-iscsi\-device=<iSCSI\ URL>] [\-\-iscsi\-initiatorname=<iSCSI\ InitiatorName>] [\-?\ \-\-help] [\-\-usage]
+\fBdbench\fR [\-B\ \-\-backend=<backend>] [\-t\ \-\-timelimit=<seconds>] [\-\-warmup=<seconds>] [\-c\ \-\-loadfile=<filename>] [\-R\ \-\-targe\-trate=<throughput>] [\-\-trunc\-io=<size>] [\-\-run\-once] [\-\-machine\-readable] [\-\-iscsi=<iSCSI\ url>] [\-\-iscsi\-initiatorname=<iqn\ name>] [\-\-nfs=<nfs\ url>] [\-\-smb\-share=<//SERVER/SHARE>] [\-\-smb\-user=<user%password>] [\-\-scsi=<device>] [\-\-allow\-scsi\-writes]
 .SH "DESCRIPTION"
 .PP
-dbench is a utility to benchmark a system based on client workload profiles\&.
-.SH "STANDARD OPTIONS"
-.SS "\-B \-\-backend=<dbench backend>"
+Dbench is a utility to loadtest network server\&. Dbench currently supports iSCSI, NFSv3, SCSI and SMB\&.
+.SH "OPTIONS"
 .PP
-The backend type specifies which kind of commandset and what kind of tests that dbench will perform\&. The backend type specifies which kind of loadfile that can be used\&.
+\-B \-\-backend=<iscsi|nfs|scsi|smb>
+.RS 4
+This specifies which protocol to test with\&. Supported protocols are iscsi, nfsv3, scsi and smbv1
+.RE
 .PP
-There are currently six types of backends : "fileio", "sockio", "nfs", "scsi", "iscsi" and "smb"\&. The default is "fileio" which uses a smbtorture/BENCH\-NBENCH style loadfile\&.
-.SS "\-c \-\-loadfile=<filename>"
+\-t \-\-timelimit=<seconds>
+.RS 4
+For how long to run the test\&. This argument is mutually exclusive with \-\-run\-once\&.
+.RE
 .PP
-This specifies the name of the loadfile to use\&. The loadfile describes the sequence and timing of operations that dbench will issue\&.
-.SS "\-D \-\-directory=<string>"
+\-\-warmup=<seconds>
+.RS 4
+Before starting to record throughput and latencies dbench will first wait until all clients are running and then wait for the target and its caches to warm up before it starts collecting data\&.
+.sp
+Setting warmup to 0 means not warmup and dbench will start running the test immediately\&.
+.RE
 .PP
-This controls which directory that dbench will use as the root for when running the loadfile\&. This defaults to "\&." which refers to the current directory for the "fileio" and "sockio" backends and the root of the export for the "nfs" backend\&.
-.SS "\-R \-\-target\-rate=<double>"
+\-c \-\-loadfile=<filename>
+.RS 4
+The loadfile is the script for the commands to run during the test\&. This command is mandatory\&.
+.sp
+The loadfile is the script for the commands to run during the test\&. This command is mandatory\&. The content of this file depends on the backend protocol that is beeing tested\&. See the protocol specific sections below for the commands that apply to the backends\&.
+.RE
 .PP
-By default dbench will try to replay the loadfile and keep the same rate as the original application the loadfile was captured from\&. Using this option it is possible to run the load file faster/slower than in the original capture\&.
+\-R \-\-targetrate=<throughput>
+.RS 4
+If the target rate is used dbench will try to keep each client running at the indicated throughput rate by adjusting a delta that the dbench thread will sleep between commands\&.
+.sp
+This is mainly useful for capacity testing of a known workload\&. By using this argument it is possible to run each thread to match the timings for the specific workload\&. By increasing the number of threads until the target can no longer keep up it is possible to measure how many clents/threads the target can service before it becomes saturated and it can no longer keep up\&.
+.RE
 .PP
-The argument is specified in MByte/second\&. dbench tries to match this target rate by dynamically increasing/decreasing the delays beteen the inidvidual opertaions in the loadfile\&. These calculations only take the READ and WRITE operations of the loadfile into account so this may not work reliable for loadfiles with very few READ/WRITE operations\&.
+\-\-trunc\-io=<integer>
+.RS 4
+Some targets may have limits on the size of I/O they can accept\&. This argument will clamp all I/O read from the loadfile to not exceed this value\&. This is mainly useful for using generic loadfiles against targets that can not handle the I/O size\&.
+.RE
 .PP
-By setting this limit to something very large, such as 999999\&.99 you can effectively tell dbench to "run this loadfile as fast as possible"\&.
-.SS "\-t \-\-timelimit=<integer>"
+\-\-run\-once
+.RS 4
+Run the workload exactly once for each thread and exit the test once all threads have finished\&. This option is mutualy exclusive with \-\-timelimit\&.
+.RE
 .PP
-How long to run the test for\&.
-.SS "\-\-run\-once"
+\-\-machine\-readable
+.RS 4
+Output data during in a more machine friendly format\&.
+.RE
 .PP
-Only run the loadfile once and stop when the end of the loadfile is reached\&.
-.PP
-The default for dbench is to wrap the loadfile when the end is reached and continue running the loadfile over and over until the timelimit is reached\&.
-.SS "\-\-clients\-per\-process=<integer>"
-.PP
-By default dbench will fork one child process for each client emulated\&. Using this option dbench will run multiple emulated clients inside each process\&.
-.PP
-This is useful for testing how performance differs between the case of n processes with one thread of I/O each and one process with n threads of I/O\&.
-.SS "\-\-skip\-cleanup"
-.PP
-Do not cleanup and delete all temporary files in the clients work directory when the test ends\&.
-.SS "\-\-per\-client\-results"
-.PP
-When the test is finished print a latency report for each inidvidual client in addition to the aggregated report over all clients\&.
-.SH "FILEIO OPTIONS"
-.SS "\-F \-\-fsync"
-.PP
-This option only apply to the "fileio" backend\&.
-.PP
-This will make dbench perform a fsync() to the file after each write operation\&.
-.SS "\-s \-\-sync\-open"
-.PP
-This option only apply to the "fileio" backend\&.
-.PP
-This makes dbench override the loadfile and use O_SYNC for all file open operations\&.
-.SS "\-S \-\-sync\-dir"
-.PP
-This option only apply to the "fileio" backend\&.
-.PP
-Call fsync() on the directory after each "unlink", "rmdir" or "rename" operation\&. This emulates how the linux kernel nfs daemon syncs directories after performing directory modifying operations\&.
-.SS "\-\-fake\-io"
-.PP
-This option only apply to the "fileio" backend\&.
-.PP
-Do not do any file read/write operations at all\&.
-.SS "\-\-stat\-check"
-.PP
-This option only apply to the "fileio" backend\&.
-.PP
-After each create/mkdir/rmdir/rename operation, immediately try to stat() the object affected and verify that the return code from stat() is correct\&. I\&.e\&. Verify that immediately after we have created an object that stat() will succeed and that immediately after we have deleted an object that stat() will fail\&.
-.SH "SOCKIO OPTIONS"
-.SS "\-T \-\-tcp\-options=<string>"
-.PP
-This option only apply to the "sockio" backend\&.
-.SH "SMB OPTIONS"
-.SS "\-\-smb\-share=//<hostname>/<share>[/<path>]"
-.PP
-This option only apply to the "smb" backend\&.
-.PP
-This option is mandatory when the "smb" backend is used\&.
-.PP
-This specifies the server and the share to use for the testing\&. It also contains an optional path to a directory to use\&.
-.PP
-Example: \-\-smb\-share=//MY\-SERVER/DATA
-.SS "\-\-smb\-user=[<domain>/]<user>%<password>"
-.PP
-This option only apply to the "smb" backend\&.
-.PP
-This option is mandatory when the "smb" backend is used\&.
-.PP
-This specifies the username and password to use when authenticationg to the server\&.
-.PP
-Example: \-\-smb\-user=Administrator%Password
-.SH "NFS OPTIONS"
-.SS "\-\-server=<hostname>"
-.PP
-This option only apply to the "nfs" backend\&.
-.PP
-This option is mandatory when the "nfs" backend is used\&.
-.PP
-This specifies the host\-name or ip\-address of the server to test\&.
-.SS "\-\-export=<string>"
-.PP
-This option only apply to the "nfs" backend\&.
-.PP
-This option is mandatory when the "nfs" backend is used\&.
-.PP
-This specifies the nfs\-export on the server to do i/o to\&.
-.SS "\-\-protocol=<string>"
-.PP
-This option only apply to the "nfs" backend\&.
-.PP
-This specifies whether "tcp" or "udp" is to be used\&. Default is "tcp"\&.
-.SS "\-\-trunc\-io=<integer>"
-.PP
-This option only apply to the "nfs" backend\&.
-.PP
-Some NFS server may have limitations on how large READ/WRITE I/Os they accept preventing some loadfiles from running\&. Using this option will override the length specified in the loadfile and make dbench never issuing any READ/WRITE operations larger than this\&.
-.SH "SCSI OPTIONS"
-.SS "\-\-scsi=<scsi\-device>"
-.PP
-This option only apply to the "scsi" backend\&.
-.PP
-This option is mandatory when the "scsi" backend is used\&.
-.PP
-This specifies the device node of the scsi\-device we want to run the loadfile on\&. Example: \-\-scsi=/dev/sda
-.SH "ISCSI OPTIONS"
-.PP
-Dbench contains a primitive iSCSI initiator, allowing it to perform I/O to some iSCSI targets\&.
-.SS "\-\-iscsi\-device=<iSCSI URL>"
-.PP
-This option only apply to the "iscsi" backend\&.
-.PP
-This option is mandatory when the "iscsi" backend is used\&.
-.PP
-This specifies the URL to the target device\&. URLs are specified as "iscsi://<ip\-address>[:<port>]/<target\-iqn>/<lun>"
-.SS "\-\-iscsi\-initiatorname=<iSCSI InitiatorName>"
-.PP
-This option only apply to the "iscsi" backend\&.
-.PP
-This option is optional when the "iscsi" backend is used\&.
-.PP
-This specifies the InitiatorName that dbench will use when connecting to the client\&.
-.SH "COPYRIGHT/LICENSE"
+\-\-iscsi=<iSCSI url>
+.RS 4
+iSCSI url for the target to connect to\&. The url format is : iscsi://[<username>[%<password>]@]<host>[:<port>]/<target\-iqn>/<lun>
+.sp
+Username and password are only required if the target requires CHAP authentication\&. Optionally you can specify the username and password using the environment variables LIBISCSI_CHAP_USERNAME and LIBISCSI_CHAP_PASSWORD\&.
+.sp
+Host can be specified either as a hostname, an IPv4 address or an IPv6 address\&. Examples:
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-Copyright (C) Andrew Tridgell 2008
-Copyright (C) Ronnie Sahlberg 2008
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 3 of the License, or (at
-your option) any later version\&.
-
-This program is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE\&.  See the GNU
-General Public License for more details\&.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, see http://www\&.gnu\&.org/licenses/\&.
+	      iscsi://192\&.0\&.2\&.1/iqn\&.ronnie\&.test/1
+	      iscsi://[2001:DB8::1]:3261/iqn\&.ronnie\&.test/1
+	      iscsi://ronnie%password@iscsi\&.example\&.com/iqn\&.ronnie\&.test/1
+	    
 .fi
 .if n \{\
 .RE
 .\}
+.sp
+This argument is only valid with iSCSI backend\&.
+.RE
+.PP
+\-\-iscsi\-initiatorname=<iqn name>
+.RS 4
+iSCSI initatorname to use when connecting to the target\&.
+.sp
+This argument is only valid with iSCSI backend\&.
+.RE
+.PP
+\-\-nfs=<NFS url>
+.RS 4
+NFS url for the target to connect to\&. The url format is : nfs://<server>/<path\-of\-export>
+.sp
+This argument is only valid with NFS backend\&.
+.RE
+.PP
+\-\-scsi=<SCSI device>
+.RS 4
+Device name for the device to test\&.
+.sp
+This argument is only valid with SCSI backend\&.
+.RE
+.PP
+\-\-allow\-scsi\-write
+.RS 4
+Allow sending medium write commands to the device\&.
+.sp
+This argument is only valid with SCSI backend\&.
+.RE
+.PP
+\-\-smb\-share=<//SERVER/SHARE>
+.RS 4
+Server and share to connect to for the SMB backend\&.
+.sp
+This argument is only valid with SMB backend\&.
+.RE
+.PP
+\-\-smb\-user=<user%password>
+.RS 4
+Username and password to authenticate to the SMB server with\&.
+.sp
+This argument is only valid with SMB backend\&.
+.RE
+.SH "SEE ALSO"
+.PP
+dbench(1)
+\m[blue]\fB\%http://github.com/sahlberg/dbench\fR\m[]

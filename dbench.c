@@ -424,7 +424,7 @@ static void process_opts(int argc, const char **argv)
 		{ "allow-scsi-writes", 0, POPT_ARG_NONE, &options.allow_scsi_writes, 0,
 		  "Allow SCSI write command to the device", NULL},
 #ifdef HAVE_LIBISCSI
-		{ "iscsi-device",  0, POPT_ARG_STRING, &options.iscsi_device, 0, 
+		{ "iscsi",  0, POPT_ARG_STRING, &options.iscsi_device, 0, 
 		  "iscsi URL for the target device", NULL },
 		{ "iscsi-initiatorname",  0, POPT_ARG_STRING, &options.iscsi_initiatorname, 0, 
 		  "iscsi InitiatorName", NULL },

@@ -8,7 +8,7 @@ exec_prefix=@exec_prefix@
 bindir=@bindir@
 mandir=@mandir@
 datadir=@datadir@
-docdir=@datadir@/doc/dbench
+docdir = @docdir@
 XSLTPROC = /usr/bin/xsltproc
 INSTALLCMD=@INSTALL@
 LIBS=@LIBS@ -lpopt -lz @LIBSMBCLIENT@ @LIBISCSI@ @LIBNFS@
@@ -19,6 +19,8 @@ EXEEXT=@EXEEXT@
 
 DB_OBJS = fileio.o util.o dbench.o child.o system.o snprintf.o sockio.o nfsio.o libnfs-glue.o socklib.o @LINUXSCSI@ libiscsi.o @SMBO@
 SRV_OBJS = util.o tbench_srv.o socklib.o
+
+man1_MANS = doc/dbench.1
 
 all: dbench doc
 
@@ -35,13 +37,10 @@ nfsio.o: nfsio.c
 	@echo Compiling $@
 	gcc -g -c nfsio.c -o $@
 
-doc/dbench.1.html: doc/dbench.1.xml
-	-test -z "$(XSLTPROC)" || $(XSLTPROC) -o $@ http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl $<
-
 doc/dbench.1: doc/dbench.1.xml
 	-test -z "$(XSLTPROC)" || $(XSLTPROC) -o $@ http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
-doc: doc/dbench.1 doc/dbench.1.html
+doc: doc/dbench.1
 
 # Careful here: don't install client.txt over itself.
 install: all
