@@ -29,6 +29,7 @@
 		<arg choice="opt">-R --targe-trate=&lt;throughput&gt;</arg>
 		<arg choice="opt">--trunc-io=&lt;size&gt;</arg>
 		<arg choice="opt">--run-once</arg>
+		<arg choice="opt">--skip-cleanup</arg>
 		<arg choice="opt">--machine-readable</arg>
 
 		<arg choice="opt">--iscsi=&lt;iSCSI url&gt;</arg>
@@ -138,6 +139,18 @@
 	    Run the workload exactly once for each thread and exit the test
 	    once all threads have finished. This option is mutualy exclusive
 	    with --timelimit.
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry><term>--skip-cleanup</term>
+        <listitem>
+          <para>
+	    When the test is finished dbench will try to clean up the export
+	    used by recursively deleting the "/clients" directory tree.
+	    If you don't use "/clients/client*" style filenames or if you
+	    don't want dbench to delete the files after the test is complete
+	    use --skip-cleanup.
 	  </para>
         </listitem>
       </varlistentry>
