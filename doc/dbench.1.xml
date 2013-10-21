@@ -264,6 +264,39 @@
     </variablelist>
   </refsect1>
 
+  <refsect1><title>Loadfile value modifiers</title>
+  <para>
+    Loadfile arguments can be specified either as absolute numbers or as simple
+    expressions.
+    <screen format="linespecific">
+The modifiers are:
+'*' followed by zero or more qualifiers :
+
+'*'    : A random 64 bit integer (clamped to the file size.)
+'/yyy' : align the number to yyy. This is the same as x = (x/y)*y
+'%yyy' : modulo yyy. This is the same as x = x%y
+'+yyy' : Add y
+
+Examples :
+'*'         A random offset between 0 and file size.
+'*/0x1000'  A random offset aligned to a page boundary (4096).
+'*/0x1000%5000000' A random offset between 0 and 500000 aligned to page boundary.
+'*%100+25'  A random offset between 25 and 124.
+
+You can also use '+' on its own which means to take the previous value and just adding an offset to it :
+Examples :
+'+4096'    Take the previous value for this argument and add 4096 to it.
+
+Example: Sequential read of 100x 4kb
+READ3 "/foo.dbench" 0 4096 0x00000000
+REPEAT 99
+READ3 "/foo.dbench" +4096 4096 0x00000000
+    </screen>
+  </para>
+  <para>
+  </para>
+  </refsect1>
+
   <refsect1><title>NFS commands</title>
     <variablelist>
       <varlistentry><term>&lt;timing&gt; ACCESS3 &lt;path&gt; 0 0 &lt;status&gt;</term>
