@@ -166,7 +166,7 @@ Loadfile arguments can be specified either as absolute numbers or as simple expr
 The modifiers are:
 \*(Aq*\*(Aq followed by zero or more qualifiers :
 
-\*(Aq*\*(Aq    : A random 64 bit integer (clamped to the file size\&.)
+\*(Aq*\*(Aq    : A random 64 bit integer\&.
 \*(Aq/yyy\*(Aq : align the number to yyy\&. This is the same as x = (x/y)*y
 \*(Aq%yyy\*(Aq : modulo yyy\&. This is the same as x = x%y
 \*(Aq+yyy\*(Aq : Add y
@@ -528,6 +528,50 @@ Example:
 .nf
 	      0\&.000 WRITE3 "/some\-file" 0 4096 2 0x00000000
 	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.SH "NFS EXAMPLES"
+.PP
+Sequential Reads
+.RS 4
+.PP
+To read a file sequentially 4kbyte at a time:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+READ3 "/foo\&.dbench" 0 4096 0x00000000
+REPEAT 999999
+READ3 "/foo\&.dbench" +4096 4096 0x00000000
+
+dbench \-B nfs \-\-loadfile=nfs\&.txt \-\-skip\-cleanup \-\-warmup=0 \-\-nfs nfs://127\&.0\&.0\&.1/data/tmp \-\-run\-once 1
+	
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+Random Reads
+.RS 4
+.PP
+To read a file randomly 4kbyte at a time within the range 0 to 1G :
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+REPEAT 999999
+READ3 "/foo\&.dbench" */4096%1000000000 4096 0x00000000
+
+dbench \-B nfs \-\-loadfile=nfs\&.txt \-\-skip\-cleanup \-\-warmup=0 \-\-nfs nfs://127\&.0\&.0\&.1/data/tmp \-\-run\-once 1
+	
 .fi
 .if n \{\
 .RE

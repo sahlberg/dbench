@@ -272,7 +272,7 @@
 The modifiers are:
 '*' followed by zero or more qualifiers :
 
-'*'    : A random 64 bit integer (clamped to the file size.)
+'*'    : A random 64 bit integer.
 '/yyy' : align the number to yyy. This is the same as x = (x/y)*y
 '%yyy' : modulo yyy. This is the same as x = x%y
 '+yyy' : Add y
@@ -297,7 +297,7 @@ READ3 "/foo.dbench" +4096 4096 0x00000000
   </para>
   </refsect1>
 
-  <refsect1><title>NFS commands</title>
+  <refsect1><title>NFS Commands</title>
     <variablelist>
       <varlistentry><term>&lt;timing&gt; ACCESS3 &lt;path&gt; 0 0 &lt;status&gt;</term>
         <listitem>
@@ -554,6 +554,35 @@ READ3 "/foo.dbench" +4096 4096 0x00000000
     </variablelist>
   </refsect1>
 
+  <refsect1><title>NFS Examples</title>
+    <variablelist>
+      <varlistentry><term>Sequential Reads</term>
+      <para>
+	To read a file sequentially 4kbyte at a time:
+	<screen format="linespecific">
+READ3 "/foo.dbench" 0 4096 0x00000000
+REPEAT 999999
+READ3 "/foo.dbench" +4096 4096 0x00000000
+
+dbench -B nfs --loadfile=nfs.txt --skip-cleanup --warmup=0 --nfs nfs://127.0.0.1/data/tmp --run-once 1
+	</screen>
+      </para>
+      </varlistentry>
+
+      <varlistentry><term>Random Reads</term>
+      <para>
+	To read a file randomly 4kbyte at a time within the range 0 to 1G :
+	<screen format="linespecific">
+REPEAT 999999
+READ3 "/foo.dbench" */4096%1000000000 4096 0x00000000
+
+dbench -B nfs --loadfile=nfs.txt --skip-cleanup --warmup=0 --nfs nfs://127.0.0.1/data/tmp --run-once 1
+	</screen>
+      </para>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
 
 
   <refsect1><title>SEE ALSO</title>
