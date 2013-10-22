@@ -676,6 +676,127 @@ dbench \-B nfs \-\-loadfile=nfs\&.txt \-\-skip\-cleanup \-\-warmup=0 \-\-nfs nfs
 .\}
 .sp
 .RE
+.SH "ISCSI LOADFILE COMMANDS"
+.PP
+<timing> TESTUNITREADY <status>
+.RS 4
+Send a TESTUNITREADY command\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 TESTUNITREADY "/" 0 0 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> READ10 <LBA> <TL> <flags> <group> <status>
+.RS 4
+Send a READ10 command\&.
+.sp
+Group is useful if you have a target that can report statistics for individual groups\&. If your target can not report statistics per group you probably want to leave this as 0 for all commands that take a group id\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# timestamp READ10 lba tl flags group status
+#   if lba is * this means to use a random lba
+#
+#   rd is :
+#     3 bits     0xe0 : RDPROTECT
+#     1 bit      0x10 : DPO
+#     1 bit      0x08 : FUA
+#     1 bit      0x02 : FUA_NV
+0\&.000 READ10    0 2 0 0 0x00
+0\&.000 READ10    2 2 0 0 0x00
+0\&.000 READ10    4 2 0 0 0x00
+0\&.000 READ10    6 2 0 0 0x00
+0\&.000 READ10    * 2 0 0 0x00
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> WRITE10 <LBA> <TL> <flags> <group> <status>
+.RS 4
+Send a WRITE10 command\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# timestamp WRITE10 lba tl flags group status
+# WRITES are ignored by default and must be activated using
+# \-\-allow\-scsi\-writes
+#
+#   flags are cdb byte#1 in SBC:
+#     a value of 0x06 will force the data to be written to the
+#     medium
+#     a value of 0x00 allow the device to only write to nv\-ram
+#     and not medium
+0\&.000 WRITE10 5000 1 0x06 0 0x00
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> READCAPACITY10 <LBA> <PMI> <status>
+.RS 4
+Send a READCAPACITY10 command\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# timestamp READCAPACITY10 lba pmi(0/1) sense
+0\&.000 READCAPACITY10 0 0 0x00
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> SYNCHRONIZECACHE10 <LBA> <TL> <SYNCNV> <IMMED> <status>
+.RS 4
+Send a SYNCHRONIZECACHE10 command\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# timestamp SYNCHRONIZECACHE10 lba numblocks syncnv immed sense
+0\&.000 SYNCHRONIZECACHE10 0 0 1 1 0x00
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
 .SH "SEE ALSO"
 .PP
 dbench(1)
