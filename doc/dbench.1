@@ -155,6 +155,104 @@ Username and password to authenticate to the SMB server with\&.
 .sp
 This argument is only valid with SMB backend\&.
 .RE
+.SH "COMMON LOADFILE COMMANDS"
+.PP
+These commands are available for all backends and can be used to create loops, random file names and more\&.
+.PP
+<timing> Deltree <path> <status>
+.RS 4
+Deltree is used to recursively delete the file system tree used for the test\&. This command is commonly used as the very first command in the loadfile and then to delete any residual files that might be still present from a previous failed test run\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# DELTREE if we want to delete the client directory everytime we restart 
+# the script\&. Remove these two lines if the script is only "read\-only"
+# reading from pre\-existing files in the /clients/clientX/ tree
+0\&.000 Deltree "/clients/client1" 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+RANDOMSTRING <index> <string>
+.RS 4
+RANDOMSTRING is used to create random strings, for example strings that are to be used as randomly generated filenames\&. The string is formed by replacing every occurance of [<set>] with one randomly picked letter from the specified set\&.
+.sp
+The string index must be a number from 1 to 9 and it can later be referenced from file\-name manipulating commands using $<number>\&.
+.RE
+.PP
+LOOP <count> / ENDLOOP
+.RS 4
+.PP
+LOOP and ENDLOOP can be used to interate a set number of times of a range of commands in the loadfile\&. LOOP/ENDLOOP can nest\&.
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+RANDOMSTRING 1 "/test[0123456789][01234567890]\&.file"
+#
+# The LOOP/ENDLOOP construct will loop over an entire section of
+# the loadfile
+#
+LOOP 5
+CREATE3 $1 *
+LOOKUP3 $1 0x00000000
+WRITE3 $1 0 1024 0 0x00000000
+WRITE3 $1 1024 1024 0 0x00000000
+ENDLOOP
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+REPEAT <count>
+.RS 4
+REPEAT is used to interate over the following line the specified number of times\&.
+.RE
+.PP
+WRITEPATTERN <count>
+.RS 4
+.PP
+WRITEPATTERN is used to specify the data to write\&. This is a string of characters that will be repeated to fill the buffer to be written\&.
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+MKDIR3 "/clients" *
+MKDIR3 "/clients/client1" *
+LOOKUP3 "/clients/client1" 0x00000000
+#
+#
+# Writepattern sets the pattern to write\&. This pattern is repeated
+# to fill the write buffer\&.
+#
+WRITEPATTERN 1234567890
+CREATE3  "/clients/client1/test\&.file" 0x00000000
+WRITE3 "/clients/client1/test\&.file" 0 32768 0 0x00000000
+REPEAT 1000
+WRITE3 "/clients/client1/test\&.file" +32768 32768 0 0x00000000
+COMMIT3 "/clients/client1/test\&.file" 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
 .SH "LOADFILE VALUE MODIFIERS"
 .PP
 Loadfile arguments can be specified either as absolute numbers or as simple expressions\&.
@@ -191,7 +289,7 @@ READ3 "/foo\&.dbench" +4096 4096 0x00000000
 .RE
 .\}
 .PP
-.SH "NFS COMMANDS"
+.SH "NFS LOADFILE COMMANDS"
 .PP
 <timing> ACCESS3 <path> 0 0 <status>
 .RS 4
@@ -536,7 +634,7 @@ Example:
 .RE
 .SH "NFS EXAMPLES"
 .PP
-Sequential Reads
+Sequential 4kb Reads
 .RS 4
 .PP
 To read a file sequentially 4kbyte at a time:
@@ -558,7 +656,7 @@ dbench \-B nfs \-\-loadfile=nfs\&.txt \-\-skip\-cleanup \-\-warmup=0 \-\-nfs nfs
 .sp
 .RE
 .PP
-Random Reads
+Random 4kb Reads
 .RS 4
 .PP
 To read a file randomly 4kbyte at a time within the range 0 to 1G :
