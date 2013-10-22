@@ -38,6 +38,26 @@ struct cb_data {
 	char *dirname;
 };
 
+static char *get_next_nfs_url(char *url, int id)
+{
+	char *tmp = url;
+	int i;
+
+	for (i = 0; i < id; i++) {
+		tmp = strchr(tmp, ',');
+		if (tmp == NULL) {
+			tmp = url;
+			continue;
+		}
+		tmp++;
+	}
+	tmp = strdup(tmp);
+	if (strchr(tmp, ',')) {
+		*strchr(tmp, ',') = 0;
+	}
+	return tmp;
+}
+
 static void nfs3_deltree(struct dbench_op *op);
 
 static void nfs3_cleanup(struct child_struct *child)
@@ -57,12 +77,15 @@ static void nfs3_setup(struct child_struct *child)
 {
 	const char *status = "0x00000000";
 	nfsstat3 res;
+	char *url;
 
 	child->rate.last_time = timeval_current();
 	child->rate.last_bytes = 0;
 
 	srandom(getpid() ^ time(NULL));
-	child->private = nfsio_connect(options.nfs, global_random + child->id, child->num_clients);
+	url = get_next_nfs_url(options.nfs, child->id);
+	child->private = nfsio_connect(url, global_random + child->id, child->num_clients);
+	free(url);
 	if (child->private == NULL) {
 		child->failed = 1;
 		printf("nfsio_connect() failed\n");
@@ -418,12 +441,15 @@ static void nfs3_rename(struct dbench_op *op)
 static int nfs3_init(void)
 {
 	void *handle;
+	char *url;
 
 	if (options.nfs == NULL) {
 		printf("--nfs target was not specified\n");
 		return 1;
 	}
-	handle = nfsio_connect(options.nfs, global_random, 1);
+	url = get_next_nfs_url(options.nfs, 0);
+	handle = nfsio_connect(url, global_random, 1);
+	free(url);
 	if (handle == NULL) {
 		printf("Failed to connect to NFS server\n");
 		return 1;

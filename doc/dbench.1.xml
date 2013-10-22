@@ -212,7 +212,19 @@
 	    nfs://&lt;server&gt;/&lt;path-of-export&gt;
 	  </para>
           <para>
+	    If you have a cmultihomed or clustered nfs server you can specify
+	    a comma-separated list of nfs urls. Clients will then be distributed
+	    across the different portals in round-robin fashin.
+	  </para>
+          <para>
 	    This argument is only valid with NFS backend.
+	  </para>
+          <para>
+	    <screen format="linespecific">
+	      --nfs=nfs://10.0.0.1/data/tmp
+
+	      --nfs=nfs://10.0.0.1/data/tmp,nfs://10.0.0.2/data/tmp
+	    </screen>
 	  </para>
         </listitem>
       </varlistentry>
@@ -794,7 +806,6 @@ dbench -B nfs --loadfile=nfs.txt --skip-cleanup --warmup=0 --nfs nfs://127.0.0.1
           </para>
         </listitem>
       </varlistentry>
-
 
     </variablelist>
   </refsect1>

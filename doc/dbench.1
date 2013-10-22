@@ -125,7 +125,25 @@ This argument is only valid with iSCSI backend\&.
 .RS 4
 NFS url for the target to connect to\&. The url format is : nfs://<server>/<path\-of\-export>
 .sp
+If you have a cmultihomed or clustered nfs server you can specify a comma\-separated list of nfs urls\&. Clients will then be distributed across the different portals in round\-robin fashin\&.
+.sp
 This argument is only valid with NFS backend\&.
+.sp
+
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      \-\-nfs=nfs://10\&.0\&.0\&.1/data/tmp
+
+	      \-\-nfs=nfs://10\&.0\&.0\&.1/data/tmp,nfs://10\&.0\&.0\&.2/data/tmp
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
 .RE
 .PP
 \-\-scsi=<SCSI device>
