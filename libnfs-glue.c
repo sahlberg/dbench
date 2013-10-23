@@ -1411,7 +1411,7 @@ static void nfsio_readdirplus_cb(struct rpc_context *rpc _U_, int status,
 				cb_data->fh,
 				e->cookie,
 				(char *)&READDIRPLUS3res->READDIRPLUS3res_u.resok.cookieverf,
-				512, cb_data)) {
+				8000, cb_data)) {
 			fprintf(stderr, "failed to send readdirplus\n");
 			cb_data->status = NFS3ERR_SERVERFAULT;
 			return;
@@ -1472,7 +1472,7 @@ nfsstat3 nfsio_readdirplus(struct nfsio *nfsio, const char *name, nfs3_dirent_cb
 	cb_data.private_data = private_data;
 
 	if (rpc_nfs_readdirplus_async(nfs_get_rpc_context(nfsio->nfs),
-		nfsio_readdirplus_cb, fh, 0, (char *)&cv, 512, &cb_data)) {
+		nfsio_readdirplus_cb, fh, 0, (char *)&cv, 8000, &cb_data)) {
 		fprintf(stderr, "failed to send readdirplus\n");
 		return NFS3ERR_SERVERFAULT;
 	}
