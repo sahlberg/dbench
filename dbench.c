@@ -314,7 +314,8 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 				       i, WEXITSTATUS(status));
 				exit(1);
 			}
-		} while (!WIFSTOPPED(status));
+			sleep(1);
+		} while (1);
 	}
 
 	printf("Releasing clients\n");
