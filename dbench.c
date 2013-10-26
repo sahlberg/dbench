@@ -32,7 +32,6 @@
 struct options options = {
 	.backend             = "fileio",
 	.timelimit           = 600,
-	.loadfile            = DATADIR "/client.txt",
 	.directory           = ".",
 	.tcp_options         = TCP_OPTIONS,
 	.nprocs              = 10,
@@ -475,20 +474,6 @@ static void process_opts(int argc, const char **argv)
 	setlinebuf(stdout);
 
 	printf("dbench version %s - Copyright Andrew Tridgell 1999-2004\n\n", VERSION);
-
-	if (strstr(argv[0], "dbench")) {
-		options.backend = "fileio";
-	} else if (strstr(argv[0], "tbench")) {
-		options.backend = "sockio";
-	} else if (strstr(argv[0], "nfsbench")) {
-		options.backend = "nfs";
-	} else if (strstr(argv[0], "scsibench")) {
-		options.backend = "scsi";
-#ifdef HAVE_LIBISCSI
-	} else if (strstr(argv[0], "iscsibench")) {
-		options.backend = "iscsi";
-#endif
-	}
 
 	srandom(getpid() ^ time(NULL));
 	global_random = random();
