@@ -467,7 +467,7 @@ static void process_opts(int argc, const char **argv)
  int main(int argc, const char *argv[])
 {
 	double total_bytes = 0;
-	double t, latency=0;
+	double latency=0;
 	int i;
 
 	setlinebuf(stdout);
@@ -535,8 +535,6 @@ static void process_opts(int argc, const char **argv)
 		total_bytes += children[i].bytes - children[i].bytes_done_warmup;
 		latency = MAX(latency, children[i].worst_latency);
 	}
-
-	t = timeval_elapsed2(&tv_start, &tv_end);
 
 	if (options.machine_readable) {
 		printf(";%g;%d;%d;%.03f;\n", 
