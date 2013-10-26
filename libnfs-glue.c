@@ -63,6 +63,12 @@ struct nfsio {
 	tree_t *fhandles;
 };
 
+static void set_xid_value(struct nfsio *nfsio)
+{
+	nfsio->xid += nfsio->xid_stride;
+	rpc_set_next_xid(nfs_get_rpc_context(nfsio->nfs), nfsio->xid);
+}
+
 static void free_node(tree_t *t)
 {
 	free(discard_const(t->key.data.data_val));
@@ -518,6 +524,7 @@ nfsstat3 nfsio_getattr(struct nfsio *nfsio, const char *name, fattr3 *attributes
 	cb_data.nfsio = nfsio;
 	cb_data.attributes = attributes;
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_getattr_async(nfs_get_rpc_context(nfsio->nfs),
 		nfsio_getattr_cb, fh, &cb_data)) {
 		fprintf(stderr, "failed to send getattr\n");
@@ -591,6 +598,7 @@ nfsstat3 nfsio_lookup(struct nfsio *nfsio, const char *name, fattr3 *attributes)
 	cb_data.name = discard_const(name);
 	cb_data.attributes = attributes;
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_lookup_async(nfs_get_rpc_context(nfsio->nfs),
 		nfsio_lookup_cb, fh, ptr, &cb_data)) {
 		fprintf(stderr, "failed to send lookup for '%s' "
@@ -640,6 +648,7 @@ nfsstat3 nfsio_access(struct nfsio *nfsio, const char *name, uint32_t desired, u
 	cb_data.nfsio = nfsio;
 	cb_data.access = access;
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_access_async(nfs_get_rpc_context(nfsio->nfs),
 				 nfsio_access_cb, fh, desired, &cb_data)) {
 		fprintf(stderr, "failed to send access\n");
@@ -722,6 +731,7 @@ nfsstat3 nfsio_create(struct nfsio *nfsio, const char *name)
 	cb_data.nfsio = nfsio;
 	cb_data.name = discard_const(name);
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_create_async(nfs_get_rpc_context(nfsio->nfs),
 				 nfsio_create_cb, &CREATE3args, &cb_data)) {
 		fprintf(stderr, "failed to send create\n");
@@ -784,6 +794,7 @@ nfsstat3 nfsio_remove(struct nfsio *nfsio, const char *name)
 	cb_data.nfsio = nfsio;
 	cb_data.name = discard_const(name);
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_remove_async(nfs_get_rpc_context(nfsio->nfs),
 				 nfsio_remove_cb, fh, ptr, &cb_data)) {
 		fprintf(stderr, "failed to send remove\n");
@@ -827,6 +838,7 @@ nfsstat3 nfsio_write(struct nfsio *nfsio, const char *name, char *buf, uint64_t 
 	memset(&cb_data, 0, sizeof(cb_data));
 	cb_data.nfsio = nfsio;
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_write_async(nfs_get_rpc_context(nfsio->nfs), nfsio_write_cb,
 				fh, buf, offset, len, stable, &cb_data)) {
 		fprintf(stderr, "failed to send write\n");
@@ -870,6 +882,7 @@ nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf _U_, uint64
 	memset(&cb_data, 0, sizeof(cb_data));
 	cb_data.nfsio = nfsio;
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_read_async(nfs_get_rpc_context(nfsio->nfs), nfsio_read_cb,
 			fh, offset, len, &cb_data)) {
 		fprintf(stderr, "failed to send read\n");
@@ -913,6 +926,7 @@ nfsstat3 nfsio_commit(struct nfsio *nfsio, const char *name)
 	memset(&cb_data, 0, sizeof(cb_data));
 	cb_data.nfsio = nfsio;
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_commit_async(nfs_get_rpc_context(nfsio->nfs),
 				 nfsio_commit_cb, fh, &cb_data)) {
 		fprintf(stderr, "failed to send commit\n");
@@ -956,6 +970,7 @@ nfsstat3 nfsio_fsinfo(struct nfsio *nfsio)
 	memset(&cb_data, 0, sizeof(cb_data));
 	cb_data.nfsio = nfsio;
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_fsinfo_async(nfs_get_rpc_context(nfsio->nfs),
 				 nfsio_fsinfo_cb, fh, &cb_data)) {
 		fprintf(stderr, "failed to send fsinfo\n");
@@ -1000,6 +1015,7 @@ nfsstat3 nfsio_fsstat(struct nfsio *nfsio)
 	memset(&cb_data, 0, sizeof(cb_data));
 	cb_data.nfsio = nfsio;
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_fsstat_async(nfs_get_rpc_context(nfsio->nfs),
 				 nfsio_fsstat_cb, fh, &cb_data)) {
 		fprintf(stderr, "failed to send fsstat\n");
@@ -1043,6 +1059,7 @@ nfsstat3 nfsio_pathconf(struct nfsio *nfsio, char *name)
 	memset(&cb_data, 0, sizeof(cb_data));
 	cb_data.nfsio = nfsio;
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_pathconf_async(nfs_get_rpc_context(nfsio->nfs),
 		nfsio_pathconf_cb, fh, &cb_data)) {
 		fprintf(stderr, "failed to send pathconf\n");
@@ -1124,6 +1141,7 @@ nfsstat3 nfsio_symlink(struct nfsio *nfsio, const char *old, const char *new)
 	cb_data.nfsio = nfsio;
 	cb_data.name  = discard_const(old);
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_symlink_async(nfs_get_rpc_context(nfsio->nfs),
 		nfsio_symlink_cb, &SYMLINK3args, &cb_data)) {
 		fprintf(stderr, "failed to send symlink\n");
@@ -1190,6 +1208,7 @@ nfsstat3 nfsio_link(struct nfsio *nfsio, const char *old, const char *new)
 	cb_data.nfsio = nfsio;
 	cb_data.name  = ptr;
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_link_async(nfs_get_rpc_context(nfsio->nfs),
 			       nfsio_link_cb, new_fh, fh, ptr, &cb_data)) {
 		fprintf(stderr, "failed to send link\n");
@@ -1236,6 +1255,7 @@ nfsstat3 nfsio_readlink(struct nfsio *nfsio, char *name)
 	memset(&cb_data, 0, sizeof(cb_data));
 	cb_data.nfsio = nfsio;
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_readlink_async(nfs_get_rpc_context(nfsio->nfs),
 		nfsio_readlink_cb, &READLINK3args, &cb_data)) {
 		fprintf(stderr, "failed to send readlink\n");
@@ -1298,6 +1318,7 @@ nfsstat3 nfsio_rmdir(struct nfsio *nfsio, const char *name)
 	cb_data.nfsio = nfsio;
 	cb_data.name = discard_const(name);
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_rmdir_async(nfs_get_rpc_context(nfsio->nfs),
 				 nfsio_rmdir_cb, fh, ptr, &cb_data)) {
 		fprintf(stderr, "failed to send rmdir\n");
@@ -1378,6 +1399,7 @@ nfsstat3 nfsio_mkdir(struct nfsio *nfsio, const char *name)
 	cb_data.nfsio = nfsio;
 	cb_data.name = discard_const(name);
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_mkdir_async(nfs_get_rpc_context(nfsio->nfs),
 				 nfsio_mkdir_cb, &MKDIR3args, &cb_data)) {
 		fprintf(stderr, "failed to send mkdir\n");
@@ -1411,6 +1433,7 @@ static void nfsio_readdirplus_cb(struct rpc_context *rpc _U_, int status,
 			e = e->nextentry){
 		}
 
+		set_xid_value(cb_data->nfsio);
 		if (rpc_nfs_readdirplus_async(
 				nfs_get_rpc_context(cb_data->nfsio->nfs),
 				nfsio_readdirplus_cb,
@@ -1477,6 +1500,7 @@ nfsstat3 nfsio_readdirplus(struct nfsio *nfsio, const char *name, nfs3_dirent_cb
 	cb_data.rd_cb = cb;
 	cb_data.private_data = private_data;
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_readdirplus_async(nfs_get_rpc_context(nfsio->nfs),
 		nfsio_readdirplus_cb, fh, 0, (char *)&cv, 8000, &cb_data)) {
 		fprintf(stderr, "failed to send readdirplus\n");
@@ -1571,6 +1595,7 @@ nfsstat3 nfsio_rename(struct nfsio *nfsio, const char *old, const char *new)
 	cb_data.name     = discard_const(new);
 	cb_data.old_name = discard_const(old);
 
+	set_xid_value(nfsio);
 	if (rpc_nfs_rename_async(nfs_get_rpc_context(nfsio->nfs),
 			nfsio_rename_cb,
 			old_fh, old_ptr,
