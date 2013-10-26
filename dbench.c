@@ -22,9 +22,11 @@
    doesn't matter.  On NFSv4 it might be interesting, since the client
    can choose what kind it wants for each OPEN operation. */
 
+#include <signal.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "dbench.h"
 #include "popt.h"
-#include <sys/sem.h>
 #include <zlib.h>
 
 struct options options = {
@@ -54,7 +56,6 @@ struct options options = {
 
 static struct timeval tv_start;
 static struct timeval tv_end;
-static int barrier=-1;
 static double throughput;
 struct nb_operations *nb_ops;
 int global_random;
@@ -75,11 +76,6 @@ static gzFile *open_loadfile(void)
 
 
 static struct child_struct *children;
-
-static void sem_cleanup() {
-	if (!(barrier==-1)) 
-		semctl(barrier,0,IPC_RMID);
-}
 
 static void sig_alarm(int sig)
 {
@@ -249,12 +245,9 @@ static void report_latencies(void)
 static void create_procs(int nprocs, void (*fn)(struct child_struct *, const char *))
 {
 	int nclients = nprocs * options.clients_per_process;
-	int i, status;
-	int synccount;
-	struct timeval tv;
+	int i;
 	gzFile *load;
-	struct sembuf sbuf;
-	double t;
+	pid_t *child_pids;
 
 	load = open_loadfile();
 	if (load == NULL) {
@@ -276,7 +269,7 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 
 	memset(children, 0, sizeof(*children)*nclients);
 
-	for (i=0;i<nclients;i++) {
+	for (i = 0; i < nclients; i++) {
 		children[i].id = i;
 		children[i].num_clients = nclients;
 		children[i].cleanup = 0;
@@ -285,24 +278,12 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 		children[i].lasttime = timeval_current();
 	}
 
-	if (atexit(sem_cleanup) != 0) {
-		printf("can't register cleanup function on exit\n");
-		exit(1);
-	}
-	sbuf.sem_num =  0;
-	if ( !(barrier = semget(IPC_PRIVATE,1,IPC_CREAT | S_IRUSR | S_IWUSR)) ) {
-		printf("failed to create barrier semaphore \n");
-	}
-	sbuf.sem_flg =  SEM_UNDO;
-	sbuf.sem_op  =  1;
-	if (semop(barrier, &sbuf, 1) == -1) {
-		printf("failed to initialize the barrier semaphore\n");
-		exit(1);
-	}
-	sbuf.sem_flg =  0;
+	child_pids = malloc(sizeof(pid_t) * nprocs);
+	memset(child_pids, 0, sizeof(pid_t) * nprocs);
 
-	for (i=0;i<nprocs;i++) {
-		if (fork() == 0) {
+	for (i = 0; i < nprocs; i++) {
+		child_pids[i] = fork();
+		if (child_pids[i] == 0) {
 			int j;
 
 			setlinebuf(stdout);
@@ -312,45 +293,46 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 				nb_ops->setup(&children[i*options.clients_per_process + j]);
 			}
 
-			sbuf.sem_op = 0;
-			if (semop(barrier, &sbuf, 1) == -1) {
-				printf("failed to use the barrier semaphore in child %d\n",getpid());
-				exit(1);
-			}
+			raise(SIGSTOP);
 
 			fn(&children[i*options.clients_per_process], options.loadfile);
 			_exit(0);
 		}
 	}
 
-	synccount = 0;
-	tv = timeval_current();
-	do {
-		synccount = semctl(barrier,0,GETZCNT);
-		t = timeval_elapsed(&tv);
-		printf("%d of %d processes prepared for launch %3.0f sec\n", synccount, nprocs, t);
-		if (synccount == nprocs) break;
-		usleep(100*1000);
-	} while (timeval_elapsed(&tv) < 30);
+	printf("Waiting for child processes to finish setup.\n");
+	for (i = 0; i < nprocs; i++) {
+		int status = 0;
 
-	if (synccount != nprocs) {
-		printf("FAILED TO START %d CLIENTS (started %d)\n", nprocs, synccount);
-		return;
+		do {
+			waitpid(child_pids[i], &status, WUNTRACED);
+			if (WIFSTOPPED(status)) {
+				break;
+			}
+			if (WIFEXITED(status)) {
+				printf("Child %d failed setup with status %d\n",
+				       i, WEXITSTATUS(status));
+				exit(1);
+			}
+		} while (!WIFSTOPPED(status));
 	}
 
-	printf("releasing clients\n");
+	printf("Releasing clients\n");
+	for (i = 0; i < nprocs; i++) {
+		kill(child_pids[i], SIGCONT);
+	}
+
 	tv_start = timeval_current();
-	sbuf.sem_op  =  -1;
-	if (semop(barrier, &sbuf, 1) == -1) {
-		printf("failed to release barrier\n");
-		exit(1);
-	}
 
 	signal(SIGALRM, sig_alarm);
 	alarm(PRINT_FREQ);
 
-	for (i=0;i<nprocs;) {
-		if (waitpid(0, &status, 0) == -1) continue;
+	for (i = 0; i < nprocs;) {
+		int status = 0;
+
+		if (waitpid(0, &status, 0) == -1) {
+			continue;
+		}
 		if (WEXITSTATUS(status) != 0) {
 			printf("Child failed with status %d\n",
 			       WEXITSTATUS(status));
@@ -361,8 +343,6 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 
 	alarm(0);
 	sig_alarm(SIGALRM);
-
-	semctl(barrier,0,IPC_RMID);
 
 	printf("\n");
 
