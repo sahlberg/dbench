@@ -1,5 +1,5 @@
 
-struct nfsio *nfsio_connect(const char *url, int initial_xid, int xid_stride);
+struct nfsio *nfsio_connect(const char *url, int child, int initial_xid, int xid_stride);
 void nfsio_disconnect(struct nfsio *nfsio);
 nfsstat3 nfsio_getattr(struct nfsio *nfsio, const char *name, fattr3 *attributes);
 nfsstat3 nfsio_lookup(struct nfsio *nfsio, const char *name, fattr3 *attributes);

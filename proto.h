@@ -28,26 +28,24 @@ void do_rename(char *old, char *new);
 void do_stat(char *fname, int size);
 void do_create(char *fname, int size);
 
-/* The following definitions come from libnfs.c  */
+/* The following definitions come from libiscsi.c  */
+
+
+/* The following definitions come from libnfs-glue.c  */
 
 const char *nfs_error(int error);
 void nfsio_disconnect(struct nfsio *nfsio);
-struct nfsio *nfsio_connect(const char *nfs, int initial_xid, int xid_stride);
+struct nfsio *nfsio_connect(const char *url, int child, int initial_xid, int xid_stride);
 
-/* The following definitions come from mount_client.c  */
-
-
-/* The following definitions come from mount_xdr.c  */
-
-
-/* The following definitions come from nfs_client.c  */
-
-
-/* The following definitions come from nfs_xdr.c  */
+/* The following definitions come from linux_scsi.c  */
 
 
 /* The following definitions come from nfsio.c  */
 
+
+/* The following definitions come from smb.c  */
+
+void smb_auth_fn(const char *server, const char *share, char *wrkgrp, int wrkgrplen, char *user, int userlen, char *passwd, int passwdlen);
 
 /* The following definitions come from snprintf.c  */
 

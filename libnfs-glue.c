@@ -25,6 +25,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -416,10 +417,11 @@ void nfsio_disconnect(struct nfsio *nfsio)
 
 
 
-struct nfsio *nfsio_connect(const char *url, int initial_xid, int xid_stride)
+struct nfsio *nfsio_connect(const char *url, int child, int initial_xid, int xid_stride)
 {
 	struct nfsio *nfsio;
 	char *tmp, *server, *export;
+	char *child_name;
 	struct nfs_fh3 *root_fh;
 
 	tmp = strdup(url);
@@ -462,6 +464,10 @@ struct nfsio *nfsio_connect(const char *url, int initial_xid, int xid_stride)
 		return NULL;
 	}
 	free(tmp);
+
+	asprintf(&child_name, "dbench-child-%d", child);
+	nfs_set_auth(nfsio->nfs, libnfs_authunix_create(child_name, getuid(), getpid(), 0, NULL));
+	free(child_name);
 
 	root_fh = nfs_get_rootfh(nfsio->nfs);
 	insert_fhandle(nfsio, "/",

@@ -84,7 +84,7 @@ static void nfs3_setup(struct child_struct *child)
 
 	srandom(getpid() ^ time(NULL));
 	url = get_next_nfs_url(options.nfs, child->id);
-	child->private = nfsio_connect(url, global_random + child->id, child->num_clients);
+	child->private = nfsio_connect(url, child->id, global_random + child->id, child->num_clients);
 	free(url);
 	if (child->private == NULL) {
 		child->failed = 1;
@@ -448,7 +448,7 @@ static int nfs3_init(void)
 		return 1;
 	}
 	url = get_next_nfs_url(options.nfs, 0);
-	handle = nfsio_connect(url, global_random, 1);
+	handle = nfsio_connect(url, 0, global_random, 1);
 	free(url);
 	if (handle == NULL) {
 		printf("Failed to connect to NFS server\n");
