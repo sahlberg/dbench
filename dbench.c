@@ -30,7 +30,6 @@
 #include <zlib.h>
 
 struct options options = {
-	.backend             = "fileio",
 	.timelimit           = 600,
 	.directory           = ".",
 	.tcp_options         = TCP_OPTIONS,
@@ -479,6 +478,11 @@ static void process_opts(int argc, const char **argv)
 	global_random = random();
 
 	process_opts(argc, argv);
+
+	if (options.backend == NULL) {
+		printf("No backend was specified. Aborting.\n");
+		exit(10);
+	}
 
 	if (strcmp(options.backend, "fileio") == 0) {
 		extern struct nb_operations fileio_ops;
