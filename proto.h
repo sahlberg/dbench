@@ -35,7 +35,8 @@ void do_create(char *fname, int size);
 
 const char *nfs_error(int error);
 void nfsio_disconnect(struct nfsio *nfsio);
-struct nfsio *nfsio_connect(const char *url, int child, int initial_xid, int xid_stride);
+void nlm_connect_cb(struct rpc_context *rpc, int status, void *data, void *private_data);
+struct nfsio *nfsio_connect(const char *url, int child, int initial_xid, int xid_stride, int nlm);
 
 /* The following definitions come from linux_scsi.c  */
 

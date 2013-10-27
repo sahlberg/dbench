@@ -62,7 +62,7 @@ static gzFile *open_loadfile(void)
 {
 	gzFile		*f;
 
-	if ((f = gzopen(options.loadfile, "rt")) != NULL)
+	if ((f = (gzFile *)gzopen(options.loadfile, "rt")) != NULL)
 		return f;
 
 	fprintf(stderr,
@@ -396,6 +396,8 @@ static void process_opts(int argc, const char **argv)
 		  "server", NULL },
 		{ "nfs",  0, POPT_ARG_STRING, &options.nfs, 0, 
 		  "nfs url", NULL },
+		{ "enable-nlm", 0, POPT_ARG_NONE, &options.nlm, 0,
+		  "Enable support for NFS byte range locking commands", NULL},
 		{ "run-once", 0, POPT_ARG_NONE, &options.run_once, 0,
 		  "Stop once reaching the end of the loadfile", NULL},
 		{ "scsi",  0, POPT_ARG_STRING, &options.scsi_dev, 0, 

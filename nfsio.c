@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include <nfsc/libnfs.h>
 #include <nfsc/libnfs-raw.h>
+#include <nfsc/libnfs-raw-nlm.h>
 #include <nfsc/libnfs-raw-nfs.h>
 #include "libnfs-glue.h"
 
@@ -84,7 +85,7 @@ static void nfs3_setup(struct child_struct *child)
 
 	srandom(getpid() ^ time(NULL));
 	url = get_next_nfs_url(options.nfs, child->id);
-	child->private = nfsio_connect(url, child->id, global_random + child->id, child->num_clients);
+	child->private = nfsio_connect(url, child->id, global_random + child->id, child->num_clients, options.nlm);
 	free(url);
 	if (child->private == NULL) {
 		child->failed = 1;
@@ -425,6 +426,51 @@ static void nfs3_link(struct dbench_op *op)
 	}
 }
 
+static void nfs3_lock(struct dbench_op *op)
+{
+	off_t offset = op->params[0];
+	int len = op->params[1];
+	nlmstat4 res;
+
+	res = nfsio_lock(op->child->private, op->fname, offset, len);
+	if (!check_status(res, op->status)) {
+		printf("[%d] LOCK \"%s\" %d-%d failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, op->fname2,
+		       res, op->status);
+		failed(op->child);
+	}
+}
+
+static void nfs3_unlock(struct dbench_op *op)
+{
+	off_t offset = op->params[0];
+	int len = op->params[1];
+	nlmstat4 res;
+
+	res = nfsio_unlock(op->child->private, op->fname, offset, len);
+	if (!check_status(res, op->status)) {
+		printf("[%d] UNLOCK \"%s\" %d-%d failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, op->fname2,
+		       res, op->status);
+		failed(op->child);
+	}
+}
+
+static void nfs3_test(struct dbench_op *op)
+{
+	off_t offset = op->params[0];
+	int len = op->params[1];
+	nlmstat4 res;
+
+	res = nfsio_test(op->child->private, op->fname, offset, len);
+	if (!check_status(res, op->status)) {
+		printf("[%d] TEST \"%s\" %d-%d failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, op->fname2,
+		       res, op->status);
+		failed(op->child);
+	}
+}
+
 static void nfs3_rename(struct dbench_op *op)
 {
 	nfsstat3 res;
@@ -448,7 +494,7 @@ static int nfs3_init(void)
 		return 1;
 	}
 	url = get_next_nfs_url(options.nfs, 0);
-	handle = nfsio_connect(url, 0, global_random, 1);
+	handle = nfsio_connect(url, 0, global_random, 1, 0);
 	free(url);
 	if (handle == NULL) {
 		printf("Failed to connect to NFS server\n");
@@ -479,6 +525,10 @@ static struct backend_op ops[] = {
 	{ "RMDIR3",   nfs3_rmdir },
 	{ "SYMLINK3", nfs3_symlink },
 	{ "WRITE3",   nfs3_write },
+
+	{ "LOCK4",    nfs3_lock },
+	{ "UNLOCK4",  nfs3_unlock },
+	{ "TEST4",    nfs3_test },
 	{ NULL, NULL}
 };
 

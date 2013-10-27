@@ -1,5 +1,5 @@
 
-struct nfsio *nfsio_connect(const char *url, int child, int initial_xid, int xid_stride);
+struct nfsio *nfsio_connect(const char *url, int child, int initial_xid, int xid_stride, int nlm);
 void nfsio_disconnect(struct nfsio *nfsio);
 nfsstat3 nfsio_getattr(struct nfsio *nfsio, const char *name, fattr3 *attributes);
 nfsstat3 nfsio_lookup(struct nfsio *nfsio, const char *name, fattr3 *attributes);
@@ -9,6 +9,9 @@ nfsstat3 nfsio_remove(struct nfsio *nfsio, const char *name);
 nfsstat3 nfsio_write(struct nfsio *nfsio, const char *name, char *buf, uint64_t offset, int len, int stable);
 nfsstat3 nfsio_commit(struct nfsio *nfsio, const char *name);
 nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf, uint64_t offset, int len);
+nlmstat4 nfsio_lock(struct nfsio *nfsio, const char *name, uint64_t offset, int len);
+nlmstat4 nfsio_unlock(struct nfsio *nfsio, const char *name, uint64_t offset, int len);
+nlmstat4 nfsio_test(struct nfsio *nfsio, const char *name, uint64_t offset, int len);
 nfsstat3 nfsio_fsinfo(struct nfsio *nfsio);
 nfsstat3 nfsio_fsstat(struct nfsio *nfsio);
 nfsstat3 nfsio_pathconf(struct nfsio *nfsio, char *name);

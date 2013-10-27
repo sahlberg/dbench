@@ -149,6 +149,7 @@ struct options {
 	int skip_cleanup;
 	int per_client_results;
 	const char *nfs;
+	int nlm;
 	const char *server;
 	int run_once;
 	int allow_scsi_writes;

@@ -37,6 +37,7 @@
 #include <nfsc/libnfs.h>
 #include <nfsc/libnfs-raw.h>
 #include <nfsc/libnfs-raw-nfs.h>
+#include <nfsc/libnfs-raw-nlm.h>
 #include "libnfs-glue.h"
 
 #define discard_const(ptr) ((void *)((intptr_t)(ptr)))
@@ -58,6 +59,8 @@ typedef struct _tree_t {
 
 struct nfsio {
 	struct nfs_context *nfs;
+	struct rpc_context *nlm;
+	int child;
 	unsigned long xid;
 	int xid_stride;
 	tree_t *fhandles;
@@ -388,27 +391,31 @@ struct nfsio_cb_data {
 	int status;
 };
 
-static void nfsio_wait_for_reply(struct nfs_context *nfs, struct nfsio_cb_data *cb_data)
+static void nfsio_wait_for_rpc_reply(struct rpc_context *rpc, struct nfsio_cb_data *cb_data)
 {
 	struct pollfd pfd;
 
 	while (!cb_data->is_finished) {
 
-		pfd.fd = nfs_get_fd(nfs);
-		pfd.events = nfs_which_events(nfs);
+		pfd.fd = rpc_get_fd(rpc);
+		pfd.events = rpc_which_events(rpc);
 		if (poll(&pfd, 1, -1) < 0) {
-			nfs_set_error(nfs, "Poll failed");
+			rpc_set_error(rpc, "Poll failed");
 			cb_data->status = -EIO;
 			break;
 		}
-		if (nfs_service(nfs, pfd.revents) < 0) {
-			nfs_set_error(nfs, "nfs_service failed");
+		if (rpc_service(rpc, pfd.revents) < 0) {
+			rpc_set_error(rpc, "nfs_service failed");
 			cb_data->status = -EIO;
 			break;
 		}
 	}
 }
 
+static void nfsio_wait_for_nfs_reply(struct nfs_context *nfs, struct nfsio_cb_data *cb_data)
+{
+	return nfsio_wait_for_rpc_reply(nfs_get_rpc_context(nfs), cb_data);
+}
 
 void nfsio_disconnect(struct nfsio *nfsio)
 {
@@ -416,14 +423,23 @@ void nfsio_disconnect(struct nfsio *nfsio)
 		nfs_destroy_context(nfsio->nfs);
 		nfsio->nfs = NULL;
 	}
+	if (nfsio->nlm != NULL) {
+		rpc_destroy_context(nfsio->nlm);
+		nfsio->nlm = NULL;
+	}
 
 	free(nfsio);
 }
 
 
+void nlm_connect_cb(struct rpc_context *rpc, int status, void *data, void *private_data)
+{
+	struct nfsio_cb_data *cb_data = private_data;
 
+	cb_data->is_finished = 1;
+}
 
-struct nfsio *nfsio_connect(const char *url, int child, int initial_xid, int xid_stride)
+struct nfsio *nfsio_connect(const char *url, int child, int initial_xid, int xid_stride, int nlm)
 {
 	struct nfsio *nfsio;
 	char *tmp, *server, *export;
@@ -457,7 +473,7 @@ struct nfsio *nfsio_connect(const char *url, int child, int initial_xid, int xid
 		free(tmp);
 		return NULL;
 	}
-	bzero(nfsio, sizeof(struct nfsio));
+	memset(nfsio, 0, sizeof(struct nfsio));
 
 	nfsio->xid        = initial_xid;
 	nfsio->xid_stride = xid_stride;
@@ -469,9 +485,9 @@ struct nfsio *nfsio_connect(const char *url, int child, int initial_xid, int xid
 		free(tmp);
 		return NULL;
 	}
-	free(tmp);
 
-	asprintf(&child_name, "dbench-child-%d", child);
+	nfsio->child = child;
+	asprintf(&child_name, "dbench-child-%d", nfsio->child);
 	nfs_set_auth(nfsio->nfs, libnfs_authunix_create(child_name, getuid(), getpid(), 0, NULL));
 	free(child_name);
 
@@ -480,6 +496,28 @@ struct nfsio *nfsio_connect(const char *url, int child, int initial_xid, int xid
 			      root_fh->data.data_val,
 			      root_fh->data.data_len,
 			      0);
+	if (nlm) {
+		struct nfsio_cb_data cb_data;
+
+		memset(&cb_data, 0, sizeof(cb_data));
+		cb_data.nfsio = nfsio;
+
+		nfsio->nlm = rpc_init_context();
+		if (nfsio->nlm == NULL) {
+			printf("failed to init nlm context\n");
+			free(tmp);
+			exit(10);
+		}
+		if (rpc_connect_program_async(nfsio->nlm, server, 100021, 4,
+					      nlm_connect_cb, &cb_data) != 0) {
+			printf("Failed to start NLM connection. %s\n",
+				rpc_get_error(nfsio->nlm));
+			free(tmp);
+			exit(10);
+		}
+		nfsio_wait_for_rpc_reply(nfsio->nlm, &cb_data);
+	}
+	free(tmp);
 
 	return nfsio;
 }
@@ -530,7 +568,7 @@ nfsstat3 nfsio_getattr(struct nfsio *nfsio, const char *name, fattr3 *attributes
 		fprintf(stderr, "failed to send getattr\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -605,7 +643,7 @@ nfsstat3 nfsio_lookup(struct nfsio *nfsio, const char *name, fattr3 *attributes)
 			"in nfsio_lookup\n", tmp_name);
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -654,7 +692,7 @@ nfsstat3 nfsio_access(struct nfsio *nfsio, const char *name, uint32_t desired, u
 		fprintf(stderr, "failed to send access\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -737,7 +775,7 @@ nfsstat3 nfsio_create(struct nfsio *nfsio, const char *name)
 		fprintf(stderr, "failed to send create\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -800,7 +838,7 @@ nfsstat3 nfsio_remove(struct nfsio *nfsio, const char *name)
 		fprintf(stderr, "failed to send remove\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -844,7 +882,7 @@ nfsstat3 nfsio_write(struct nfsio *nfsio, const char *name, char *buf, uint64_t 
 		fprintf(stderr, "failed to send write\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -888,11 +926,183 @@ nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf _U_, uint64
 		fprintf(stderr, "failed to send read\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
 
+void nfsio_lock_cb(struct rpc_context *rpc, int status, void *data, void *private_data)
+{
+	struct NLM4_LOCKres *NLM4_LOCKres = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (NLM4_LOCKres->status != NLM4_GRANTED) {
+		cb_data->status = NLM4_LOCKres->status;
+		return;
+	}
+
+	cb_data->status = NLM4_GRANTED;
+}
+
+nlmstat4 nfsio_lock(struct nfsio *nfsio, const char *name, uint64_t offset, int len)
+{
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
+	struct NLM4_LOCKargs NLM4_LOCKargs;
+	uint32_t cookie = time(NULL) ^ getpid();
+
+	fh = lookup_fhandle(nfsio, name, NULL);
+	if (fh == NULL) {
+		fprintf(stderr, "failed to fetch handle in nfsio_lock\n");
+		return NFS3ERR_SERVERFAULT;
+	}
+
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
+
+	memset(&NLM4_LOCKargs, 0, sizeof(NLM4_LOCKargs));
+	NLM4_LOCKargs.cookie.data.data_len  = sizeof(cookie);
+	NLM4_LOCKargs.cookie.data.data_val  = (char *)&cookie;
+	NLM4_LOCKargs.block                 = 0;
+	NLM4_LOCKargs.exclusive             = 1;
+	NLM4_LOCKargs.lock.caller_name      = "dbench";
+	NLM4_LOCKargs.lock.fh.data.data_len = fh->data.data_len;
+	NLM4_LOCKargs.lock.fh.data.data_val = fh->data.data_val;
+	NLM4_LOCKargs.lock.oh               = "dbench";
+	NLM4_LOCKargs.lock.svid             = nfsio->child;
+	NLM4_LOCKargs.lock.l_offset = offset;
+	NLM4_LOCKargs.lock.l_len    = len;
+	NLM4_LOCKargs.reclaim = 0;
+	NLM4_LOCKargs.state = 0;
+
+	if (rpc_nlm4_lock_async(nfsio->nlm, nfsio_lock_cb,
+			&NLM4_LOCKargs, &cb_data)) {
+		fprintf(stderr, "failed to send lock\n");
+		return NFS3ERR_SERVERFAULT;
+	}
+	nfsio_wait_for_rpc_reply(nfsio->nlm, &cb_data);
+
+	return cb_data.status;
+}
+
+void nfsio_unlock_cb(struct rpc_context *rpc, int status, void *data, void *private_data)
+{
+	struct NLM4_UNLOCKres *NLM4_UNLOCKres = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (NLM4_UNLOCKres->status != NLM4_GRANTED) {
+		cb_data->status = NLM4_UNLOCKres->status;
+		return;
+	}
+
+	cb_data->status = NLM4_GRANTED;
+}
+
+nlmstat4 nfsio_unlock(struct nfsio *nfsio, const char *name, uint64_t offset, int len)
+{
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
+	struct NLM4_UNLOCKargs NLM4_UNLOCKargs;
+	uint32_t cookie = time(NULL) ^ getpid();
+
+	fh = lookup_fhandle(nfsio, name, NULL);
+	if (fh == NULL) {
+		fprintf(stderr, "failed to fetch handle in nfsio_unlock\n");
+		return NFS3ERR_SERVERFAULT;
+	}
+
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
+
+	memset(&NLM4_UNLOCKargs, 0, sizeof(NLM4_UNLOCKargs));
+	NLM4_UNLOCKargs.cookie.data.data_len  = sizeof(cookie);
+	NLM4_UNLOCKargs.cookie.data.data_val  = (char *)&cookie;
+	NLM4_UNLOCKargs.lock.caller_name      = "dbench";
+	NLM4_UNLOCKargs.lock.fh.data.data_len = fh->data.data_len;
+	NLM4_UNLOCKargs.lock.fh.data.data_val = fh->data.data_val;
+	NLM4_UNLOCKargs.lock.oh               = "dbench";
+	NLM4_UNLOCKargs.lock.svid             = nfsio->child;
+	NLM4_UNLOCKargs.lock.l_offset = offset;
+	NLM4_UNLOCKargs.lock.l_len    = len;
+
+	if (rpc_nlm4_unlock_async(nfsio->nlm, nfsio_unlock_cb,
+			&NLM4_UNLOCKargs, &cb_data)) {
+		fprintf(stderr, "failed to send unlock\n");
+		return NFS3ERR_SERVERFAULT;
+	}
+	nfsio_wait_for_rpc_reply(nfsio->nlm, &cb_data);
+
+	return cb_data.status;
+}
+
+void nfsio_test_cb(struct rpc_context *rpc, int status, void *data, void *private_data)
+{
+	struct NLM4_TESTres *NLM4_TESTres = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (NLM4_TESTres->reply.status != NLM4_GRANTED) {
+		cb_data->status = NLM4_TESTres->reply.status;
+		return;
+	}
+
+	cb_data->status = NLM4_GRANTED;
+}
+
+nlmstat4 nfsio_test(struct nfsio *nfsio, const char *name, uint64_t offset, int len)
+{
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
+	struct NLM4_TESTargs NLM4_TESTargs;
+	uint32_t cookie = time(NULL) ^ getpid();
+
+	fh = lookup_fhandle(nfsio, name, NULL);
+	if (fh == NULL) {
+		fprintf(stderr, "failed to fetch handle in nfsio_test\n");
+		return NFS3ERR_SERVERFAULT;
+	}
+
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
+
+	memset(&NLM4_TESTargs, 0, sizeof(NLM4_TESTargs));
+	NLM4_TESTargs.cookie.data.data_len  = sizeof(cookie);
+	NLM4_TESTargs.cookie.data.data_val  = (char *)&cookie;
+	NLM4_TESTargs.exclusive             = 1;
+	NLM4_TESTargs.lock.caller_name      = "dbench";
+	NLM4_TESTargs.lock.fh.data.data_len = fh->data.data_len;
+	NLM4_TESTargs.lock.fh.data.data_val = fh->data.data_val;
+	NLM4_TESTargs.lock.oh               = "dbench";
+	NLM4_TESTargs.lock.svid             = nfsio->child;
+	NLM4_TESTargs.lock.l_offset = offset;
+	NLM4_TESTargs.lock.l_len    = len;
+
+	if (rpc_nlm4_test_async(nfsio->nlm, nfsio_test_cb,
+			&NLM4_TESTargs, &cb_data)) {
+		fprintf(stderr, "failed to send test\n");
+		return NFS3ERR_SERVERFAULT;
+	}
+	nfsio_wait_for_rpc_reply(nfsio->nlm, &cb_data);
+
+	return cb_data.status;
+}
 static void nfsio_commit_cb(struct rpc_context *rpc _U_, int status,
        void *data, void *private_data) {
 	struct COMMIT3res *COMMIT3res = data;
@@ -932,7 +1142,7 @@ nfsstat3 nfsio_commit(struct nfsio *nfsio, const char *name)
 		fprintf(stderr, "failed to send commit\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -976,7 +1186,7 @@ nfsstat3 nfsio_fsinfo(struct nfsio *nfsio)
 		fprintf(stderr, "failed to send fsinfo\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -1021,7 +1231,7 @@ nfsstat3 nfsio_fsstat(struct nfsio *nfsio)
 		fprintf(stderr, "failed to send fsstat\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -1065,7 +1275,7 @@ nfsstat3 nfsio_pathconf(struct nfsio *nfsio, char *name)
 		fprintf(stderr, "failed to send pathconf\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -1147,7 +1357,7 @@ nfsstat3 nfsio_symlink(struct nfsio *nfsio, const char *old, const char *new)
 		fprintf(stderr, "failed to send symlink\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -1214,7 +1424,7 @@ nfsstat3 nfsio_link(struct nfsio *nfsio, const char *old, const char *new)
 		fprintf(stderr, "failed to send link\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -1261,7 +1471,7 @@ nfsstat3 nfsio_readlink(struct nfsio *nfsio, char *name)
 		fprintf(stderr, "failed to send readlink\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -1324,7 +1534,7 @@ nfsstat3 nfsio_rmdir(struct nfsio *nfsio, const char *name)
 		fprintf(stderr, "failed to send rmdir\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -1405,7 +1615,7 @@ nfsstat3 nfsio_mkdir(struct nfsio *nfsio, const char *name)
 		fprintf(stderr, "failed to send mkdir\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -1446,7 +1656,7 @@ static void nfsio_readdirplus_cb(struct rpc_context *rpc _U_, int status,
 			return;
 		}
 		cb_data->is_finished = 0;
-		nfsio_wait_for_reply(cb_data->nfsio->nfs, cb_data);
+		nfsio_wait_for_nfs_reply(cb_data->nfsio->nfs, cb_data);
 	}
 
 	/* Record the dir/file name to filehandle mappings */
@@ -1506,7 +1716,7 @@ nfsstat3 nfsio_readdirplus(struct nfsio *nfsio, const char *name, nfs3_dirent_cb
 		fprintf(stderr, "failed to send readdirplus\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }
@@ -1604,7 +1814,7 @@ nfsstat3 nfsio_rename(struct nfsio *nfsio, const char *old, const char *new)
 		fprintf(stderr, "failed to send rename\n");
 		return NFS3ERR_SERVERFAULT;
 	}
-	nfsio_wait_for_reply(nfsio->nfs, &cb_data);
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
 
 	return cb_data.status;
 }

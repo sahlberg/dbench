@@ -130,3 +130,7 @@
 3.240 READ3 "/clients/client1/test.file" 2048 2048 0x00000000
 3.250 READ3 "/clients/client1/test.file" 2048 2048 0x00000000
 3.260 READ3 "/clients/client1/test.file" 2048 2048 0x00000000
+
+4.000 LOCK4 "/foo.dbench" 5 15 0x00000000
+4.000 UNLOCK4 "/foo.dbench" 5 15 0x00000000
+4.000 TEST4 "/foo.dbench" 5 15 0x00000000

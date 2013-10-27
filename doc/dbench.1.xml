@@ -36,6 +36,7 @@
 		<arg choice="opt">--iscsi-initiatorname=&lt;iqn name&gt;</arg>
 
 		<arg choice="opt">--nfs=&lt;nfs url&gt;</arg>
+		<arg choice="opt">--enable-nlm</arg>
 
 		<arg choice="opt">--smb-share=&lt;//SERVER/SHARE&gt;</arg>
 		<arg choice="opt">--smb-user=&lt;user%password&gt;</arg>
@@ -229,6 +230,20 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry><term>--enable-nlm</term>
+        <listitem>
+          <para>
+	    This activates support for the NLM file locking protocol.
+	    When this is enabled each client will connect a second connection
+	    to the server for the NLM service, and the LOCK4, UNLOCK4 and TEST4
+	    command become available.
+	  </para>
+          <para>
+	    This argument is only valid with NFS backend.
+	  </para>
+        </listitem>
+      </varlistentry>
+
       <varlistentry><term>--scsi=&lt;SCSI device&gt;</term>
         <listitem>
           <para>
@@ -408,6 +423,8 @@ Examples :
 You can also use '+' on its own which means to take the previous value and just adding an offset to it :
 Examples :
 '+4096'    Take the previous value for this argument and add 4096 to it.
+'+child'   Take the previous value for this argument and add the child id to it.
+'+num_childred' Take the previous value for this argument and add the number of childred to it.
 
 Example: Sequential read of 100x 4kb
 READ3 "/foo.dbench" 0 4096 0x00000000
@@ -668,6 +685,58 @@ READ3 "/foo.dbench" +4096 4096 0x00000000
 	    Example:
 	    <screen format="linespecific">
 	      0.000 WRITE3 "/some-file" 0 4096 2 0x00000000
+	    </screen>
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry><term>&lt;timing&gt; LOCK4 &lt;path&gt; &lt;offset&gt; &lt;length&gt; &lt;status&gt;</term>
+        <listitem>
+          <para>
+	    Send a NLMv4 LOCK4 command to the server.
+	  </para>
+          <para>
+	    <screen format="linespecific">
+Example:
+0.000 LOCK4 "/some-file" 0 4096 0x00000000
+
+
+Example: Hammer the lock server to death
+UNLOCK4 "/foo.dbench" 0 0 0x00000000
+LOCK4 "/foo.dbench" +child 1 0x00000000
+REPEAT 10000000
+LOCK4 "/foo.dbench" +num_children 1 0x00000000
+UNLOCK4 "/foo.dbench" 0 0 0x00000000
+
+dbench -B nfs --nfs=nfs://10.0.0.1/data/tmp,nfs://10.0.0.2/data/tmp --loadfile=nfs.txt --warmup=0 --skip-cleanup --enable-nlm --run-once 10
+	    </screen>
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry><term>&lt;timing&gt; UNLOCK4 &lt;path&gt; &lt;offset&gt; &lt;length&gt; &lt;status&gt;</term>
+        <listitem>
+          <para>
+	    Send a NLMv4 UNLOCK4 command to the server.
+	  </para>
+          <para>
+	    Example:
+	    <screen format="linespecific">
+	      0.000 UNLOCK4 "/some-file" 0 4096 0x00000000
+	    </screen>
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry><term>&lt;timing&gt; TEST4 &lt;path&gt; &lt;offset&gt; &lt;length&gt; &lt;status&gt;</term>
+        <listitem>
+          <para>
+	    Send a NLMv4 TEST4 command to the server.
+	  </para>
+          <para>
+	    Example:
+	    <screen format="linespecific">
+	      0.000 TEST4 "/some-file" 0 4096 0x00000000
 	    </screen>
           </para>
         </listitem>

@@ -1,0 +1,6 @@
+UNLOCK4 "/foo.dbench" 0 0 0x00000000
+LOCK4 "/foo.dbench" +child 1 0x00000000
+REPEAT 10000000
+LOCK4 "/foo.dbench" +num_children 1 0x00000000
+UNLOCK4 "/foo.dbench" 0 0 0x00000000
+

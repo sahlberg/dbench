@@ -2,12 +2,12 @@
 .\"     Title: dbench
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 10/21/2013
+.\"      Date: 10/26/2013
 .\"    Manual: dbench: a multiprotocol loadtester.
 .\"    Source: dbench
 .\"  Language: English
 .\"
-.TH "DBENCH" "1" "10/21/2013" "dbench" "dbench: a multiprotocol loadte"
+.TH "DBENCH" "1" "10/26/2013" "dbench" "dbench: a multiprotocol loadte"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -33,7 +33,7 @@ dbench \- Utility to perform loadtesting for multiple protocols\&.
 .HP \w'\fBdbench\ [\ OPTIONS\ ]\ <num\-clients>\fR\ 'u
 \fBdbench [ OPTIONS ] <num\-clients>\fR
 .HP \w'\fBdbench\fR\ 'u
-\fBdbench\fR [\-B\ \-\-backend=<backend>] [\-t\ \-\-timelimit=<seconds>] [\-\-warmup=<seconds>] [\-c\ \-\-loadfile=<filename>] [\-R\ \-\-targe\-trate=<throughput>] [\-\-trunc\-io=<size>] [\-\-run\-once] [\-\-skip\-cleanup] [\-\-machine\-readable] [\-\-iscsi=<iSCSI\ url>] [\-\-iscsi\-initiatorname=<iqn\ name>] [\-\-nfs=<nfs\ url>] [\-\-smb\-share=<//SERVER/SHARE>] [\-\-smb\-user=<user%password>] [\-\-scsi=<device>] [\-\-allow\-scsi\-writes]
+\fBdbench\fR [\-B\ \-\-backend=<backend>] [\-t\ \-\-timelimit=<seconds>] [\-\-warmup=<seconds>] [\-c\ \-\-loadfile=<filename>] [\-R\ \-\-targe\-trate=<throughput>] [\-\-trunc\-io=<size>] [\-\-run\-once] [\-\-skip\-cleanup] [\-\-machine\-readable] [\-\-iscsi=<iSCSI\ url>] [\-\-iscsi\-initiatorname=<iqn\ name>] [\-\-nfs=<nfs\ url>] [\-\-enable\-nlm] [\-\-smb\-share=<//SERVER/SHARE>] [\-\-smb\-user=<user%password>] [\-\-scsi=<device>] [\-\-allow\-scsi\-writes]
 .SH "DESCRIPTION"
 .PP
 Dbench is a utility to loadtest network server\&. Dbench currently supports iSCSI, NFSv3, SCSI and SMB\&.
@@ -144,6 +144,13 @@ This argument is only valid with NFS backend\&.
 .RE
 .\}
 .sp
+.RE
+.PP
+\-\-enable\-nlm
+.RS 4
+This activates support for the NLM file locking protocol\&. When this is enabled each client will connect a second connection to the server for the NLM service, and the LOCK4, UNLOCK4 and TEST4 command become available\&.
+.sp
+This argument is only valid with NFS backend\&.
 .RE
 .PP
 \-\-scsi=<SCSI device>
@@ -296,6 +303,8 @@ Examples :
 You can also use \*(Aq+\*(Aq on its own which means to take the previous value and just adding an offset to it :
 Examples :
 \*(Aq+4096\*(Aq    Take the previous value for this argument and add 4096 to it\&.
+\*(Aq+child\*(Aq   Take the previous value for this argument and add the child id to it\&.
+\*(Aq+num_childred\*(Aq Take the previous value for this argument and add the number of childred to it\&.
 
 Example: Sequential read of 100x 4kb
 READ3 "/foo\&.dbench" 0 4096 0x00000000
@@ -643,6 +652,74 @@ Example:
 .\}
 .nf
 	      0\&.000 WRITE3 "/some\-file" 0 4096 2 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> LOCK4 <path> <offset> <length> <status>
+.RS 4
+Send a NLMv4 LOCK4 command to the server\&.
+.sp
+
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+Example:
+0\&.000 LOCK4 "/some\-file" 0 4096 0x00000000
+
+
+Example: Hammer the lock server to death
+UNLOCK4 "/foo\&.dbench" 0 0 0x00000000
+LOCK4 "/foo\&.dbench" +child 1 0x00000000
+REPEAT 10000000
+LOCK4 "/foo\&.dbench" +num_children 1 0x00000000
+UNLOCK4 "/foo\&.dbench" 0 0 0x00000000
+
+dbench \-B nfs \-\-nfs=nfs://10\&.0\&.0\&.1/data/tmp,nfs://10\&.0\&.0\&.2/data/tmp \-\-loadfile=nfs\&.txt \-\-warmup=0 \-\-skip\-cleanup \-\-enable\-nlm \-\-run\-once 10
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> UNLOCK4 <path> <offset> <length> <status>
+.RS 4
+Send a NLMv4 UNLOCK4 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 UNLOCK4 "/some\-file" 0 4096 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> TEST4 <path> <offset> <length> <status>
+.RS 4
+Send a NLMv4 TEST4 command to the server\&.
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 TEST4 "/some\-file" 0 4096 0x00000000
 	    
 .fi
 .if n \{\

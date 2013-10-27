@@ -72,6 +72,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_docdir}/dbench/loadfiles/client.txt
 %{_docdir}/dbench/loadfiles/nfs.txt
 %{_docdir}/dbench/loadfiles/nfs_2.txt
+%{_docdir}/dbench/loadfiles/nfs_lock.load
 %{_docdir}/dbench/loadfiles/smb.txt
 %{_docdir}/dbench/loadfiles/smb_1.txt
 %{_docdir}/dbench/loadfiles/smb_2.txt

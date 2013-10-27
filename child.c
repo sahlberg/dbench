@@ -112,14 +112,22 @@ static void finish_op(struct child_struct *child, struct op *op)
  * a number, in which case we reuse the number from the previous line in the
  * loadfile and add <number> to it :
  * '+1024' : add 1024 to the value from the previous line in the loadfile
+ * '+child' add child-id. Child-id is 0 for the first child.
+ * '+num_childred' add 'number of child processes'.
  */
-static uint64_t parse_special(const char *fmt, uint64_t prev_val)
+static uint64_t parse_special(struct child_struct *child, const char *fmt, uint64_t prev_val)
 {
 	char q;
 	uint64_t num;
 	uint64_t val;
 
 	if (*fmt == '+') {
+		if(!strcmp(fmt+1, "num_children")) {
+			return prev_val + options.nprocs*options.clients_per_process;
+		}
+		if(!strcmp(fmt+1, "child")) {
+			return prev_val + child->id;
+		}
 		val = strtoll(fmt+1, NULL, 0);
 		return prev_val + val;
 	}
@@ -190,7 +198,7 @@ static void child_op(struct child_struct *child, const char *opname,
 		switch (params[i][0]) {
 		case '*':
 		case '+':
-			op.params[i] = parse_special(params[i], prev_op.params[i]);
+			op.params[i] = parse_special(child, params[i], prev_op.params[i]);
 			break;
 		default:
 			op.params[i] = params[i]?ival(params[i]):0;
