@@ -107,7 +107,7 @@ if test "$ac_cv_have_popt" = yes ; then
   AC_MSG_RESULT(yes)
 else
   AC_MSG_RESULT(no)
-  AC_MSG_NOTICE(You need libpopt to compile DBENCH. Install the libpopt-dev package.)
+  AC_MSG_NOTICE(You need the popt library to compile DBENCH. Install the popt development package.)
   exit
 fi
 
