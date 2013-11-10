@@ -351,7 +351,9 @@ static int smb_init(void)
 	}
 	smbc_set_context(ctx);
 
-	asprintf(&str, "smb://%s/%s", smb_server, smb_share);
+	if (asprintf(&str, "smb://%s/%s", smb_server, smb_share) < 0) {
+		exit(1);
+	}
 	ret = smbc_opendir(str);
 	free(str);
 
@@ -399,7 +401,9 @@ static void smb_mkdir(struct dbench_op *op)
 
 	dir = op->fname + 2;
 
-	asprintf(&str, "smb://%s/%s/%s", smb_server, smb_share, dir);
+	if (asprintf(&str, "smb://%s/%s/%s", smb_server, smb_share, dir) < 0) {
+		exit(1);
+	}
 
 	ret = smbc_mkdir(str, 0777);
 	free(str);
@@ -417,7 +421,9 @@ static void smb_rmdir(struct dbench_op *op)
 	int ret;
 
 	dir = op->fname + 2;
-	asprintf(&str, "smb://%s/%s/%s", smb_server, smb_share, dir);
+	if (asprintf(&str, "smb://%s/%s/%s", smb_server, smb_share, dir) < 0) {
+		exit(1);
+	}
 	ret = smbc_rmdir(str);
 	free(str);
 
@@ -457,7 +463,9 @@ static void smb_open(struct dbench_op *op)
 	}
 
 	file = op->fname + 2;
-	asprintf(&str, "smb://%s/%s/%s", smb_server, smb_share, file);
+	if (asprintf(&str, "smb://%s/%s/%s", smb_server, smb_share, file) < 0) {
+		exit(1);
+	}
 
 	hnd.fd = smbc_open(str, flags, 0777);
 	free(str);
@@ -577,7 +585,9 @@ static void smb_unlink(struct dbench_op *op)
 	int ret;
 
 	path = op->fname + 2;
-	asprintf(&str, "smb://%s/%s/%s", smb_server, smb_share, path);
+	if (asprintf(&str, "smb://%s/%s/%s", smb_server, smb_share, path) < 0) {
+		exit(1);
+	}
 
 	ret = smbc_unlink(str);
 	free(str);
@@ -602,7 +612,9 @@ static void recursive_delete_tree(struct dbench_op *op, const char *url)
 	while((dirent = smbc_readdir(dir))) {
 		char *path;
 
-		asprintf(&path, "%s/%s", url, dirent->name);
+		if (asprintf(&path, "%s/%s", url, dirent->name) < 0) {
+			exit(1);
+		}
 		if (!strcmp(dirent->name, ".")) {
 			continue;
 		}
@@ -629,7 +641,9 @@ static void smb_readdir(struct dbench_op *op)
 	int dir;
 
 	path = op->fname + 2;
-	asprintf(&url, "smb://%s/%s/%s", smb_server, smb_share, path);
+	if (asprintf(&url, "smb://%s/%s/%s", smb_server, smb_share, path) < 0) {
+		exit(1);
+	}
 
 	dir = smbc_opendir(url);
 	free(url);
@@ -646,7 +660,9 @@ static void smb_deltree(struct dbench_op *op)
 	char *url;
 
 	path = op->fname + 2;
-	asprintf(&url, "smb://%s/%s/%s", smb_server, smb_share, path);
+	if (asprintf(&url, "smb://%s/%s/%s", smb_server, smb_share, path) < 0) {
+		exit(1);
+	}
 	recursive_delete_tree(op, url);
 	free(url);
 }
@@ -657,7 +673,9 @@ static void smb_cleanup(struct child_struct *child)
 	char *url;
 	struct dbench_op fake_op;
 
-	asprintf(&url, "smb://%s/%s", smb_server, smb_share);
+	if (asprintf(&url, "smb://%s/%s", smb_server, smb_share) < 0) {
+		exit(1);
+	}
 	recursive_delete_tree(&fake_op, url);
 	free(url);
 

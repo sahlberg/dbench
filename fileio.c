@@ -509,14 +509,17 @@ static void fio_deltree(struct dbench_op *op)
 	d = opendir(op->fname);
 	if (d == NULL) return;
 
-	for (de=readdir(d);de;de=readdir(d)) {
+	for (de = readdir(d); de; de = readdir(d)) {
 		struct stat st;
 		char *fname = NULL;
+
 		if (strcmp(de->d_name, ".") == 0 ||
 		    strcmp(de->d_name, "..") == 0) {
 			continue;
 		}
-		asprintf(&fname, "%s/%s", op->fname, de->d_name);
+		if (asprintf(&fname, "%s/%s", op->fname, de->d_name) < 0) {
+			exit(1);
+		}
 		if (fname == NULL) {
 			printf("Out of memory\n");
 			exit(1);
@@ -546,13 +549,18 @@ static void fio_cleanup(struct child_struct *child)
 
 	ZERO_STRUCT(op);
 
-	asprintf(&dname, "%s/clients/client%d", child->directory, child->id);
+	if (asprintf(&dname, "%s/clients/client%d", child->directory,
+		     child->id) < 0) {
+		exit(1);
+	}
 	op.child = child;
 	op.fname = dname;
 	fio_deltree(&op);
 	free(dname);
 
-	asprintf(&dname, "%s%s", child->directory, "/clients");
+	if (asprintf(&dname, "%s%s", child->directory, "/clients") < 0) {
+		exit(1);
+	}
 	rmdir(dname);
 	free(dname);
 }

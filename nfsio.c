@@ -67,7 +67,9 @@ static void nfs3_cleanup(struct child_struct *child)
 	struct dbench_op op;
 	ZERO_STRUCT(op);
 
-	asprintf(&dname, "/clients/client%d", child->id);
+	if (asprintf(&dname, "/clients/client%d", child->id) < 0) {
+		exit(1);
+	}
 	op.fname = dname;
 	op.child = child;
 	nfs3_deltree(&op);
@@ -119,7 +121,9 @@ static void dirent_cb(struct entryplus3 *e, void *private_data)
 		return;
 	}
 
-	asprintf(&objname, "%s/%s", cbd->dirname, e->name);
+	if (asprintf(&objname, "%s/%s", cbd->dirname, e->name) < 0) {
+		exit(1);
+	}
 	if (objname == NULL) {
 		printf("Failed to talloc ne object name in dirent_cb\n");
 		exit(10);

@@ -486,8 +486,11 @@ struct nfsio *nfsio_connect(const char *url, int child, int initial_xid, int xid
 	}
 
 	nfsio->child = child;
-	asprintf(&child_name, "dbench-child-%d", nfsio->child);
-	nfs_set_auth(nfsio->nfs, libnfs_authunix_create(child_name, getuid(), getpid(), 0, NULL));
+	if (asprintf(&child_name, "dbench-child-%d", nfsio->child) < 0) {
+		exit(1);
+	}
+	nfs_set_auth(nfsio->nfs, libnfs_authunix_create(child_name, getuid(),
+							getpid(), 0, NULL));
 	free(child_name);
 
 	root_fh = nfs_get_rootfh(nfsio->nfs);
@@ -1672,8 +1675,9 @@ static void nfsio_readdirplus_cb(struct rpc_context *rpc _U_, int status,
 		if(e->name_handle.handle_follows == 0){
 			continue;
 		}
-
-		asprintf(&new_name, "%s/%s", cb_data->name, e->name);
+		if (asprintf(&new_name, "%s/%s", cb_data->name, e->name) < 0) {
+			exit(1);
+		}
 		insert_fhandle(cb_data->nfsio, new_name, 
 			e->name_handle.post_op_fh3_u.handle.data.data_val,
 			e->name_handle.post_op_fh3_u.handle.data.data_len,

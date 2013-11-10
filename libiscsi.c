@@ -269,7 +269,10 @@ static void iscsi_setup(struct child_struct *child)
 	child->private=sd;
 	child->id=99999;
 
-	asprintf(&sd->initiator_name, "%s-%d", options.iscsi_initiatorname, child->id);
+	if (asprintf(&sd->initiator_name, "%s-%d", options.iscsi_initiatorname,
+		     child->id) < 0) {
+		exit(1);
+	}
 
 	sd->iscsi = iscsi_create_context(sd->initiator_name);
 	if (sd->iscsi == NULL) {
@@ -329,7 +332,10 @@ static int iscsi_init(void)
 	child.private=sd;
 	child.id=99999;
 
-	asprintf(&sd->initiator_name, "%s-%d", options.iscsi_initiatorname, child.id);
+	if (asprintf(&sd->initiator_name, "%s-%d", options.iscsi_initiatorname,
+		     child.id) < 0) {
+		exit(1);
+	}
 
 	sd->iscsi = iscsi_create_context(sd->initiator_name);
 	if (sd->iscsi == NULL) {

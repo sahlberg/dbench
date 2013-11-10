@@ -341,9 +341,12 @@ void child_run(struct child_struct *child0, const char *loadfile)
 		exit(1);
 	}
 
-	for (child=child0;child<child0+options.clients_per_process;child++) {
+	for (child = child0; child < child0 + options.clients_per_process; 
+	     child++) {
 		child->line = 0;
-		asprintf(&child->cname,"client%d", child->id);
+		if (asprintf(&child->cname, "client%d", child->id) < 0) {
+			exit(1);
+		}
 	}
 
 	sparams = calloc(20, sizeof(char *));
