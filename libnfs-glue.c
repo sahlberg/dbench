@@ -21,17 +21,18 @@
 #include "config.h"
 #ifdef HAVE_LIBNFS
 
+#include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <fcntl.h>
-#include <poll.h>
-#include <errno.h>
+#include <time.h>
+#include <unistd.h>
 
 #include <inttypes.h>
 
@@ -381,7 +382,7 @@ const char *nfs_error(int error)
 
 struct nfsio_cb_data {
 	struct nfsio *nfsio;
-	char *name, *old_name;
+	const char *name, *old_name;
 	fattr3 *attributes;
 	uint32_t *access;
 	nfs_fh3 *fh;
@@ -431,7 +432,8 @@ void nfsio_disconnect(struct nfsio *nfsio)
 }
 
 
-void nlm_connect_cb(struct rpc_context *rpc, int status, void *data, void *private_data)
+void nlm_connect_cb(struct rpc_context *rpc _U_, int status _U_,
+		    void *data _U_, void *private_data)
 {
 	struct nfsio_cb_data *cb_data = private_data;
 
@@ -933,7 +935,8 @@ nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf _U_, uint64
 	return cb_data.status;
 }
 
-void nfsio_lock_cb(struct rpc_context *rpc, int status, void *data, void *private_data)
+void nfsio_lock_cb(struct rpc_context *rpc _U_, int status, void *data,
+		   void *private_data)
 {
 	struct NLM4_LOCKres *NLM4_LOCKres = data;
 	struct nfsio_cb_data *cb_data = private_data;
@@ -993,7 +996,8 @@ nlmstat4 nfsio_lock(struct nfsio *nfsio, const char *name, uint64_t offset, int 
 	return cb_data.status;
 }
 
-void nfsio_unlock_cb(struct rpc_context *rpc, int status, void *data, void *private_data)
+void nfsio_unlock_cb(struct rpc_context *rpc _U_, int status, void *data,
+		     void *private_data)
 {
 	struct NLM4_UNLOCKres *NLM4_UNLOCKres = data;
 	struct nfsio_cb_data *cb_data = private_data;
@@ -1049,7 +1053,8 @@ nlmstat4 nfsio_unlock(struct nfsio *nfsio, const char *name, uint64_t offset, in
 	return cb_data.status;
 }
 
-void nfsio_test_cb(struct rpc_context *rpc, int status, void *data, void *private_data)
+void nfsio_test_cb(struct rpc_context *rpc _U_, int status, void *data,
+		   void *private_data)
 {
 	struct NLM4_TESTres *NLM4_TESTres = data;
 	struct nfsio_cb_data *cb_data = private_data;

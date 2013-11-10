@@ -327,7 +327,7 @@ void child_run(struct child_struct *child0, const char *loadfile)
 	char **sparams, **params;
 	char *p;
 	const char *status;
-	gzFile *gzf;
+	gzFile gzf;
 	pid_t parent = getppid();
 	double targett;
 	struct child_struct *child;
@@ -428,11 +428,11 @@ loop_again:
 			int count = RWBUFSIZE;
 			
 			while (count > 0) {
-			      int len;
+			      size_t len;
 
 			      len = count;
-			      if (len > strlen(line +13)) {
-			     	      len = strlen(line +13);
+			      if (len > strlen(line + 13)) {
+			     	      len = strlen(line + 13);
 			      }
 			      memcpy(ptr, line+13, len);
 			      ptr += len;

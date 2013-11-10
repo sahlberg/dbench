@@ -117,11 +117,11 @@ void single_string_sub(char *s,const char *pattern,const char *insert)
 Based on a routine by GJC@VILLAGE.COM. 
 Extensively modified by Andrew.Tridgell@anu.edu.au
 ****************************************************************************/
-BOOL next_token(char **ptr,char *buff,char *sep)
+int next_token(char **ptr,char *buff,char *sep)
 {
 	static char *last_ptr=NULL;
 	char *s;
-	BOOL quoted;
+	int quoted;
 	
 	if (!ptr) ptr = &last_ptr;
 	if (!ptr) return(False);

@@ -143,7 +143,7 @@ void set_socket_options(int fd, char *options)
       int ret=0,i;
       int value = 1;
       char *p;
-      BOOL got_value = False;
+      int got_value = False;
 
       if ((p = strchr(tok,'=')))
 	{

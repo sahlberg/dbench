@@ -118,7 +118,8 @@ static void xattr_fd_write_hook(struct child_struct *child, int fd)
 		memset(buf, 0, sizeof(buf));
 		/* give some probability of sharing */
 		if (random() % 10 < 2) {
-			*(time_t *)buf = time(NULL);
+			time_t t = time(NULL);
+			memcpy(buf, &t, sizeof(t));
 		} else {
 			gettimeofday(&tv, NULL);
 			memcpy(buf, &tv, sizeof(tv));
@@ -339,14 +340,19 @@ static void fio_writex(struct dbench_op *op)
 	    size == 1 && fstat(ftable[i].fd, &st) == 0) {
 		if (st.st_size > offset) {
 			unsigned char c;
-			pread(ftable[i].fd, &c, 1, offset);
+			if (pread(ftable[i].fd, &c, 1, offset) < 0) {
+				return;
+			}
 			if (c == ((unsigned char *)buf)[0]) {
 				free(buf);
 				op->child->bytes += size;
 				return;
 			}
 		} else if (((unsigned char *)buf)[0] == 0) {
-			ftruncate(ftable[i].fd, offset+1);
+			if (ftruncate(ftable[i].fd, offset+1) < 0) {
+				free(buf);
+				return;
+			}
 			free(buf);
 			op->child->bytes += size;
 			return;

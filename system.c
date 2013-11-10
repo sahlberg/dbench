@@ -25,7 +25,7 @@
  support for IRIX also. Expand as other systems have them.
 ****************************************************************************/
 
-ssize_t sys_getxattr (const char *path, const char *name, void *value, size_t size)
+ssize_t sys_getxattr(const char *path, const char *name, void *value, size_t size)
 {
 #if defined(HAVE_GETXATTR)
 	return getxattr(path, name, value, size);
@@ -52,7 +52,7 @@ ssize_t sys_getxattr (const char *path, const char *name, void *value, size_t si
 #endif
 }
 
-ssize_t sys_fgetxattr (int filedes, const char *name, void *value, size_t size)
+ssize_t sys_fgetxattr(int filedes, const char *name, void *value, size_t size)
 {
 #if defined(HAVE_FGETXATTR)
 	return fgetxattr(filedes, name, value, size);
@@ -85,7 +85,7 @@ ssize_t sys_fgetxattr (int filedes, const char *name, void *value, size_t size)
 #define XATTR_REPLACE 0x2       /* set value, fail if attr does not exist */
 #endif
 
-int sys_fsetxattr (int filedes, const char *name, const void *value, size_t size, int flags)
+int sys_fsetxattr(int filedes, const char *name, const void *value, size_t size, int flags)
 {
 #if defined(HAVE_FSETXATTR)
 	return fsetxattr(filedes, name, value, size, flags);

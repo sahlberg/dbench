@@ -88,7 +88,6 @@
 #define TCP_PORT 7003
 #define TCP_OPTIONS "TCP_NODELAY SO_REUSEADDR"
 
-#define BOOL int
 #define True 1
 #define False 0
 
@@ -210,8 +209,24 @@ extern struct nb_operations *nb_ops;
 
 struct nfsio;
 
-#include "proto.h"
-
 extern struct options options;
 extern int global_random;
 extern char rw_buf[];
+
+void all_string_sub(char *s,const char *pattern,const char *insert);
+void child_run(struct child_struct *child0, const char *loadfile);
+void msleep(unsigned int t);
+int next_token(char **ptr,char *buff,char *sep);
+int open_socket_in(int type, int port);
+int open_socket_out(const char *host, int port);
+int read_sock(int s, char *buf, int size);
+void set_socket_options(int fd, char *options);
+void *shm_setup(int size);
+void single_string_sub(char *s,const char *pattern,const char *insert);
+ssize_t sys_fgetxattr(int filedes, const char *name, void *value, size_t size);
+int sys_fsetxattr(int filedes, const char *name, const void *value, size_t size, int flags);
+ssize_t sys_getxattr(const char *path, const char *name, void *value, size_t size);
+struct timeval timeval_current(void);
+double timeval_elapsed(struct timeval *tv);
+double timeval_elapsed2(struct timeval *tv1, struct timeval *tv2);
+int write_sock(int s, char *buf, int size);

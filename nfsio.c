@@ -39,15 +39,15 @@ struct cb_data {
 	char *dirname;
 };
 
-static char *get_next_nfs_url(char *url, int id)
+static char *get_next_nfs_url(const char *url, int id)
 {
-	char *tmp = url;
+	char *tmp = discard_const(url);
 	int i;
 
 	for (i = 0; i < id; i++) {
 		tmp = strchr(tmp, ',');
 		if (tmp == NULL) {
-			tmp = url;
+			tmp = discard_const(url);
 			continue;
 		}
 		tmp++;
@@ -450,8 +450,9 @@ static void nfs3_lock(struct dbench_op *op)
 
 	res = nfsio_lock(op->child->private, op->fname, offset, len);
 	if (!check_status(res, op->status)) {
-		printf("[%d] LOCK \"%s\" %d-%d failed (%x) - expected %s\n", 
-		       op->child->line, op->fname, op->fname2,
+		printf("[%d] LOCK \"%s\" %u-%u failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, (unsigned)offset,
+		       (unsigned)offset + len,
 		       res, op->status);
 		failed(op->child);
 	}
@@ -465,8 +466,9 @@ static void nfs3_unlock(struct dbench_op *op)
 
 	res = nfsio_unlock(op->child->private, op->fname, offset, len);
 	if (!check_status(res, op->status)) {
-		printf("[%d] UNLOCK \"%s\" %d-%d failed (%x) - expected %s\n", 
-		       op->child->line, op->fname, op->fname2,
+		printf("[%d] UNLOCK \"%s\" %u-%u failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, (unsigned)offset,
+		       (unsigned)offset + len,
 		       res, op->status);
 		failed(op->child);
 	}
@@ -480,8 +482,9 @@ static void nfs3_test(struct dbench_op *op)
 
 	res = nfsio_test(op->child->private, op->fname, offset, len);
 	if (!check_status(res, op->status)) {
-		printf("[%d] TEST \"%s\" %d-%d failed (%x) - expected %s\n", 
-		       op->child->line, op->fname, op->fname2,
+		printf("[%d] TEST \"%s\" %u-%u failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, (unsigned)offset,
+		       (unsigned)offset + len,
 		       res, op->status);
 		failed(op->child);
 	}

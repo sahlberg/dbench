@@ -62,5 +62,3 @@ install: all
 clean:
 	rm -f *.o *~ dbench tbench_srv
 
-proto:
-	./mkproto.pl *.c > proto.h

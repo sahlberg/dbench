@@ -99,7 +99,7 @@ static void iscsi_write10(struct dbench_op *op)
 	uint32_t xferlen = op->params[1];	
 	int fua = op->params[2];
 	unsigned int data_size=1024*1024;
-	char data[data_size];
+	unsigned char data[data_size];
 
 	sd = op->child->private;
 
