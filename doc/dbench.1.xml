@@ -662,6 +662,21 @@ READ3 "/foo.dbench" +4096 4096 0x00000000
         </listitem>
       </varlistentry>
 
+      <varlistentry><term>&lt;timing&gt; SETATTR3 &lt;path&gt; &lt;status&gt;</term>
+        <listitem>
+          <para>
+	    Send a NFSv3 SETATTR3 command to the server to force an update
+	    of the inode. (set mtime to server time)
+	  </para>
+          <para>
+	    Example:
+	    <screen format="linespecific">
+	      0.000 SETATTR3 "/some-file" 0x00000000
+	    </screen>
+          </para>
+        </listitem>
+      </varlistentry>
+
       <varlistentry><term>&lt;timing&gt; SYMLINK3 &lt;path&gt; &lt;path&gt; &lt;status&gt;</term>
         <listitem>
           <para>

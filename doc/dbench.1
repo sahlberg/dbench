@@ -2,12 +2,12 @@
 .\"     Title: dbench
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 10/26/2013
+.\"      Date: 11/10/2013
 .\"    Manual: dbench: a multiprotocol loadtester.
 .\"    Source: dbench
 .\"  Language: English
 .\"
-.TH "DBENCH" "1" "10/26/2013" "dbench" "dbench: a multiprotocol loadte"
+.TH "DBENCH" "1" "11/10/2013" "dbench" "dbench: a multiprotocol loadte"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -614,6 +614,25 @@ Example:
 .\}
 .nf
 	      0\&.000 RMDIR3 "/some\-directory" 0x00000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+<timing> SETATTR3 <path> <status>
+.RS 4
+Send a NFSv3 SETATTR3 command to the server to force an update of the inode\&. (set mtime to server time)
+.sp
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+	      0\&.000 SETATTR3 "/some\-file" 0x00000000
 	    
 .fi
 .if n \{\

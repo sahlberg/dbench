@@ -2,6 +2,7 @@
 struct nfsio *nfsio_connect(const char *url, int child, int initial_xid, int xid_stride, int nlm);
 void nfsio_disconnect(struct nfsio *nfsio);
 nfsstat3 nfsio_getattr(struct nfsio *nfsio, const char *name, fattr3 *attributes);
+nfsstat3 nfsio_setattr(struct nfsio *nfsio, const char *name, fattr3 *attributes);
 nfsstat3 nfsio_lookup(struct nfsio *nfsio, const char *name, fattr3 *attributes);
 nfsstat3 nfsio_access(struct nfsio *nfsio, const char *name, uint32_t desired, uint32_t *access);
 nfsstat3 nfsio_create(struct nfsio *nfsio, const char *name);

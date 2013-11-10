@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <errno.h>
@@ -400,12 +401,10 @@ static void nfsio_wait_for_rpc_reply(struct rpc_context *rpc, struct nfsio_cb_da
 		pfd.fd = rpc_get_fd(rpc);
 		pfd.events = rpc_which_events(rpc);
 		if (poll(&pfd, 1, -1) < 0) {
-			rpc_set_error(rpc, "Poll failed");
 			cb_data->status = -EIO;
 			break;
 		}
 		if (rpc_service(rpc, pfd.revents) < 0) {
-			rpc_set_error(rpc, "nfs_service failed");
 			cb_data->status = -EIO;
 			break;
 		}
@@ -1812,6 +1811,59 @@ nfsstat3 nfsio_rename(struct nfsio *nfsio, const char *old, const char *new)
 			new_fh, new_ptr,
 			&cb_data)) {
 		fprintf(stderr, "failed to send rename\n");
+		return NFS3ERR_SERVERFAULT;
+	}
+	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);
+
+	return cb_data.status;
+}
+
+static void nfsio_setattr_cb(struct rpc_context *rpc _U_, int status,
+       void *data, void *private_data) {
+	struct SETATTR3res *SETATTR3res = data;
+	struct nfsio_cb_data *cb_data = private_data;
+
+	cb_data->is_finished = 1;
+
+	if (status != RPC_STATUS_SUCCESS) {
+		cb_data->status = NFS3ERR_SERVERFAULT;
+		return;
+	}
+	if (SETATTR3res->status != NFS3_OK) {
+		cb_data->status = SETATTR3res->status;
+		return;
+	}
+
+	cb_data->status = NFS3_OK;
+}
+
+nfsstat3 nfsio_setattr(struct nfsio *nfsio, const char *name, fattr3 *attributes)
+{
+	struct nfs_fh3 *fh;
+	struct nfsio_cb_data cb_data;
+	struct SETATTR3args args;
+	struct timeval tv;
+
+	gettimeofday(&tv, NULL);
+
+	fh = lookup_fhandle(nfsio, name, NULL);
+	if (fh == NULL) {
+		fprintf(stderr, "failed to fetch handle in nfsio_setattr\n");
+		return NFS3ERR_SERVERFAULT;
+	}
+
+	memset(&cb_data, 0, sizeof(cb_data));
+	cb_data.nfsio = nfsio;
+	cb_data.attributes = attributes;
+
+	memset(&args, 0, sizeof(args));
+	args.object = *fh;
+	args.new_attributes.mtime.set_it = SET_TO_SERVER_TIME;
+
+	set_xid_value(nfsio);
+	if (rpc_nfs_setattr_async(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_setattr_cb, &args, &cb_data)) {
+		fprintf(stderr, "failed to send setattr\n");
 		return NFS3ERR_SERVERFAULT;
 	}
 	nfsio_wait_for_nfs_reply(nfsio->nfs, &cb_data);

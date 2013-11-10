@@ -60,6 +60,11 @@
 0.040 CREATE3  "/clients/client1/test.file" 0x00000000
 0.050 CREATE3  "/clients/client1/tmp.file" 0x00000000
 #
+# SETATTR3
+# This command sends a SETATTR3 call to the server to update (the mtime of) the
+# inode.
+0.060 SETATTR3 "/clients/client1" 0x00000000
+#
 #
 #
 # WRITE3 <path> <offset> <size> <status>

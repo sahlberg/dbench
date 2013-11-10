@@ -214,6 +214,18 @@ static void nfs3_getattr(struct dbench_op *op)
 	}
 }
 
+static void nfs3_setattr(struct dbench_op *op)
+{
+	nfsstat3 res;
+
+	res = nfsio_setattr(op->child->private, op->fname, NULL);
+	if (!check_status(res, op->status)) {
+		printf("[%d] SETATTR \"%s\" failed (%x) - expected %s\n", 
+		       op->child->line, op->fname, res, op->status);
+		failed(op->child);
+	}
+}
+
 static void nfs3_pathconf(struct dbench_op *op)
 {
 	nfsstat3 res;
@@ -523,6 +535,7 @@ static struct backend_op ops[] = {
 	{ "REMOVE3",  nfs3_remove },
 	{ "RENAME3",  nfs3_rename },
 	{ "RMDIR3",   nfs3_rmdir },
+	{ "SETATTR3", nfs3_setattr },
 	{ "SYMLINK3", nfs3_symlink },
 	{ "WRITE3",   nfs3_write },
 
