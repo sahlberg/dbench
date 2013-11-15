@@ -335,6 +335,7 @@ static void fio_writex(struct dbench_op *op)
 	}
 
 	buf = calloc(size, 1);
+	memcpy(buf, rw_buf, size);
 
 	if (options.one_byte_write_fix &&
 	    size == 1 && fstat(ftable[i].fd, &st) == 0) {
