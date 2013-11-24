@@ -446,7 +446,7 @@ loop_again:
 				goto done;
 			}
 			while (child0->all_children[ch].sequence_point != sp) {
-				nb_sleep(100000);
+				nb_sleep(1000);
 			}
 			goto again;
 		}
