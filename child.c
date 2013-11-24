@@ -438,7 +438,7 @@ loop_again:
 			goto again;
 		}
 
-		if (strncmp(line, "WAITSP", 5) == 0) {
+		if (strncmp(line, "WAITSP", 6) == 0) {
 			int ch, sp;
 			if (sscanf(line, "WAITSP %d %d\n", &ch, &sp) != 2) {
 				fprintf(stderr, "Incorrect WAITSP at "
