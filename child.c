@@ -194,7 +194,7 @@ static void child_op(struct child_struct *child, const char *opname,
 	op.fname = fname;
 	op.fname2 = fname2;
 	op.status = status;
-	for (i=0;i<sizeof(op.params)/sizeof(op.params[0]);i++) {
+	for (i = 0; i < sizeof(op.params) / sizeof(op.params[0]); i++) {
 		switch (params[i][0]) {
 		case '*':
 		case '+':
@@ -206,11 +206,6 @@ static void child_op(struct child_struct *child, const char *opname,
 	}
 
 	prev_op = op;
-
-	if (strcasecmp(op.op, "Sleep") == 0) {
-		nb_sleep(op.params[0]);
-		return;
-	}
 
 	for (i=0;nb_ops->ops[i].name;i++) {
 		if (strcasecmp(op.op, nb_ops->ops[i].name) == 0) {
@@ -415,11 +410,46 @@ loop_again:
 				goto done;
 			}
 
-	       		for (child=child0;child<child0+options.clients_per_process;child++) {
+	       		for (child = child0; child < child0 + options.clients_per_process; child++) {
 				child->line++;
 			}
 			gzgets(gzf, line, sizeof(line)-1);
 	        }
+
+		if (strncmp(line, "SLEEP", 5) == 0) {
+			int sleep_count;
+			if (sscanf(line, "SLEEP %d\n", &sleep_count) != 1) {
+				fprintf(stderr, "Incorrect SLEEP at "
+					"line %d\n", child0->line);
+				goto done;
+			}
+			nb_sleep(sleep_count);
+			goto again;
+		}
+
+		if (strncmp(line, "SETSP", 5) == 0) {
+			int sp;
+			if (sscanf(line, "SETSP %d\n", &sp) != 1) {
+				fprintf(stderr, "Incorrect SETSP at "
+					"line %d\n", child0->line);
+				goto done;
+			}
+			child0->sequence_point = sp;
+			goto again;
+		}
+
+		if (strncmp(line, "WAITSP", 5) == 0) {
+			int ch, sp;
+			if (sscanf(line, "WAITSP %d %d\n", &ch, &sp) != 2) {
+				fprintf(stderr, "Incorrect WAITSP at "
+					"line %d\n", child0->line);
+				goto done;
+			}
+			while (child0->all_children[ch].sequence_point != sp) {
+				nb_sleep(100000);
+			}
+			goto again;
+		}
 
 
 		/* WRITEPATTERN */

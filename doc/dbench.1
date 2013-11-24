@@ -2,12 +2,12 @@
 .\"     Title: dbench
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 11/10/2013
+.\"      Date: 11/24/2013
 .\"    Manual: dbench: a multiprotocol loadtester.
 .\"    Source: dbench
 .\"  Language: English
 .\"
-.TH "DBENCH" "1" "11/10/2013" "dbench" "dbench: a multiprotocol loadte"
+.TH "DBENCH" "1" "11/24/2013" "dbench" "dbench: a multiprotocol loadte"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -206,13 +206,6 @@ Example:
 .sp
 .RE
 .PP
-RANDOMSTRING <index> <string>
-.RS 4
-RANDOMSTRING is used to create random strings, for example strings that are to be used as randomly generated filenames\&. The string is formed by replacing every occurance of [<set>] with one randomly picked letter from the specified set\&.
-.sp
-The string index must be a number from 1 to 9 and it can later be referenced from file\-name manipulating commands using $<number>\&.
-.RE
-.PP
 LOOP <count> / ENDLOOP
 .RS 4
 .PP
@@ -242,9 +235,77 @@ ENDLOOP
 .sp
 .RE
 .PP
+RANDOMSTRING <index> <string>
+.RS 4
+RANDOMSTRING is used to create random strings, for example strings that are to be used as randomly generated filenames\&. The string is formed by replacing every occurance of [<set>] with one randomly picked letter from the specified set\&.
+.sp
+The string index must be a number from 1 to 9 and it can later be referenced from file\-name manipulating commands using $<number>\&.
+.RE
+.PP
 REPEAT <count>
 .RS 4
 REPEAT is used to interate over the following line the specified number of times\&.
+.RE
+.PP
+SETSP <sp> / WAITSP <child> <sp>
+.RS 4
+.PP
+SETSP and WAITSP are used to synchronize across multiple threads\&.
+.PP
+SETSP is used to record to which sequence point that a client thread has reached\&. From a different client thread you can then use WAITSP to block until the other thread has reached a particular sequnce point\&.
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+thread0\&.load
+============
+# In a real loadfile, replace SLEEP with real commands
+SLEEP 1000000
+# register that we have now reached sequence point 1
+SETSP 1
+SLEEP 1000000
+SETSP 2
+SLEEP 1000000
+SETSP 3
+
+thread1\&.load
+============
+# Block until client 0 has reached sequence point 1
+WAITSP 0 1
+# Block until client 0 has reached sequence point 2
+WAITSP 0 2
+# Block until client 0 has reached sequence point 3
+WAITSP 0 3
+
+dbench \-B nfs \-\-nfs=nfs://127\&.0\&.0\&.1/data/tmp \-\-loadfile=thread1\&.load,thread2\&.load \-\-warmup=0 \-\-skip\-cleanup \-\-enable\-nlm \-\-run\-once 2
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+SLEEP <usecs>
+.RS 4
+.PP
+Sleep for this many useconds\&.
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Sleep for one second
+SLEEP 1000000
+	    
+.fi
+.if n \{\
+.RE
+.\}
+.sp
 .RE
 .PP
 WRITEPATTERN <count>

@@ -318,23 +318,6 @@
         </listitem>
       </varlistentry>
 
-      <varlistentry><term>RANDOMSTRING &lt;index&gt; &lt;string&gt;</term>
-        <listitem>
-          <para>
-	    RANDOMSTRING is used to create random strings, for example
-	    strings that are to be used as randomly generated filenames.
-	    The string is formed by replacing every occurance of
-	    [&lt;set&gt;] with one randomly picked letter from the specified
-	    set.
-	  </para>
-	  <para>
-	    The string index must be a number from 1 to 9 and it can later
-	    be referenced from file-name manipulating commands using
-	    $&lt;number&gt;.
-	  </para>
-        </listitem>
-      </varlistentry>
-
       <varlistentry><term>LOOP &lt;count&gt; / ENDLOOP</term>
       <para>
 	LOOP and ENDLOOP can be used to interate a set number of times of a
@@ -360,6 +343,23 @@ ENDLOOP
         </listitem>
       </varlistentry>
 
+      <varlistentry><term>RANDOMSTRING &lt;index&gt; &lt;string&gt;</term>
+        <listitem>
+          <para>
+	    RANDOMSTRING is used to create random strings, for example
+	    strings that are to be used as randomly generated filenames.
+	    The string is formed by replacing every occurance of
+	    [&lt;set&gt;] with one randomly picked letter from the specified
+	    set.
+	  </para>
+	  <para>
+	    The string index must be a number from 1 to 9 and it can later
+	    be referenced from file-name manipulating commands using
+	    $&lt;number&gt;.
+	  </para>
+        </listitem>
+      </varlistentry>
+
       <varlistentry><term>REPEAT &lt;count&gt;</term>
         <listitem>
 	  <para>
@@ -367,6 +367,60 @@ ENDLOOP
 	    number of times.
 	  </para>
 	</listitem>
+      </varlistentry>
+
+      <varlistentry><term>SETSP &lt;sp&gt; / WAITSP &lt;child&gt; &lt;sp&gt;</term>
+      <para>
+	SETSP and WAITSP are used to synchronize across multiple threads.
+      </para>
+      <para>
+	SETSP is used to record to which sequence point that a client thread has
+	reached. From a different client thread you can then use WAITSP
+	to block until the other thread has reached a particular sequnce point.
+      </para>
+        <listitem>
+          <para>
+	    Example:
+	    <screen format="linespecific">
+thread0.load
+============
+# In a real loadfile, replace SLEEP with real commands
+SLEEP 1000000
+# register that we have now reached sequence point 1
+SETSP 1
+SLEEP 1000000
+SETSP 2
+SLEEP 1000000
+SETSP 3
+
+thread1.load
+============
+# Block until client 0 has reached sequence point 1
+WAITSP 0 1
+# Block until client 0 has reached sequence point 2
+WAITSP 0 2
+# Block until client 0 has reached sequence point 3
+WAITSP 0 3
+
+dbench -B nfs --nfs=nfs://127.0.0.1/data/tmp --loadfile=thread1.load,thread2.load --warmup=0 --skip-cleanup --enable-nlm --run-once 2
+	    </screen>
+	  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry><term>SLEEP &lt;usecs&gt;</term>
+      <para>
+	Sleep for this many useconds.
+      </para>
+        <listitem>
+          <para>
+	    Example:
+	    <screen format="linespecific">
+# Sleep for one second
+SLEEP 1000000
+	    </screen>
+	  </para>
+        </listitem>
       </varlistentry>
 
       <varlistentry><term>WRITEPATTERN &lt;count&gt;</term>

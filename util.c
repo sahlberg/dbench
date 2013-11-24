@@ -18,6 +18,8 @@
 
 #include "dbench.h"
 
+#define discard_const(ptr) ((void *)((intptr_t)(ptr)))
+
 #ifndef SHM_W
 #define SHM_W 0000200
 #endif
@@ -196,3 +198,24 @@ void msleep(unsigned int t)
 	   with sys_select() */
 	select(0,NULL,NULL,NULL,&tval);
 }
+
+char *get_next_arg(const char *args, int id)
+{
+	char *tmp = discard_const(args);
+	int i;
+
+	for (i = 0; i < id; i++) {
+		tmp = strchr(tmp, ',');
+		if (tmp == NULL) {
+			tmp = discard_const(args);
+			continue;
+		}
+		tmp++;
+	}
+	tmp = strdup(tmp);
+	if (strchr(tmp, ',')) {
+		*strchr(tmp, ',') = 0;
+	}
+	return tmp;
+}
+

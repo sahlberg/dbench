@@ -58,18 +58,18 @@ static double throughput;
 struct nb_operations *nb_ops;
 int global_random;
 
-static gzFile *open_loadfile(void)
+static int check_loadfile(char *loadfile)
 {
-	gzFile		*f;
+	gzFile f;
 
-	if ((f = (gzFile *)gzopen(options.loadfile, "rt")) != NULL)
-		return f;
+	if ((f = gzopen(loadfile, "rt")) == NULL) {
+		fprintf(stderr, "dbench: error opening '%s': %s\n",
+			loadfile, strerror(errno));
+		return 0;
+	}
 
-	fprintf(stderr,
-		"dbench: error opening '%s': %s\n", options.loadfile,
-		strerror(errno));
-
-	return NULL;
+	gzclose(f);
+	return 1;
 }
 
 
@@ -244,12 +244,12 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 {
 	int nclients = nprocs * options.clients_per_process;
 	int i;
-	gzFile *load;
 	pid_t *child_pids;
 
-	load = open_loadfile();
-	if (load == NULL) {
-		exit(1);
+	for (i = 0; i < nclients; i++) {
+		if (!check_loadfile(get_next_arg(options.loadfile, i))) {
+			exit(1);
+		}
 	}
 
 	if (nprocs < 1) {
@@ -274,6 +274,7 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 		children[i].directory = options.directory;
 		children[i].starttime = timeval_current();
 		children[i].lasttime = timeval_current();
+		children[i].all_children = children;
 	}
 
 	child_pids = malloc(sizeof(pid_t) * nprocs);
@@ -293,7 +294,8 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 
 			raise(SIGSTOP);
 
-			fn(&children[i*options.clients_per_process], options.loadfile);
+			fn(&children[i*options.clients_per_process],
+			   get_next_arg(options.loadfile, i));
 			_exit(0);
 		}
 	}

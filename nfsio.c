@@ -39,26 +39,6 @@ struct cb_data {
 	char *dirname;
 };
 
-static char *get_next_nfs_url(const char *url, int id)
-{
-	char *tmp = discard_const(url);
-	int i;
-
-	for (i = 0; i < id; i++) {
-		tmp = strchr(tmp, ',');
-		if (tmp == NULL) {
-			tmp = discard_const(url);
-			continue;
-		}
-		tmp++;
-	}
-	tmp = strdup(tmp);
-	if (strchr(tmp, ',')) {
-		*strchr(tmp, ',') = 0;
-	}
-	return tmp;
-}
-
 static void nfs3_deltree(struct dbench_op *op);
 
 static void nfs3_cleanup(struct child_struct *child)
@@ -86,7 +66,7 @@ static void nfs3_setup(struct child_struct *child)
 	child->rate.last_bytes = 0;
 
 	srandom(getpid() ^ time(NULL));
-	url = get_next_nfs_url(options.nfs, child->id);
+	url = get_next_arg(options.nfs, child->id);
 	child->private = nfsio_connect(url, child->id, global_random + child->id, child->num_clients, options.nlm);
 	free(url);
 	if (child->private == NULL) {
@@ -512,7 +492,7 @@ static int nfs3_init(void)
 		printf("--nfs target was not specified\n");
 		return 1;
 	}
-	url = get_next_nfs_url(options.nfs, 0);
+	url = get_next_arg(options.nfs, 0);
 	handle = nfsio_connect(url, 0, global_random, 1, 0);
 	free(url);
 	if (handle == NULL) {

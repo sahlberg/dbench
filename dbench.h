@@ -124,6 +124,12 @@ struct child_struct {
 	} rate;
 	struct op ops[MAX_OPS];
 	void *private;
+
+	int sequence_point;
+
+	/* Some functions need to be able to access arbitrary child
+	 * structures from each child. */
+	struct child_struct *all_children;
 };
 
 struct options {
@@ -230,3 +236,4 @@ struct timeval timeval_current(void);
 double timeval_elapsed(struct timeval *tv);
 double timeval_elapsed2(struct timeval *tv1, struct timeval *tv2);
 int write_sock(int s, char *buf, int size);
+char *get_next_arg(const char *args, int id);
