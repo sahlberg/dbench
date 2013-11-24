@@ -98,7 +98,7 @@ static void iscsi_write10(struct dbench_op *op)
 	uint32_t lba = op->params[0];
 	uint32_t xferlen = op->params[1];	
 	int fua = op->params[2];
-	unsigned int data_size=1024*1024;
+	unsigned int data_size=1024 * 1024;
 	unsigned char data[data_size];
 
 	sd = op->child->private;
@@ -109,15 +109,15 @@ static void iscsi_write10(struct dbench_op *op)
 	   is bigger than our device
 	*/
 	if (sd->blocks <= lba) {
-		lba = lba%sd->blocks;
+		lba = lba % sd->blocks;
 	}
-	if (sd->blocks <= lba+xferlen) {
-		xferlen=1;
+	if (sd->blocks <= lba + xferlen) {
+		xferlen = 1;
 	}
 
 	if ((task = iscsi_write10_sync(sd->iscsi, sd->lun, lba,
-				       data, xferlen*512, 512,
-				       0, 0, fua&0x04, fua&0x02, 0
+				       data, xferlen * 512, 512,
+				       0, 0, fua & 0x04, fua & 0x02, 0
 	       )) == NULL) {
 		printf("[%d] failed to send WRITE10\n", op->child->line);
 		failed(op->child);
@@ -133,7 +133,53 @@ static void iscsi_write10(struct dbench_op *op)
 		return;
 	}
 
-	op->child->bytes += xferlen*512;
+	op->child->bytes += xferlen * 512;
+	scsi_free_scsi_task(task);
+}
+
+static void iscsi_write16(struct dbench_op *op)
+{
+	struct iscsi_device *sd;
+	struct scsi_task *task;
+	uint64_t lba = op->params[0];
+	uint32_t xferlen = op->params[1];	
+	int fua = op->params[2];
+	unsigned int data_size=1024 * 1024;
+	unsigned char data[data_size];
+
+	sd = op->child->private;
+
+	lba = (lba / xferlen) * xferlen;
+
+	/* make sure we wrap properly instead of failing if the loadfile
+	   is bigger than our device
+	*/
+	if (sd->blocks <= lba) {
+		lba = lba % sd->blocks;
+	}
+	if (sd->blocks <= lba + xferlen) {
+		xferlen = 1;
+	}
+
+	if ((task = iscsi_write16_sync(sd->iscsi, sd->lun, lba,
+				       data, xferlen * 512, 512,
+				       0, 0, fua & 0x04, fua & 0x02, 0
+	       )) == NULL) {
+		printf("[%d] failed to send WRITE16\n", op->child->line);
+		failed(op->child);
+		return;
+	}
+	if (!check_sense(task->status, op->status)) {
+		if (task->status == SCSI_STATUS_CHECK_CONDITION) {
+		       printf("SCSI command failed with CHECK_CONDITION. Sense key:0x%02x Ascq:0x%04x\n",
+		       		    task->sense.key, task->sense.ascq);
+	        }
+		failed(op->child);
+		scsi_free_scsi_task(task);
+		return;
+	}
+
+	op->child->bytes += xferlen * 512;
 	scsi_free_scsi_task(task);
 }
 
@@ -152,15 +198,16 @@ static void iscsi_read10(struct dbench_op *op)
 	   is bigger than our device
 	*/
 	if (sd->blocks <= lba) {
-		lba = lba%sd->blocks;
+		lba = lba % sd->blocks;
 	}
-	if (sd->blocks <= lba+xferlen) {
-		xferlen=1;
+
+	if (sd->blocks <= lba + xferlen) {
+		xferlen = 1;
 	}
 
 
 	if ((task = iscsi_read10_sync(sd->iscsi, sd->lun, lba,
-				      xferlen*512, 512,
+				      xferlen * 512, 512,
 				      0, 0, 0, 0, 0)) == NULL) {
 		printf("[%d] failed to send READ10\n", op->child->line);
 		failed(op->child);
@@ -176,10 +223,54 @@ static void iscsi_read10(struct dbench_op *op)
 		return;
 	}
 
-	op->child->bytes += xferlen*512;
+	op->child->bytes += xferlen * 512;
 	scsi_free_scsi_task(task);
 }
 
+
+static void iscsi_read16(struct dbench_op *op)
+{
+	struct iscsi_device *sd;
+	struct scsi_task *task;
+	uint64_t lba = op->params[0];
+	uint32_t xferlen = op->params[1];	
+
+	sd = op->child->private;
+
+	lba = (lba / xferlen) * xferlen;
+
+	/* make sure we wrap properly instead of failing if the loadfile
+	   is bigger than our device
+	*/
+	if (sd->blocks <= lba) {
+		lba = lba % sd->blocks;
+	}
+
+	if (sd->blocks <= lba + xferlen) {
+		xferlen = 1;
+	}
+
+
+	if ((task = iscsi_read16_sync(sd->iscsi, sd->lun, lba,
+				      xferlen * 512, 512,
+				      0, 0, 0, 0, 0)) == NULL) {
+		printf("[%d] failed to send READ16\n", op->child->line);
+		failed(op->child);
+		return;
+	}
+	if (!check_sense(task->status, op->status)) {
+		if (task->status == SCSI_STATUS_CHECK_CONDITION) {
+		       printf("SCSI command failed with CHECK_CONDITION. Sense key:0x%02x Ascq:0x%04x\n",
+		       		    task->sense.key, task->sense.ascq);
+	        }
+		failed(op->child);
+		scsi_free_scsi_task(task);
+		return;
+	}
+
+	op->child->bytes += xferlen * 512;
+	scsi_free_scsi_task(task);
+}
 
 static void local_iscsi_readcapacity10(struct dbench_op *op, uint64_t *blocks)
 {
@@ -388,9 +479,11 @@ static int iscsi_init(void)
 static struct backend_op ops[] = {
 	{ "TESTUNITREADY",      iscsi_testunitready },
 	{ "READ10",             iscsi_read10 },
+	{ "READ16",             iscsi_read16 },
 	{ "READCAPACITY10",     iscsi_readcapacity10 },
 	{ "SYNCHRONIZECACHE10", iscsi_synchronizecache10 },
 	{ "WRITE10",            iscsi_write10 },
+	{ "WRITE16",            iscsi_write16 },
 	{ NULL, NULL}
 };
 

@@ -863,7 +863,7 @@ Example:
 .RS 4
 .\}
 .nf
-	      0\&.000 TESTUNITREADY "/" 0 0 0x00000000
+	      0\&.000 TESTUNITREADY 0x00000000
 	    
 .fi
 .if n \{\
@@ -905,6 +905,11 @@ Example:
 .sp
 .RE
 .PP
+<timing> READ16 <LBA> <TL> <flags> <group> <status>
+.RS 4
+Send a READ16 command\&. See READ10 for arguments\&.
+.RE
+.PP
 <timing> WRITE10 <LBA> <TL> <flags> <group> <status>
 .RS 4
 Send a WRITE10 command\&.
@@ -931,6 +936,11 @@ Example:
 .RE
 .\}
 .sp
+.RE
+.PP
+<timing> WRITE16 <LBA> <TL> <flags> <group> <status>
+.RS 4
+Send a WRITE16 command\&. See WRITE10 for arguments\&.
 .RE
 .PP
 <timing> READCAPACITY10 <LBA> <PMI> <status>

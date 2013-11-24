@@ -854,7 +854,7 @@ dbench -B nfs --loadfile=nfs.txt --skip-cleanup --warmup=0 --nfs nfs://127.0.0.1
           <para>
 	    Example:
 	    <screen format="linespecific">
-	      0.000 TESTUNITREADY "/" 0 0 0x00000000
+	      0.000 TESTUNITREADY 0x00000000
 	    </screen>
           </para>
         </listitem>
@@ -892,6 +892,14 @@ dbench -B nfs --loadfile=nfs.txt --skip-cleanup --warmup=0 --nfs nfs://127.0.0.1
         </listitem>
       </varlistentry>
 
+      <varlistentry><term>&lt;timing&gt; READ16 &lt;LBA&gt; &lt;TL&gt; &lt;flags&gt; &lt;group&gt; &lt;status&gt;</term>
+        <listitem>
+          <para>
+	    Send a READ16 command. See READ10 for arguments.
+	  </para>
+        </listitem>
+      </varlistentry>
+
       <varlistentry><term>&lt;timing&gt; WRITE10 &lt;LBA&gt; &lt;TL&gt; &lt;flags&gt; &lt;group&gt; &lt;status&gt;</term>
         <listitem>
           <para>
@@ -912,6 +920,14 @@ dbench -B nfs --loadfile=nfs.txt --skip-cleanup --warmup=0 --nfs nfs://127.0.0.1
 0.000 WRITE10 5000 1 0x06 0 0x00
 	    </screen>
           </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry><term>&lt;timing&gt; WRITE16 &lt;LBA&gt; &lt;TL&gt; &lt;flags&gt; &lt;group&gt; &lt;status&gt;</term>
+        <listitem>
+          <para>
+	    Send a WRITE16 command. See WRITE10 for arguments.
+	  </para>
         </listitem>
       </varlistentry>
 

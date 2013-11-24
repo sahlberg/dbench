@@ -1,9 +1,9 @@
 # timestamp TESTUNITREADY sense
 0.000 TESTUNITREADY 0x00
 #
-# READ10/WRITE10 take an LBA and a XFERLEN arguments.
-# These can be absolute numbers,
-# but also as a simple expression for generation of random I/O
+# READ10/16 WRITE10/16 take LBA and XFERLEN arguments.
+# These can be absolute numbers but also as a simple expression for
+# generation of random I/O
 #
 # These are strings starting with a '*' followed by one or more
 # qualifiers :
@@ -20,7 +20,7 @@
 # '*%100+25'    A random value between 25 and 124
 #
 #
-# timestamp READ10 lba #xferlen rd grp sense
+# timestamp READ{10|16} lba #xferlen rd grp sense
 #   if lba is * this means to use a random lba
 #
 #   rd is :
@@ -33,15 +33,17 @@
 0.000 READ10    4 2 0 0 0x00
 0.000 READ10    6 2 0 0 0x00
 0.000 READ10    * 2 0 0 0x00
+0.000 READ16    0 2 0 0 0x00
 #
 #
-# timestamp WRITE10 lba #xferlen FUAbits grp sense
+# timestamp WRITE{10|16} lba #xferlen FUAbits grp sense
 # WRITES are ignored by default and must be activated using --allow-scsi-writes
 #
 #   FUAbits are cdb byte#1 in SBC:
 #     a value of 0x06 will force the data to be written to the medium
 #     a value of 0x00 allow the device to only write to nv-ram and not medium
 0.000 WRITE10 5000 1 0x06 0 0x00
+0.000 WRITE16 5000 1 0x06 0 0x00
 #
 #
 # timestamp READCAPACITY10 lba pmi(0/1) sense
