@@ -25,17 +25,13 @@ man1_MANS = doc/dbench.1
 all: dbench doc
 
 dbench: $(DB_OBJS)
-	$(CC) -o $@ $(DB_OBJS) $(LIBS)
+	$(CC) -o $@ $(DB_OBJS) $(LDFLAGS) $(LIBS)
 
 tbench_srv: $(SRV_OBJS)
-	$(CC) -o $@ $(SRV_OBJS) $(LIBS)
+	$(CC) -o $@ $(SRV_OBJS) $(LDFLAGS) $(LIBS)
 
 tbench: dbench
 	ln -sf dbench tbench
-
-nfsio.o: nfsio.c
-	@echo Compiling $@
-	gcc -g -c nfsio.c -o $@
 
 doc/dbench.1: doc/dbench.1.xml
 	-test -z "$(XSLTPROC)" || $(XSLTPROC) -o $@ http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
