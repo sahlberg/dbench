@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: dbench
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
-.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 11/24/2013
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 07/17/2014
 .\"    Manual: dbench: a multiprotocol loadtester.
 .\"    Source: dbench
 .\"  Language: English
 .\"
-.TH "DBENCH" "1" "11/24/2013" "dbench" "dbench: a multiprotocol loadte"
+.TH "DBENCH" "1" "07/17/2014" "dbench" "dbench: a multiprotocol loadte"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -128,8 +128,6 @@ NFS url for the target to connect to\&. The url format is : nfs://<server>/<path
 If you have a cmultihomed or clustered nfs server you can specify a comma\-separated list of nfs urls\&. Clients will then be distributed across the different portals in round\-robin fashin\&.
 .sp
 This argument is only valid with NFS backend\&.
-.sp
-
 .sp
 .if n \{\
 .RS 4
@@ -744,8 +742,6 @@ Example:
 .RS 4
 Send a NLMv4 LOCK4 command to the server\&.
 .sp
-
-.sp
 .if n \{\
 .RS 4
 .\}
@@ -981,6 +977,13 @@ Example:
 .RE
 .\}
 .sp
+.RE
+.SH "ISCSI EXAMPLES"
+.PP
+Examples
+.RS 4
+.PP
+See the loadfiles directory for iscsi examples\&.
 .RE
 .SH "SEE ALSO"
 .PP

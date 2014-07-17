@@ -964,6 +964,16 @@ dbench -B nfs --loadfile=nfs.txt --skip-cleanup --warmup=0 --nfs nfs://127.0.0.1
     </variablelist>
   </refsect1>
 
+  <refsect1><title>iSCSI Examples</title>
+    <variablelist>
+      <varlistentry><term>Examples</term>
+      <para>
+	See the loadfiles directory for iscsi examples.
+      </para>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
 
   <refsect1><title>SEE ALSO</title>
     <para>
