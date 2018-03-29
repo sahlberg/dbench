@@ -543,6 +543,11 @@ static void process_opts(int argc, char **argv)
 		exit(10);
 	}
 
+	if (options.loadfile == NULL) {
+		printf("No loadfile was specified. Aborting.\n");
+		exit(10);
+	}
+
 	if (strcmp(options.backend, "fileio") == 0) {
 		extern struct nb_operations fileio_ops;
 		nb_ops = &fileio_ops;
