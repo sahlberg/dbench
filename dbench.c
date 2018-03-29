@@ -26,7 +26,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "dbench.h"
-#include "popt.h"
+#include <argp.h>
 #include <zlib.h>
 
 struct options options = {
@@ -350,107 +350,168 @@ static void create_procs(int nprocs, void (*fn)(struct child_struct *, const cha
 	report_latencies();
 }
 
-
-
-static void process_opts(int argc, const char **argv)
+static int parse_opt(int key, char *arg, struct argp_state *state)
 {
-	const char **extra_argv;
-	int extra_argc = 0;
-	struct poptOption popt_options[] = {
-		POPT_AUTOHELP
-		{ "backend", 'B', POPT_ARG_STRING, &options.backend, 0,
-		  "dbench backend (fileio, sockio, nfs, scsi, iscsi, smb)", "string" },
-		{ "timelimit", 't', POPT_ARG_INT, &options.timelimit, 0,
-		  "timelimit", "integer" },
-		{ "loadfile",  'c', POPT_ARG_STRING, &options.loadfile, 0,
-		  "loadfile", "filename" },
-		{ "directory", 'D', POPT_ARG_STRING, &options.directory, 0,
-		  "working directory", NULL },
-		{ "tcp-options", 'T', POPT_ARG_STRING, &options.tcp_options, 0,
-		  "TCP socket options", NULL },
-		{ "target-rate", 'R', POPT_ARG_DOUBLE, &options.targetrate, 0,
-		  "target throughput (MB/sec)", NULL },
-		{ "sync", 's', POPT_ARG_NONE, &options.sync_open, 0,
-		  "use O_SYNC", NULL },
-		{ "sync-dir", 'S', POPT_ARG_NONE, &options.sync_dirs, 0,
-		  "sync directory changes", NULL },
-		{ "fsync", 'F', POPT_ARG_NONE, &options.do_fsync, 0,
-		  "fsync on write", NULL },
-		{ "xattr", 'x', POPT_ARG_NONE, &options.ea_enable, 0,
-		  "use xattrs", NULL },
-		{ "no-resolve", 0, POPT_ARG_NONE, &options.no_resolve, 0,
-		  "disable name resolution simulation", NULL },
-		{ "clients-per-process", 0, POPT_ARG_INT, &options.clients_per_process, 0,
-		  "number of clients per process", NULL },
-		{ "trunc-io", 0, POPT_ARG_INT, &options.trunc_io, 0,
-		  "truncate all io to this size", NULL },
-		{ "one-byte-write-fix", 0, POPT_ARG_NONE, &options.one_byte_write_fix, 0,
-		  "try to fix 1 byte writes", NULL },
-		{ "stat-check", 0, POPT_ARG_NONE, &options.stat_check, 0,
-		  "check for pointless calls with stat", NULL },
-		{ "fake-io", 0, POPT_ARG_NONE, &options.fake_io, 0,
-		  "fake up read/write calls", NULL },
-		{ "skip-cleanup", 0, POPT_ARG_NONE, &options.skip_cleanup, 0,
-		  "skip cleanup operations", NULL },
-		{ "per-client-results", 0, POPT_ARG_NONE, &options.per_client_results, 0,
-		  "show results per client", NULL },
-		{ "server",  0, POPT_ARG_STRING, &options.server, 0,
-		  "server", NULL },
-		{ "nfs",  0, POPT_ARG_STRING, &options.nfs, 0,
-		  "nfs url", NULL },
-		{ "enable-nlm", 0, POPT_ARG_NONE, &options.nlm, 0,
-		  "Enable support for NFS byte range locking commands", NULL},
-		{ "run-once", 0, POPT_ARG_NONE, &options.run_once, 0,
-		  "Stop once reaching the end of the loadfile", NULL},
-		{ "scsi",  0, POPT_ARG_STRING, &options.scsi_dev, 0,
-		  "scsi device", NULL },
-		{ "allow-scsi-writes", 0, POPT_ARG_NONE, &options.allow_scsi_writes, 0,
-		  "Allow SCSI write command to the device", NULL},
-#ifdef HAVE_LIBISCSI
-		{ "iscsi",  0, POPT_ARG_STRING, &options.iscsi_device, 0,
-		  "iscsi URL for the target device", NULL },
-		{ "iscsi-initiatorname",  0, POPT_ARG_STRING, &options.iscsi_initiatorname, 0,
-		  "iscsi InitiatorName", NULL },
-#endif
-		{ "warmup", 0, POPT_ARG_INT, &options.warmup, 0,
-		  "How many seconds of warmup to run", NULL },
-		{ "machine-readable", 0, POPT_ARG_NONE, &options.machine_readable, 0,
-		  "Print data in more machine-readable friendly format", NULL},
-#ifdef HAVE_LIBSMBCLIENT
-		{ "smb-share",  0, POPT_ARG_STRING, &options.smb_share, 0,
-		  "//SERVER/SHARE to use", NULL },
-		{ "smb-user",  0, POPT_ARG_STRING, &options.smb_user, 0,
-		  "User to authenticate as : [<domain>/]<user>%<password>", NULL },
-#endif
-		POPT_TABLEEND
-	};
-	poptContext pc;
-	int opt;
+	static unsigned int count = 0;
 
-	pc = poptGetContext(argv[0], argc, argv, popt_options, POPT_CONTEXT_KEEP_FIRST);
-
-	while ((opt = poptGetNextOpt(pc)) != -1) {
-		if (strcmp(poptBadOption(pc, 0), "-h") == 0) {
-			poptPrintHelp(pc, stdout, 0);
-			exit(1);
-		}
-		fprintf(stderr, "Invalid option %s: %s\n",
-			poptBadOption(pc, 0), poptStrerror(opt));
-		exit(1);
-	}
-
-	/* setup the remaining options for the main program to use */
-	extra_argv = poptGetArgs(pc);
-	if (extra_argv) {
-		extra_argv++;
-		while (extra_argv[extra_argc]) extra_argc++;
-	}
-
-	if (extra_argc < 1) {
+	switch (key) {
+	case 'B':
+		options.backend = arg;
+		break;
+	case 't':
+		options.timelimit = atoi(arg);
+		break;
+	case 'c':
+		options.loadfile = arg;
+		break;
+	case 'D':
+		options.directory = arg;
+		break;
+	case 'T':
+		options.tcp_options = arg;
+		break;
+	case 'R':
+		options.targetrate = atof(arg);
+		break;
+	case 's':
+		options.sync_open = 1;
+		break;
+	case 'S':
+		options.sync_dirs = 1;
+		break;
+	case 'F':
+		options.do_fsync = 1;
+		break;
+	case 'x':
+		options.ea_enable = 1;
+		break;
+	case -1:
+		options.no_resolve = 1;
+		break;
+	case -2:
+		options.clients_per_process = atoi(arg);
+		break;
+	case -3:
+		options.trunc_io = atoi(arg);
+		break;
+	case -4:
+		options.one_byte_write_fix = 1;
+		break;
+	case -5:
+		options.stat_check = 1;
+		break;
+	case -6:
+		options.fake_io = 1;
+		break;
+	case -7:
+		options.skip_cleanup = 1;
+		break;
+	case -8:
+		options.per_client_results = 1;
+		break;
+	case -9:
+		options.server = arg;
+		break;
+	case -10:
+		options.nfs = arg;
+		break;
+	case -11:
+		options.nlm = 1;
+		break;
+	case -12:
+		options.run_once = 1;
+		break;
+	case -13:
+		options.scsi_dev = arg;
+		break;
+	case -14:
+		options.allow_scsi_writes = 1;
+		break;
+	case -15:
+		options.iscsi_device = arg;
+		break;
+	case -16:
+		options.iscsi_initiatorname = arg;
+		break;
+	case -17:
+		options.warmup = atoi(arg);
+		break;
+	case -18:
+		options.machine_readable = 1;
+		break;
+	case -19:
+		options.smb_share = arg;
+		break;
+	case -20:
+		options.smb_user = arg;
+		break;
+	case ARGP_KEY_NO_ARGS:
 		printf("You need to specify NPROCS\n");
-		poptPrintHelp(pc, stdout, 0);
-		exit(1);
+		argp_usage(state);
+		break;
+	case ARGP_KEY_ARG:
+		count++;
+		if (count == 1)
+			options.nprocs = atoi(arg);
+		break;
+	case ARGP_KEY_END:
+		if (count > 1) {
+			printf("too many arguments\n");
+			argp_usage(state);
+		}
+		break;
+	default:
+		return ARGP_ERR_UNKNOWN;
 	}
+	return 0;
+}
+
+static void process_opts(int argc, char **argv)
+{
+	struct argp_option options[] =
+	{
+		{"backend", 'B', "STRING", 0, "dbench backend (fileio, sockio, nfs, scsi, iscsi, smb)", 0},
+		{"timelimit", 't', "INTEGER", 0, "timelimit", 0},
+		{"loadfile", 'c', "FILENAME", 0, "loadfile", 0},
+		{"directory", 'D', "STRING", 0, "working directory", 0},
+		{"tcp-options", 'T', "STRING", 0, "TCP socket options", 0},
+		{"target-rate", 'R', "DOUBLE", 0, "target throughput (MB/sec)", 0},
+		{"sync", 's', 0, 0, "use O_SYNC", 1},
+		{"sync-dir", 'S', 0, 0, "sync directory changes", 1},
+		{"fsync", 'F', 0, 0, "fsync on write", 1},
+		{"xattr", 'x', 0, 0, "use xattrs", 1},
+		{"no-resolve", -1, 0, 0, "disable name resolution simulation", 3},
+		{"clients-per-process", -2, "INTEGER", 0, "number of clients per process", 2},
+		{"trunc-io", -3, "INTEGER", 0, "truncate all io to this size", 2},
+		{"one-byte-write-fix", -4, 0, 0, "try to fix 1 byte writes", 3},
+		{"stat-check", -5, 0, 0, "check for pointless calls with stat", 3},
+		{"fake-io", -6, 0, 0, "fake up read/write calls", 3},
+		{"skip-cleanup", -7, 0, 0, "skip cleanup operations", 3},
+		{"per-client-results", -8, 0, 0, "show results per client", 3},
+		{"server", -9, "STRING", 0, "server", 2},
+		{"nfs", -10, "STRING", 0, "nfs url", 2},
+		{"enable-nlm", -11, 0, 0, "Enable support for NFS byte range locking commands", 3},
+		{"run-once", -12, 0, 0, "Stop once reaching the end of the loadfile", 3},
+		{"scsi", -13, "STRING", 0, "scsi device", 2},
+		{"allow-scsi-writes", -14, 0, 0, "Allow SCSI write command to the device", 3},
+#ifdef HAVE_LIBISCSI
+		{"iscsi", -15, "STRING", 0, "iscsi URL for the target device", 2},
+		{"iscsi-initiatorname", -16, "STRING", 0, "iscsi InitiatorName", 2},
+#endif
+		{"warmup", -17, "INTEGER", 0, "How many seconds of warmup to run", 2},
+		{"machine-readable", -18, 0, 0, "Print data in more machine-readable friendly format", 3},
+#ifdef HAVE_LIBSMBCLIENT
+		{"smb-share", -19, "STRING", 0, "//SERVER/SHARE to use", 2},
+		{"smb-user", -20, "STRING", 0, "User to authenticate as : [<domain>/]<user>%<password>", 2},
+#endif
+		{ 0 }
+	};
+
+	struct argp argp = {
+		.options = options,
+		.parser = parse_opt
+	};
+	argp_parse(&argp, argc, argv, 0, 0, 0);
 
 #ifndef HAVE_EA_SUPPORT
 	if (options.ea_enable) {
@@ -458,17 +519,11 @@ static void process_opts(int argc, const char **argv)
 		exit(1);
 	}
 #endif
-
-	options.nprocs = atoi(extra_argv[0]);
-
-	if (extra_argc >= 2) {
-		options.server = extra_argv[1];
-	}
 }
 
 
 
- int main(int argc, const char *argv[])
+ int main(int argc, char *argv[])
 {
 	double total_bytes = 0;
 	double latency=0;
