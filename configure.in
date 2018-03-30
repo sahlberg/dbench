@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
 }
 ], ac_cv_have_libsmbclient=yes, ac_cv_have_libsmbclient=no,
    [echo $ac_n "compile with LIBSMBCLIENT. Assuming OK... $ac_c"
-    ac_cv_have_libsmbclient=yes])
+    ac_cv_have_libsmbclient=no])
 CFLAGS="$ac_save_CFLAGS"
 LIBS="$ac_save_LIBS"
 if test "$ac_cv_have_libsmbclient" = yes ; then
@@ -146,7 +146,7 @@ int main(int argc, char *argv[])
 }
 ], ac_cv_have_libiscsi=yes, ac_cv_have_libiscsi=no,
    [echo $ac_n "compile with LIBISCSI. Assuming OK... $ac_c"
-    ac_cv_have_libiscsi=yes])
+    ac_cv_have_libiscsi=no])
 CFLAGS="$ac_save_CFLAGS"
 LIBS="$ac_save_LIBS"
 if test "$ac_cv_have_libiscsi" = yes ; then
@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
 }
 ], ac_cv_linux_scsi_sg=yes, ac_cv_linux_scsi_sg=no,
    [echo $ac_n "cross compiling; assumed OK... $ac_c"
-    ac_cv_linux_scsi_sg=yes])
+    ac_cv_linux_scsi_sg=no])
 CFLAGS="$ac_save_CFLAGS"
 LIBS="$ac_save_LIBS"
 if test "$ac_cv_linux_scsi_sg" = yes ; then
@@ -241,7 +241,7 @@ int main(int argc, char *argv[])
 }
 ], ac_cv_have_libnfs=yes, ac_cv_have_libnfs=no,
    [echo $ac_n "compile with LIBNFS. Assuming OK... $ac_c"
-    ac_cv_have_libnfs=yes])
+    ac_cv_have_libnfs=no])
 CFLAGS="$ac_save_CFLAGS"
 LIBS="$ac_save_LIBS"
 if test "$ac_cv_have_libnfs" = yes ; then
