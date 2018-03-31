@@ -11,7 +11,7 @@ datadir=@datadir@
 docdir = @docdir@
 XSLTPROC = /usr/bin/xsltproc
 INSTALLCMD=@INSTALL@
-LIBS=@LIBS@ -lpopt -lz @LIBSMBCLIENT@ @LIBISCSI@ @LIBNFS@
+LIBS=@LIBS@ -lz @LIBSMBCLIENT@ @LIBISCSI@ @LIBNFS@
 DESTDIR=/
 CC=@CC@
 CFLAGS=@CFLAGS@ -I. -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(datadir)\"
