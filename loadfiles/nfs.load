@@ -97,7 +97,7 @@
 1.110 RMDIR3 "/clients/client1/test.dir" 0x00000000
 # The READDIRPLUS3 function will automatically loop and read the entire
 # directory, so when transcoding from a network trace, only transcode
-# the initial READDIRPLUS3 into the clients.txt file (where cookie is 0)
+# the initial READDIRPLUS3 into the clients.load file (where cookie is 0)
 # and ignore all other READDIRPLUS3 calls.
 2.000 READDIRPLUS3 "/clients/client1" 0x00000000
 # The arguments are desired access and granted access

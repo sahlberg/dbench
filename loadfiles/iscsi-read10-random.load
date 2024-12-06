@@ -1,7 +1,7 @@
 # Read a single block at a random offset
 #
 # Usage example:
-#   dbench -B iscsi --iscsi=iscsi://127.0.0.1/iqn.ronnie.test/1 --run-once --loadfile=loadfiles/iscsi-read10-random.txt 1
+#   dbench -B iscsi --iscsi=iscsi://127.0.0.1/iqn.ronnie.test/1 --run-once --loadfile=loadfiles/iscsi-read10-random.load 1
 #
 
 0.000 TESTUNITREADY 0x00

@@ -445,6 +445,9 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
 	case -20:
 		options.smb_user = arg;
 		break;
+	case -21:
+		options.block = arg;
+		break;
 	case ARGP_KEY_NO_ARGS:
 		printf("You need to specify NPROCS\n");
 		argp_usage(state);
@@ -504,6 +507,7 @@ static void process_opts(int argc, char **argv)
 		{"smb-share", -19, "STRING", 0, "//SERVER/SHARE to use", 2},
 		{"smb-user", -20, "STRING", 0, "User to authenticate as : [<domain>/]<user>%<password>", 2},
 #endif
+		{"block", -21, "STRING", 0, "Block device", 2},
 		{ 0 }
 	};
 
@@ -554,6 +558,9 @@ static void process_opts(int argc, char **argv)
 	} else if (strcmp(options.backend, "sockio") == 0) {
 		extern struct nb_operations sockio_ops;
 		nb_ops = &sockio_ops;
+	} else if (strcmp(options.backend, "block") == 0) {
+		extern struct nb_operations block_ops;
+		nb_ops = &block_ops;
 #ifdef HAVE_LIBNFS
 	} else if (strcmp(options.backend, "nfs") == 0) {
 		extern struct nb_operations nfs_ops;

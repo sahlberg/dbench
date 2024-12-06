@@ -1,6 +1,6 @@
 # Just register a key, reserve a device and then wait some minutes
 # and release the device and unregister the key.
-# To be used in parallel with reserve_parallel_2.txt
+# To be used in parallel with reserve_parallel_2.load
 
 #Register
 0.000 PROUT 0  0          0 0xdeadbeef 0x00

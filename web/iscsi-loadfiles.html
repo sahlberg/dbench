@@ -24,7 +24,7 @@ This is the name that dbench will use as InitiatorName. This is an optional argu
 <p>
 The iSCSI loadfiles supports a small subset of all SCSI commands.
 The current list of supported commands, their flags and their use can always
-be found in the file <a href="/loadfiles/iscsi.txt">./loadfiles/iscsi.txt</a>
+be found in the file <a href="/loadfiles/iscsi.load">./loadfiles/iscsi.load</a>
 </p>
 
 
@@ -87,7 +87,7 @@ Throughput test. Read the same 1Mbyte from page-cache over and over. To measure 
 Run DBENCH with 1 thread of execution and run the loadfile only once. Terminate the run once the end of the loadfile has been reached.
 </p>
 <pre>
-dbench -B iscsi --loadfile=iscsi.txt --iscsi-device=iscsi://10.0.0.71/iqn.2007-03:mptest/1 --warmup=0  --run-once 1
+dbench -B iscsi --loadfile=iscsi.load --iscsi-device=iscsi://10.0.0.71/iqn.2007-03:mptest/1 --warmup=0  --run-once 1
 </pre>
 
 <H3>Example 2</h3>
@@ -95,12 +95,12 @@ dbench -B iscsi --loadfile=iscsi.txt --iscsi-device=iscsi://10.0.0.71/iqn.2007-0
 Run DBENCH for 10 seconds with 5 separate threads of execution. When the end of the loadfile is reached, go back to the start and execute it again until time runs out.
 </p>
 <pre>
-dbench -B iscsi --loadfile=iscsi.txt --iscsi-device=iscsi://10.0.0.71/iqn.2007-03:mptest/1 --warmup=0  --timelimit=10 5
+dbench -B iscsi --loadfile=iscsi.load --iscsi-device=iscsi://10.0.0.71/iqn.2007-03:mptest/1 --warmup=0  --timelimit=10 5
 </pre>
 
 <H2>Example output</h2>
 <pre>
-Running for 5 seconds with load 'iscsi.txt' and minimum warmup 0 secs
+Running for 5 seconds with load 'iscsi.load' and minimum warmup 0 secs
 0 of 10 processes prepared for launch   0 sec
 10 of 10 processes prepared for launch   0 sec
 releasing clients

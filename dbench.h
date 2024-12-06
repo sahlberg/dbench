@@ -1,3 +1,4 @@
+/* -*-  mode:c; tab-width:8; c-basic-offset:8; indent-tabs-mode:nil;  -*- */
 /* 
    dbench version 2
    Copyright (C) Andrew Tridgell 1999
@@ -165,6 +166,7 @@ struct options {
 	int machine_readable;
 	const char *smb_share;
 	const char *smb_user;
+	const char *block;
 };
 
 
@@ -217,6 +219,7 @@ struct nfsio;
 
 extern struct options options;
 extern int global_random;
+#define RWBUFSIZE 16*1024*1024
 extern char rw_buf[];
 
 void all_string_sub(char *s,const char *pattern,const char *insert);
