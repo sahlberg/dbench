@@ -1,11 +1,11 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT
-AC_PREREQ([2.71])
+AC_PREREQ([2.69])
+AC_INIT([dbench],[5.0],[ronniesahlberg@gmail.com])
+AC_CONFIG_HEADERS([config.h])
+AM_INIT_AUTOMAKE([-Wall foreign subdir-objects])
 
 AC_MSG_NOTICE([Configuring dbench])
-
-AC_CONFIG_HEADERS([config.h])
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -154,6 +154,7 @@ else
   AC_MSG_NOTICE(Libiscsi not available. Building DBENCH without iscsi support)
   LIBISCSI=""
 fi
+AM_CONDITIONAL([HAVE_LIBISCSI], [test x$ac_cv_have_libiscsi = xyes])
 
 #
 # Check whether we have access to Linux SCSI Generic ioctl()
@@ -175,18 +176,6 @@ AC_RUN_IFELSE([AC_LANG_SOURCE([[
 
 int main(int argc, char *argv[])
 {
-	const char *dev="/dev/sda";
-	int fd, vers;
-
-	if((fd=open(dev, O_RDWR))<0){
-		return 0;
-	}
-	if ((ioctl(fd, SG_GET_VERSION_NUM, &vers) < 0) || (vers < 30000)) {
-		close(fd);
-		return 0;
-	}
-	close(fd);
-
 	return 0;
 }
 ]])],[ac_cv_linux_scsi_sg=yes],[ac_cv_linux_scsi_sg=no],[echo $ac_n "cross compiling; assumed OK... $ac_c"
@@ -196,11 +185,9 @@ LIBS="$ac_save_LIBS"
 if test "$ac_cv_linux_scsi_sg" = yes ; then
   AC_MSG_RESULT(yes)
   have_linux_scsi_sg=yes
-  LINUXSCSI="linux_scsi.o"
 else
   AC_MSG_RESULT(no)
   have_linux_scsi_sg=no
-  LINUXSCSI=""
 fi
 if test x$have_linux_scsi_sg = xyes
 then
@@ -247,12 +234,12 @@ else
   AC_MSG_NOTICE(Libnfs not available. Building DBENCH without NFS support)
   LIBNFS=""
 fi
+AM_CONDITIONAL([HAVE_LIBNFS], [test x$ac_cv_have_libnfs = xyes])
 
 AC_SUBST(LIBSMBCLIENT)
 AC_SUBST(LIBISCSI)
 AC_SUBST(LIBNFS)
 AC_SUBST(SMBO)
-AC_SUBST(LINUXSCSI)
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
 

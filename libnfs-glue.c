@@ -36,6 +36,7 @@
 
 #include <inttypes.h>
 
+#include "dbench.h"
 #include <nfsc/libnfs.h>
 #include <nfsc/libnfs-raw.h>
 #include <nfsc/libnfs-raw-nfs.h>
@@ -47,7 +48,6 @@
 
 struct nfs_fh3 *nfs_get_rootfh(struct nfs_context *nfs);
 void nfs_set_error(struct nfs_context *nfs, char *error_string, ...);
-int rpc_nfs_pathconf_async(struct rpc_context *rpc, rpc_cb cb, struct nfs_fh3 *fh, void *private_data);
 
 typedef struct _tree_t {
 	nfs_fh3 key;
@@ -555,6 +555,7 @@ nfsstat3 nfsio_getattr(struct nfsio *nfsio, const char *name, fattr3 *attributes
 {
 	struct nfs_fh3 *fh;
 	struct nfsio_cb_data cb_data;
+	struct GETATTR3args ga3;
 
 	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
@@ -567,8 +568,14 @@ nfsstat3 nfsio_getattr(struct nfsio *nfsio, const char *name, fattr3 *attributes
 	cb_data.attributes = attributes;
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_getattr_async(nfs_get_rpc_context(nfsio->nfs),
-		nfsio_getattr_cb, fh, &cb_data)) {
+	ga3.object = *fh;
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_getattr_task(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_getattr_cb, &ga3, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_getattr_async(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_getattr_cb, &ga3, &cb_data)) {
+#endif	  
 		fprintf(stderr, "failed to send getattr\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -613,6 +620,7 @@ nfsstat3 nfsio_lookup(struct nfsio *nfsio, const char *name, fattr3 *attributes)
 	char *ptr;
 	struct nfs_fh3 *fh;
 	struct nfsio_cb_data cb_data;
+	struct LOOKUP3args lu3;
 
 	tmp_name = strdupa(name);
 	if (tmp_name == NULL) {
@@ -641,8 +649,15 @@ nfsstat3 nfsio_lookup(struct nfsio *nfsio, const char *name, fattr3 *attributes)
 	cb_data.attributes = attributes;
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_lookup_async(nfs_get_rpc_context(nfsio->nfs),
-		nfsio_lookup_cb, fh, ptr, &cb_data)) {
+	lu3.what.dir = *fh;
+	lu3.what.name = ptr;
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_lookup_task(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_lookup_cb, &lu3, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_lookup_async(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_lookup_cb, &lu3, &cb_data)) {
+#endif	  
 		fprintf(stderr, "failed to send lookup for '%s' "
 			"in nfsio_lookup\n", tmp_name);
 		return NFS3ERR_SERVERFAULT;
@@ -679,7 +694,8 @@ nfsstat3 nfsio_access(struct nfsio *nfsio, const char *name, uint32_t desired, u
 {
 	struct nfs_fh3 *fh;
 	struct nfsio_cb_data cb_data;
-
+	struct ACCESS3args a3;
+	
 	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_access\n");
@@ -691,8 +707,15 @@ nfsstat3 nfsio_access(struct nfsio *nfsio, const char *name, uint32_t desired, u
 	cb_data.access = access;
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_access_async(nfs_get_rpc_context(nfsio->nfs),
-				 nfsio_access_cb, fh, desired, &cb_data)) {
+	a3.object = *fh;
+	a3.access = desired;
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_access_task(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_access_cb, &a3, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_access_async(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_access_cb, &a3, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send access\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -774,8 +797,13 @@ nfsstat3 nfsio_create(struct nfsio *nfsio, const char *name)
 	cb_data.name = discard_const(name);
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_create_async(nfs_get_rpc_context(nfsio->nfs),
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_create_task(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_create_cb, &CREATE3args, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_create_async(nfs_get_rpc_context(nfsio->nfs),
 				 nfsio_create_cb, &CREATE3args, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send create\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -810,7 +838,8 @@ nfsstat3 nfsio_remove(struct nfsio *nfsio, const char *name)
 	char *tmp_name, *ptr;
 	nfs_fh3 *fh;
 	struct nfsio_cb_data cb_data;
-
+	struct REMOVE3args r3;
+	
 	tmp_name = strdupa(name);
 	if (tmp_name == NULL) {
 		fprintf(stderr, "failed to strdup name in nfsio_remove\n");
@@ -837,8 +866,15 @@ nfsstat3 nfsio_remove(struct nfsio *nfsio, const char *name)
 	cb_data.name = discard_const(name);
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_remove_async(nfs_get_rpc_context(nfsio->nfs),
-				 nfsio_remove_cb, fh, ptr, &cb_data)) {
+	r3.object.dir = *fh;
+	r3.object.name = ptr;
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_remove_task(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_remove_cb, &r3, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_remove_async(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_remove_cb, &r3, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send remove\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -870,7 +906,8 @@ nfsstat3 nfsio_write(struct nfsio *nfsio, const char *name, char *buf, uint64_t 
 {
 	struct nfs_fh3 *fh;
 	struct nfsio_cb_data cb_data;
-
+	struct WRITE3args w3;
+	
 	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_write\n");
@@ -881,8 +918,21 @@ nfsstat3 nfsio_write(struct nfsio *nfsio, const char *name, char *buf, uint64_t 
 	cb_data.nfsio = nfsio;
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_write_async(nfs_get_rpc_context(nfsio->nfs), nfsio_write_cb,
-				fh, buf, offset, len, stable, &cb_data)) {
+	w3.file = *fh;
+	w3.offset = offset;
+	w3.count = len;
+	w3.stable = stable;
+	w3.data.data_len = len;
+	w3.data.data_val = buf;
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_write_task(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_write_cb,
+				 &w3, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_write_async(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_write_cb,
+				 &w3, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send write\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -914,7 +964,8 @@ nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf _U_, uint64
 {
 	struct nfs_fh3 *fh;
 	struct nfsio_cb_data cb_data;
-
+	struct READ3args r3;
+	
 	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_read\n");
@@ -925,8 +976,17 @@ nfsstat3 nfsio_read(struct nfsio *nfsio, const char *name, char *buf _U_, uint64
 	cb_data.nfsio = nfsio;
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_read_async(nfs_get_rpc_context(nfsio->nfs), nfsio_read_cb,
-			fh, offset, len, &cb_data)) {
+	r3.file = *fh;
+	r3.offset = offset;
+	r3.count = len;
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_read_task(nfs_get_rpc_context(nfsio->nfs), nfsio_read_cb,
+			       rw_buf, len,
+			       &r3, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_read_async(nfs_get_rpc_context(nfsio->nfs), nfsio_read_cb,
+				&r3, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send read\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -986,8 +1046,13 @@ nlmstat4 nfsio_lock(struct nfsio *nfsio, const char *name, uint64_t offset, int 
 	NLM4_LOCKargs.reclaim = 0;
 	NLM4_LOCKargs.state = 0;
 
+#ifdef LIBNFS_API_V2
+	if (rpc_nlm4_lock_task(nfsio->nlm, nfsio_lock_cb,
+			&NLM4_LOCKargs, &cb_data) == NULL) {
+#else
 	if (rpc_nlm4_lock_async(nfsio->nlm, nfsio_lock_cb,
 			&NLM4_LOCKargs, &cb_data)) {
+#endif	  
 		fprintf(stderr, "failed to send lock\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -1043,8 +1108,13 @@ nlmstat4 nfsio_unlock(struct nfsio *nfsio, const char *name, uint64_t offset, in
 	NLM4_UNLOCKargs.lock.l_offset = offset;
 	NLM4_UNLOCKargs.lock.l_len    = len;
 
+#ifdef LIBNFS_API_V2
+	if (rpc_nlm4_unlock_task(nfsio->nlm, nfsio_unlock_cb,
+			&NLM4_UNLOCKargs, &cb_data) == NULL) {
+#else
 	if (rpc_nlm4_unlock_async(nfsio->nlm, nfsio_unlock_cb,
 			&NLM4_UNLOCKargs, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send unlock\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -1101,8 +1171,13 @@ nlmstat4 nfsio_test(struct nfsio *nfsio, const char *name, uint64_t offset, int 
 	NLM4_TESTargs.lock.l_offset = offset;
 	NLM4_TESTargs.lock.l_len    = len;
 
+#ifdef LIBNFS_API_V2
+	if (rpc_nlm4_test_task(nfsio->nlm, nfsio_test_cb,
+			&NLM4_TESTargs, &cb_data) == NULL) {
+#else
 	if (rpc_nlm4_test_async(nfsio->nlm, nfsio_test_cb,
 			&NLM4_TESTargs, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send test\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -1133,7 +1208,8 @@ nfsstat3 nfsio_commit(struct nfsio *nfsio, const char *name)
 {
 	struct nfs_fh3 *fh;
 	struct nfsio_cb_data cb_data;
-
+	struct COMMIT3args c3;
+	
 	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_commit\n");
@@ -1144,8 +1220,16 @@ nfsstat3 nfsio_commit(struct nfsio *nfsio, const char *name)
 	cb_data.nfsio = nfsio;
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_commit_async(nfs_get_rpc_context(nfsio->nfs),
-				 nfsio_commit_cb, fh, &cb_data)) {
+	c3.file = *fh;
+	c3.offset = 0;
+	c3.count = -1;
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_commit_task(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_commit_cb, &c3, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_commit_async(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_commit_cb, &c3, &cb_data)) {
+#endif	  
 		fprintf(stderr, "failed to send commit\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -1177,7 +1261,8 @@ nfsstat3 nfsio_fsinfo(struct nfsio *nfsio)
 {
 	struct nfs_fh3 *fh;
 	struct nfsio_cb_data cb_data;
-
+	struct FSINFO3args fsi3;
+	
 	fh = lookup_fhandle(nfsio, "/", NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_fsinfo\n");
@@ -1188,8 +1273,14 @@ nfsstat3 nfsio_fsinfo(struct nfsio *nfsio)
 	cb_data.nfsio = nfsio;
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_fsinfo_async(nfs_get_rpc_context(nfsio->nfs),
-				 nfsio_fsinfo_cb, fh, &cb_data)) {
+	fsi3.fsroot = *fh;
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_fsinfo_task(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_fsinfo_cb, &fsi3, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_fsinfo_async(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_fsinfo_cb, &fsi3, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send fsinfo\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -1222,7 +1313,8 @@ nfsstat3 nfsio_fsstat(struct nfsio *nfsio)
 {
 	struct nfs_fh3 *fh;
 	struct nfsio_cb_data cb_data;
-
+	struct FSSTAT3args fss3;
+	
 	fh = lookup_fhandle(nfsio, "/", NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_fsstat\n");
@@ -1233,8 +1325,14 @@ nfsstat3 nfsio_fsstat(struct nfsio *nfsio)
 	cb_data.nfsio = nfsio;
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_fsstat_async(nfs_get_rpc_context(nfsio->nfs),
-				 nfsio_fsstat_cb, fh, &cb_data)) {
+	fss3.fsroot = *fh;
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_fsstat_task(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_fsstat_cb, &fss3, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_fsstat_async(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_fsstat_cb, &fss3, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send fsstat\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -1266,7 +1364,8 @@ nfsstat3 nfsio_pathconf(struct nfsio *nfsio, char *name)
 {
 	struct nfs_fh3 *fh;
 	struct nfsio_cb_data cb_data;
-
+	struct PATHCONF3args pc3;
+	
 	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
 		fprintf(stderr, "failed to fetch handle in nfsio_pathconf\n");
@@ -1277,8 +1376,14 @@ nfsstat3 nfsio_pathconf(struct nfsio *nfsio, char *name)
 	cb_data.nfsio = nfsio;
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_pathconf_async(nfs_get_rpc_context(nfsio->nfs),
-		nfsio_pathconf_cb, fh, &cb_data)) {
+	pc3.object = *fh;
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_pathconf_task(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_pathconf_cb, &pc3, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_pathconf_async(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_pathconf_cb, &pc3, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send pathconf\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -1359,8 +1464,13 @@ nfsstat3 nfsio_symlink(struct nfsio *nfsio, const char *old, const char *new)
 	cb_data.name  = discard_const(old);
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_symlink_async(nfs_get_rpc_context(nfsio->nfs),
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_symlink_task(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_symlink_cb, &SYMLINK3args, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_symlink_async(nfs_get_rpc_context(nfsio->nfs),
 		nfsio_symlink_cb, &SYMLINK3args, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send symlink\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -1393,7 +1503,8 @@ nfsstat3 nfsio_link(struct nfsio *nfsio, const char *old, const char *new)
 	char *tmp_name, *ptr;
 	nfs_fh3 *fh, *new_fh;
 	struct nfsio_cb_data cb_data;
-
+	struct LINK3args l3;
+	
 	tmp_name = strdupa(old);
 	if (tmp_name == NULL) {
 		fprintf(stderr, "failed to strdup name in nfsio_link\n");
@@ -1426,8 +1537,16 @@ nfsstat3 nfsio_link(struct nfsio *nfsio, const char *old, const char *new)
 	cb_data.name  = ptr;
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_link_async(nfs_get_rpc_context(nfsio->nfs),
-			       nfsio_link_cb, new_fh, fh, ptr, &cb_data)) {
+	l3.file = *fh;
+	l3.link.dir = *new_fh;
+	l3.link.name = ptr;
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_link_task(nfs_get_rpc_context(nfsio->nfs),
+			       nfsio_link_cb, &l3, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_link_async(nfs_get_rpc_context(nfsio->nfs),
+			       nfsio_link_cb, &l3, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send link\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -1473,8 +1592,13 @@ nfsstat3 nfsio_readlink(struct nfsio *nfsio, char *name)
 	cb_data.nfsio = nfsio;
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_readlink_async(nfs_get_rpc_context(nfsio->nfs),
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_readlink_task(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_readlink_cb, &READLINK3args, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_readlink_async(nfs_get_rpc_context(nfsio->nfs),
 		nfsio_readlink_cb, &READLINK3args, &cb_data)) {
+#endif	  
 		fprintf(stderr, "failed to send readlink\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -1509,7 +1633,8 @@ nfsstat3 nfsio_rmdir(struct nfsio *nfsio, const char *name)
 	char *tmp_name, *ptr;
 	nfs_fh3 *fh;
 	struct nfsio_cb_data cb_data;
-
+	struct RMDIR3args rd3;
+	
 	tmp_name = strdupa(name);
 	if (tmp_name == NULL) {
 		fprintf(stderr, "failed to strdup name in nfsio_rmdir\n");
@@ -1536,8 +1661,15 @@ nfsstat3 nfsio_rmdir(struct nfsio *nfsio, const char *name)
 	cb_data.name = discard_const(name);
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_rmdir_async(nfs_get_rpc_context(nfsio->nfs),
-				 nfsio_rmdir_cb, fh, ptr, &cb_data)) {
+	rd3.object.dir = *fh;
+	rd3.object.name = ptr;
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_rmdir_task(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_rmdir_cb, &rd3, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_rmdir_async(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_rmdir_cb, &rd3, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send rmdir\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -1617,8 +1749,13 @@ nfsstat3 nfsio_mkdir(struct nfsio *nfsio, const char *name)
 	cb_data.name = discard_const(name);
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_mkdir_async(nfs_get_rpc_context(nfsio->nfs),
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_mkdir_task(nfs_get_rpc_context(nfsio->nfs),
+				 nfsio_mkdir_cb, &MKDIR3args, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_mkdir_async(nfs_get_rpc_context(nfsio->nfs),
 				 nfsio_mkdir_cb, &MKDIR3args, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send mkdir\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -1632,7 +1769,8 @@ static void nfsio_readdirplus_cb(struct rpc_context *rpc _U_, int status,
 	struct READDIRPLUS3res *READDIRPLUS3res = data;
 	struct nfsio_cb_data *cb_data = private_data;
 	entryplus3 *e;
-
+	struct READDIRPLUS3args rdp3;
+	
 	cb_data->is_finished = 1;
 
 	if (status != RPC_STATUS_SUCCESS) {
@@ -1651,13 +1789,22 @@ static void nfsio_readdirplus_cb(struct rpc_context *rpc _U_, int status,
 		}
 
 		set_xid_value(cb_data->nfsio);
-		if (rpc_nfs_readdirplus_async(
+		rdp3.dir = *cb_data->fh;
+		rdp3.cookie = e->cookie;
+		memcpy(&rdp3.cookieverf[0], (char *)&READDIRPLUS3res->READDIRPLUS3res_u.resok.cookieverf, NFS3_COOKIEVERFSIZE);
+		rdp3.dircount = 8000;
+		rdp3.maxcount = 8000;
+#ifdef LIBNFS_API_V2
+		if (rpc_nfs3_readdirplus_task(
 				nfs_get_rpc_context(cb_data->nfsio->nfs),
 				nfsio_readdirplus_cb,
-				cb_data->fh,
-				e->cookie,
-				(char *)&READDIRPLUS3res->READDIRPLUS3res_u.resok.cookieverf,
-				8000, cb_data)) {
+				&rdp3, cb_data) == NULL) {
+#else
+		if (rpc_nfs3_readdirplus_async(
+				nfs_get_rpc_context(cb_data->nfsio->nfs),
+				nfsio_readdirplus_cb,
+				&rdp3, cb_data)) {
+#endif
 			fprintf(stderr, "failed to send readdirplus\n");
 			cb_data->status = NFS3ERR_SERVERFAULT;
 			return;
@@ -1703,6 +1850,7 @@ nfsstat3 nfsio_readdirplus(struct nfsio *nfsio, const char *name, nfs3_dirent_cb
 	struct nfs_fh3 *fh;
 	struct nfsio_cb_data cb_data;
 	cookieverf3 cv;
+	struct READDIRPLUS3args rdp3;
 
 	fh = lookup_fhandle(nfsio, name, NULL);
 	if (fh == NULL) {
@@ -1719,8 +1867,18 @@ nfsstat3 nfsio_readdirplus(struct nfsio *nfsio, const char *name, nfs3_dirent_cb
 	cb_data.private_data = private_data;
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_readdirplus_async(nfs_get_rpc_context(nfsio->nfs),
-		nfsio_readdirplus_cb, fh, 0, (char *)&cv, 8000, &cb_data)) {
+	rdp3.dir = *fh;
+	rdp3.cookie = 0;
+	memcpy(&rdp3.cookieverf[0], (char *)&cv, NFS3_COOKIEVERFSIZE);
+	rdp3.dircount = 8000;
+	rdp3.maxcount = 8000;
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_readdirplus_task(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_readdirplus_cb, &rdp3, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_readdirplus_async(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_readdirplus_cb, &rdp3, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send readdirplus\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -1765,7 +1923,8 @@ nfsstat3 nfsio_rename(struct nfsio *nfsio, const char *old, const char *new)
 	nfs_fh3 *old_fh, *new_fh;
 	char *old_ptr, *new_ptr;
 	struct nfsio_cb_data cb_data;
-
+	struct RENAME3args r3;
+	
 	tmp_old_name = strdupa(old);
 	if (tmp_old_name == NULL) {
 		fprintf(stderr, "failed to strdup name in nfsio_rename\n");
@@ -1814,11 +1973,21 @@ nfsstat3 nfsio_rename(struct nfsio *nfsio, const char *old, const char *new)
 	cb_data.old_name = discard_const(old);
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_rename_async(nfs_get_rpc_context(nfsio->nfs),
-			nfsio_rename_cb,
-			old_fh, old_ptr,
-			new_fh, new_ptr,
-			&cb_data)) {
+	r3.from.dir = *old_fh;
+	r3.from.name = old_ptr;
+	r3.to.dir = *new_fh;
+	r3.to.name = new_ptr;
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_rename_task(nfs_get_rpc_context(nfsio->nfs),
+				  nfsio_rename_cb,
+				  &r3,
+				  &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_rename_async(nfs_get_rpc_context(nfsio->nfs),
+				  nfsio_rename_cb,
+				  &r3,
+				  &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send rename\n");
 		return NFS3ERR_SERVERFAULT;
 	}
@@ -1870,8 +2039,13 @@ nfsstat3 nfsio_setattr(struct nfsio *nfsio, const char *name, fattr3 *attributes
 	args.new_attributes.mtime.set_it = SET_TO_SERVER_TIME;
 
 	set_xid_value(nfsio);
-	if (rpc_nfs_setattr_async(nfs_get_rpc_context(nfsio->nfs),
+#ifdef LIBNFS_API_V2
+	if (rpc_nfs3_setattr_task(nfs_get_rpc_context(nfsio->nfs),
+		nfsio_setattr_cb, &args, &cb_data) == NULL) {
+#else
+	if (rpc_nfs3_setattr_async(nfs_get_rpc_context(nfsio->nfs),
 		nfsio_setattr_cb, &args, &cb_data)) {
+#endif
 		fprintf(stderr, "failed to send setattr\n");
 		return NFS3ERR_SERVERFAULT;
 	}

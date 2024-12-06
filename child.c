@@ -30,8 +30,7 @@
 
 #define ival(s) strtoll(s, NULL, 0)
 
-#define RWBUFSIZE 16*1024*1024
-char rw_buf[RWBUFSIZE];
+char rw_buf[RWBUFSIZE + 65536];
 
 static void nb_sleep(int usec)
 {
@@ -260,7 +259,7 @@ again:
 	if (pstart == NULL) {
 		goto finished;
 	}
-	strncpy(str, pstart, sizeof(str));
+	strncpy(str, pstart, sizeof(str) - 1);
 
 	pend = index(str, ']');
 	if (pstart == NULL) {
@@ -287,7 +286,7 @@ finished:
 	}
 	/* remote initial " */
 	while (str[0] == '"') {
-		memcpy(str, str+1, sizeof(str)-1);
+		memmove(str, str+1, sizeof(str)-1);
 	}
 	/* remote trailing " */
 	while (1) {

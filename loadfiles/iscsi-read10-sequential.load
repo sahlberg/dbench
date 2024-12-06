@@ -1,7 +1,7 @@
 # Read sequentially 8 blocks at a time
 #
 # Usage example:
-#   dbench -B iscsi --iscsi=iscsi://127.0.0.1/iqn.ronnie.test/1 --run-once --loadfile=loadfiles/iscsi-read10-sequential.txt 1
+#   dbench -B iscsi --iscsi=iscsi://127.0.0.1/iqn.ronnie.test/1 --run-once --loadfile=loadfiles/iscsi-read10-sequential.load 1
 #
 
 0.000 TESTUNITREADY 0x00

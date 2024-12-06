@@ -777,7 +777,7 @@ REPEAT 10000000
 LOCK4 "/foo.dbench" +num_children 1 0x00000000
 UNLOCK4 "/foo.dbench" 0 0 0x00000000
 
-dbench -B nfs --nfs=nfs://10.0.0.1/data/tmp,nfs://10.0.0.2/data/tmp --loadfile=nfs.txt --warmup=0 --skip-cleanup --enable-nlm --run-once 10
+dbench -B nfs --nfs=nfs://10.0.0.1/data/tmp,nfs://10.0.0.2/data/tmp --loadfile=nfs.load --warmup=0 --skip-cleanup --enable-nlm --run-once 10
 	    </screen>
           </para>
         </listitem>
@@ -824,7 +824,7 @@ READ3 "/foo.dbench" 0 4096 0x00000000
 REPEAT 999999
 READ3 "/foo.dbench" +4096 4096 0x00000000
 
-dbench -B nfs --loadfile=nfs.txt --skip-cleanup --warmup=0 --nfs nfs://127.0.0.1/data/tmp --run-once 1
+dbench -B nfs --loadfile=nfs.load --skip-cleanup --warmup=0 --nfs nfs://127.0.0.1/data/tmp --run-once 1
 	</screen>
       </para>
       </varlistentry>
@@ -836,7 +836,7 @@ dbench -B nfs --loadfile=nfs.txt --skip-cleanup --warmup=0 --nfs nfs://127.0.0.1
 REPEAT 999999
 READ3 "/foo.dbench" */4096%1000000000 4096 0x00000000
 
-dbench -B nfs --loadfile=nfs.txt --skip-cleanup --warmup=0 --nfs nfs://127.0.0.1/data/tmp --run-once 1
+dbench -B nfs --loadfile=nfs.load --skip-cleanup --warmup=0 --nfs nfs://127.0.0.1/data/tmp --run-once 1
 	</screen>
       </para>
       </varlistentry>

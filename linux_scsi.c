@@ -14,6 +14,9 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
+#include "config.h"
+#ifdef HAVE_LINUX_SCSI_SG
+
 #include "dbench.h"
 
 #ifndef _GNU_SOURCE
@@ -471,3 +474,4 @@ struct nb_operations scsi_ops = {
 	.ops          = ops
 };
 
+#endif /* HAVE_LINUX_SCSI_SG */

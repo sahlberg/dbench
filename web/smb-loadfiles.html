@@ -10,7 +10,7 @@ Now, while smbtorture is much more powerful, and can be used to aquire much grea
 
 <h2>Loadfile Syntax</h2>
 <p>
-The DBENCH distribution contains an example loadfile that documents all functions available for the smb backend. While this webpage may sometimes be out-of-date, the example <a href="/loadfiles/smb.txt">SMB loadfile</a> should always be up to date.
+The DBENCH distribution contains an example loadfile that documents all functions available for the smb backend. While this webpage may sometimes be out-of-date, the example <a href="/loadfiles/smb.load">SMB loadfile</a> should always be up to date.
 </p>
 
 <h2>Example 1</h2>
@@ -58,10 +58,10 @@ CLOSE "/file4" SUCCESS
 </pre>
 
 <pre>
-./dbench -B smb --smb-share=//10.0.0.33/data --smb-user=Administrator%password --loadfile=smb-writefiles.txt --run-once --skip-cleanup 10
+./dbench -B smb --smb-share=//10.0.0.33/data --smb-user=Administrator%password --loadfile=smb-writefiles.load --run-once --skip-cleanup 10
 dbench version 4.00 - Copyright Andrew Tridgell 1999-2004
 
-Running for 600 seconds with load 'smb-writefiles.txt' and minimum warmup 120 secs
+Running for 600 seconds with load 'smb-writefiles.load' and minimum warmup 120 secs
 0 of 10 processes prepared for launch   0 sec
 7 of 10 processes prepared for launch   0 sec
 10 of 10 processes prepared for launch   0 sec
@@ -122,10 +122,10 @@ CLOSE "/file4" SUCCESS
 </pre>
 
 <pre>
-./dbench -B smb --smb-share=//10.0.0.33/data --smb-user=Administrator%password --loadfile=smb-readfiles.txt --timelimit=10 --skip-cleanup 10
+./dbench -B smb --smb-share=//10.0.0.33/data --smb-user=Administrator%password --loadfile=smb-readfiles.load --timelimit=10 --skip-cleanup 10
 dbench version 4.00 - Copyright Andrew Tridgell 1999-2004
 
-Running for 10 seconds with load 'smb-readfiles.txt' and minimum warmup 2 secs
+Running for 10 seconds with load 'smb-readfiles.load' and minimum warmup 2 secs
 0 of 10 processes prepared for launch   0 sec
 10 of 10 processes prepared for launch   0 sec
 releasing clients

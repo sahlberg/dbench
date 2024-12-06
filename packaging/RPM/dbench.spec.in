@@ -3,12 +3,12 @@ Name: dbench
 Summary: DBench benchmark tool
 Vendor: Samba Team
 Packager: Ronnie Sahlberg <ronniesahlberg@gmail.com>
-Version: 1.0
+Version: 5.0
 Release: 1GITHASH
 Epoch: 0
 License: GNU GPL version 3
 Group: System/Benchmark
-URL: http://dbench.samba.org/
+URL: https://github.com/sahlberg/dbench
 
 Source: dbench-%{version}.tar.gz
 
@@ -69,17 +69,43 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %{_bindir}/dbench
 %{_mandir}/man1/dbench.1.gz
-%{_docdir}/dbench/loadfiles/client.txt
-%{_docdir}/dbench/loadfiles/nfs.txt
-%{_docdir}/dbench/loadfiles/nfs_2.txt
-%{_docdir}/dbench/loadfiles/nfs_lock.load
-%{_docdir}/dbench/loadfiles/smb.txt
-%{_docdir}/dbench/loadfiles/smb_1.txt
-%{_docdir}/dbench/loadfiles/smb_2.txt
-%{_docdir}/dbench/loadfiles/smb_3.txt
-%{_docdir}/dbench/loadfiles/iscsi.txt
-%{_docdir}/dbench/loadfiles/scsi.txt
+%{_docdir}/dbench/loadfiles/client.load
+%{_docdir}/dbench/loadfiles/iscsi.load
+%{_docdir}/dbench/loadfiles/iscsi-read10-random.load
+%{_docdir}/dbench/loadfiles/iscsi-read10-same.load   
+%{_docdir}/dbench/loadfiles/iscsi-read10-sequential.load 
+%{_docdir}/dbench/loadfiles/nfs_2.load
+%{_docdir}/dbench/loadfiles/nfs_3.load 
+%{_docdir}/dbench/loadfiles/nfs.load  
+%{_docdir}/dbench/loadfiles/nfs_lock.load 
+%{_docdir}/dbench/loadfiles/scsi.load   
+%{_docdir}/dbench/loadfiles/smb_1.load  
+%{_docdir}/dbench/loadfiles/smb_2.load
+%{_docdir}/dbench/loadfiles/smb_3.load
+%{_docdir}/dbench/loadfiles/smb.load
+%{_docdir}/dbench/loadfiles/iscsi/prout_register_twice.load     
+%{_docdir}/dbench/loadfiles/iscsi/prout_release_parallel_1.load
+%{_docdir}/dbench/loadfiles/iscsi/prout_release_parallel_2.load 
+%{_docdir}/dbench/loadfiles/iscsi/prout_release_twice.load  
+%{_docdir}/dbench/loadfiles/iscsi/prout_reserve_parallel_1.load 
+%{_docdir}/dbench/loadfiles/iscsi/prout_reserve_parallel_2.load 
+%{_docdir}/dbench/loadfiles/iscsi/prout_reserve_repeat.load
+%{_docdir}/dbench/loadfiles/iscsi/prout_reserve_twice.load 
+%{_docdir}/dbench/loadfiles/iscsi/register_twice.load 
+%{_docdir}/dbench/loadfiles/iscsi/release_parallel_1.load  
+%{_docdir}/dbench/loadfiles/iscsi/release_parallel_2.load  
+%{_docdir}/dbench/loadfiles/iscsi/release_parallel.sh     
+%{_docdir}/dbench/loadfiles/iscsi/release_twice.load
+%{_docdir}/dbench/loadfiles/iscsi/repeat.load
+%{_docdir}/dbench/loadfiles/iscsi/reserve_parallel_1.load
+%{_docdir}/dbench/loadfiles/iscsi/reserve_parallel_2.load
+%{_docdir}/dbench/loadfiles/iscsi/reserve_parallel.sh
+%{_docdir}/dbench/loadfiles/iscsi/reserve_twice.load
+%{_docdir}/dbench/loadfiles/block1G4krr.load
+%{_docdir}/dbench/loadfiles/block1G4krw.load
 
 %changelog
+* Fri Dec 6 2024 : Version 5.0
+ - Time for a new release with the massive numbers of updates
 * Thu May 27 2010 : Version 1.0
  - initial RPM version

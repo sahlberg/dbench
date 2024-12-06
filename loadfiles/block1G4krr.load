@@ -1,0 +1,34 @@
+# Block Example:
+#    ./dbench -B block --block=/dev/ublkb1 --loadfile loadfiles/block1G4krr.load --warmup=0 -t 30 1
+#
+# (Each command needs a 0x00000000 status eventhought we do not use it)
+#
+# Random read of 4k blocks within the first 1Gb of the device
+#
+LOOP 1000
+READ */0x1000%0x40000000 4096 0x00000000
+ENDLOOP
+
+# The READ/WRITE commands takes an offset. This can be specified either as
+# an absolute number, but also as a simple expression for generation of
+# random I/O
+#
+# Offset is then a string starting with a '*' followed by one or more
+# qualifier :
+# '*'    : Random 64 bit integer
+# '/yyy' : align the number to yyy. This is the same as x = (x/y)*y
+# '%yyy' : modulo yyy. This is the same as x = x%y
+# '+yyy' : Add y
+#
+# Examples :
+# '*'         A random offset between 0 and 2**64-1
+# '*/0x1000'  A random offset aligned to a page boundary (4096)
+# '*/0x1000%5000000' A random offset between 0 and 500000 aligned to page
+#                    boundary
+#
+# '*%100+25'  A random offset between 25 and 124
+#
+#
+# You can also use lines of the type "REPEAT <number>"
+# This means that the loadfile will repeat the next line
+# <number> times.
