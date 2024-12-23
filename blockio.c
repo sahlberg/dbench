@@ -25,6 +25,10 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#if defined(__APPLE__) & !HAVE_O_DIRECT
+#include <fcntl.h>
+#endif
+
 #define discard_const(ptr) ((void *)((intptr_t)(ptr)))
 static void block_cleanup(struct child_struct *child)
 {
@@ -33,20 +37,28 @@ static void block_cleanup(struct child_struct *child)
 
 static void block_setup(struct child_struct *child)
 {
-        int fd;
+	int fd;
         
 	child->rate.last_time = timeval_current();
 	child->rate.last_bytes = 0;
 
 	srandom(getpid() ^ time(NULL));
 
-        child->private = calloc(sizeof(fd), 1);
-        fd = open(get_next_arg(options.block, 0), O_RDWR|O_DIRECT);
-        if (fd < 0) {
+	child->private = calloc(1, sizeof(fd));
+	fd = open(get_next_arg(options.block, 0), O_RDWR
+#if defined(HAVE_O_DIRECT) 
+                  |O_DIRECT
+#endif
+                  );
+	if (fd < 0) {
 		printf("Can not access block device %s\n", get_next_arg(options.block, 0));
-                exit(10);
+		exit(10);
 	}
-        *(int *)child->private = fd;
+#if defined(__APPLE__) && !HAVE_O_DIRECT
+    fcntl(fd, F_NOCACHE);
+#endif
+
+    *(int *)child->private = fd;
 }
 
 static int check_status(int status, const char *expected)
