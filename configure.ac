@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.69])
+AC_PREREQ([2.72])
 AC_INIT([dbench],[5.0],[ronniesahlberg@gmail.com])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([-Wall foreign subdir-objects])
@@ -38,7 +38,59 @@ AC_SEARCH_LIBS(getxattr, [attr])
 AC_SEARCH_LIBS(socket, [socket])
 AC_SEARCH_LIBS(gethostbyname, [nsl])
 
-AC_CHECK_FUNCS(getxattr lgetxattr fgetxattr listxattr llistxattr)
+AC_MSG_CHECKING(for DIRECT open flag)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#define _GNU_SOURCE
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+]], [[ int oflag = O_DIRECT;
+]])],[
+    AC_DEFINE(HAVE_O_DIRECT,1,[ Define if DIRECT open flag is supported])
+    AC_MSG_RESULT(yes)
+  ],[AC_MSG_RESULT(no)
+])
+
+AC_CHECK_HEADERS([sys/xattr.h fcntl.h])
+AC_MSG_CHECKING([for getxattr with position and flags support])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/xattr.h>
+     #include <fcntl.h>
+     ]], [[
+            char buf[1];
+            ssize_t ret = getxattr("path", "user.test", buf, sizeof(buf), 0, 0);
+            return 0;
+     ]])],[AC_DEFINE(HAVE_GETXATTR_POS_FLAGS, 1, [Define if fgetxattr supports position and flags])
+    AC_MSG_RESULT([yes])],[AC_MSG_RESULT(no)
+])
+
+AC_CHECK_HEADERS([sys/xattr.h fcntl.h])
+AC_MSG_CHECKING([for fgetxattr with position and flags support])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/xattr.h>
+     #include <fcntl.h>
+     ]], [[
+            int fd = -1;
+            char buf[1];
+            ssize_t ret = fgetxattr(fd, "user.test", buf, sizeof(buf), 0, 0);
+            return 0;
+     ]])],[AC_DEFINE(HAVE_FGETXATTR_POS_FLAGS, 1, [Define if fgetxattr supports position and flags])
+    AC_MSG_RESULT([yes])],[AC_MSG_RESULT(no)
+])
+
+AC_CHECK_HEADERS([sys/xattr.h fcntl.h])
+AC_MSG_CHECKING([for setxattr with position and flags support])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/xattr.h>
+     #include <fcntl.h>
+     ]], [[
+            int fd = -1;
+            char buf[1];
+            ssize_t ret = fsetxattr(fd, "user.test", buf, sizeof(buf), 0, 0);
+            return 0;
+     ]])],[AC_DEFINE(HAVE_FSETXATTR_POS, 1, [Define if setxattr supports position and flags])
+    AC_MSG_RESULT([yes])],[AC_MSG_RESULT(no)
+])
+
+AC_CHECK_FUNCS(getxattr lgetxattr fgetxattr listxattr llistxattr fdatasync)
+AC_CHECK_DECLS([fdatasync])
 AC_CHECK_FUNCS(flistxattr removexattr lremovexattr fremovexattr)
 AC_CHECK_FUNCS(setxattr lsetxattr fsetxattr)
 # Check if we have attr_get
@@ -124,23 +176,24 @@ ac_save_LIBS="$LIBS"
 CFLAGS="$CFLAGS $GLIB_CFLAGS"
 LIBS="$GLIB_LIBS $LIBS -liscsi"
 AC_RUN_IFELSE([AC_LANG_SOURCE([[
-#include <stdio.h>
-#include <iscsi/iscsi.h>
-
-int main(int argc, char *argv[])
-{
-	struct iscsi_context *iscsi;
-
-	iscsi = iscsi_create_context("iqn.2002-10.com.ronnie:client");
-	if (iscsi == NULL) {
-		printf("Failed to create iscsi context\n");
-		exit(10);
+	#include <stdlib.h>
+	#include <stdio.h>
+	#include <iscsi/iscsi.h>
+	
+	int main(int argc, char *argv[])
+	{
+		struct iscsi_context *iscsi;
+	
+		iscsi = iscsi_create_context("iqn.2002-10.com.ronnie:client");
+		if (iscsi == NULL) {
+			printf("Failed to create iscsi context\n");
+			exit(10);
+		}
+	
+		iscsi_destroy_context(iscsi);
+	
+		return 0;
 	}
-
-	iscsi_destroy_context(iscsi);
-
-	return 0;
-}
 ]])],[ac_cv_have_libiscsi=yes],[ac_cv_have_libiscsi=no],[echo $ac_n "compile with LIBISCSI. Assuming OK... $ac_c"
     ac_cv_have_libiscsi=no])
 CFLAGS="$ac_save_CFLAGS"
@@ -203,6 +256,7 @@ ac_save_LIBS="$LIBS"
 CFLAGS="$CFLAGS $GLIB_CFLAGS"
 LIBS="$GLIB_LIBS $LIBS -lnfs"
 AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#include <stdlib.h>
 #include <stdio.h>
 #include <sys/time.h>
 #include <nfsc/libnfs.h>
