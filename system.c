@@ -1,3 +1,4 @@
+/* -*-  mode:c; tab-width:8; c-basic-offset:8; indent-tabs-mode:t;  -*- */
 /* 
    dbench version 3
 
@@ -27,7 +28,9 @@
 
 ssize_t sys_getxattr(const char *path, const char *name, void *value, size_t size)
 {
-#if defined(HAVE_GETXATTR)
+#if defined(HAVE_GETXATTR_POS_FLAGS)
+	return getxattr(path, name, value, size, 0, 0);
+#elif defined(HAVE_GETXATTR)
 	return getxattr(path, name, value, size);
 #elif defined(HAVE_EXTATTR_GET_FILE)
 	char *s;
@@ -54,8 +57,10 @@ ssize_t sys_getxattr(const char *path, const char *name, void *value, size_t siz
 
 ssize_t sys_fgetxattr(int filedes, const char *name, void *value, size_t size)
 {
-#if defined(HAVE_FGETXATTR)
-	return fgetxattr(filedes, name, value, size);
+#if defined(HAVE_FGETXATTR_POS_FLAGS)
+  return fgetxattr(filedes, name, value, size, 0, 0);
+#elif defined(HAVE_FGETXATTR)
+  	return fgetxattr(filedes, name, value, size);
 #elif defined(HAVE_EXTATTR_GET_FD)
 	char *s;
 	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
@@ -87,8 +92,10 @@ ssize_t sys_fgetxattr(int filedes, const char *name, void *value, size_t size)
 
 int sys_fsetxattr(int filedes, const char *name, const void *value, size_t size, int flags)
 {
-#if defined(HAVE_FSETXATTR)
-	return fsetxattr(filedes, name, value, size, flags);
+#if defined(HAVE_FSETXATTR_POS)
+  return fsetxattr(filedes, name, value, size, 0, flags);
+#elif defined(HAVE_FSETXATTR)
+  return fsetxattr(filedes, name, value, size, flags);
 #elif defined(HAVE_EXTATTR_SET_FD)
 	char *s;
 	int retval = 0;

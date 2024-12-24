@@ -240,3 +240,8 @@ double timeval_elapsed(struct timeval *tv);
 double timeval_elapsed2(struct timeval *tv1, struct timeval *tv2);
 int write_sock(int s, char *buf, int size);
 char *get_next_arg(const char *args, int id);
+
+// copied from postgresql
+#if defined(HAVE_FDATASYNC) && !HAVE_DECL_FDATASYNC
+extern int  fdatasync(int fildes);
+#endif
